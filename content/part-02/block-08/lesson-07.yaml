@@ -1,0 +1,731 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код? (git называет содержимое файла по хэшу, имя файла в хэш не входит)"
+    code: |
+      import hashlib
+
+      def blob_id(content):
+          return hashlib.sha1(f"blob {len(content)}\0".encode() + content).hexdigest()
+
+      readme = blob_id(b"# fxcli\n")
+      copy = blob_id(b"# fxcli\n")
+      changed = blob_id(b"# fxcli!\n")
+      print(readme == copy, readme == changed)
+    options:
+      - text: "`True False`"
+        correct: true
+        why: "Одинаковое содержимое — одинаковый хэш; любое изменение даёт другой хэш."
+      - text: "`False False`"
+        why: "Хэш зависит только от содержимого, а оно у первых двух одинаковое."
+      - text: "`True True`"
+        why: "Изменение одного символа полностью меняет SHA-1."
+    explanation: "Поэтому одинаковые файлы git хранит один раз, а подменить прошлое незаметно нельзя."
+
+  - id: q2
+    type: single
+    prompt: "Что делает `git add config.py`?"
+    options:
+      - text: "Добавляет текущее состояние файла в индекс — черновик следующего коммита"
+        correct: true
+        why: "Коммит создаётся из содержимого индекса."
+      - text: "Сразу сохраняет файл в истории"
+        why: "Это делает git commit."
+      - text: "Отправляет файл на GitHub"
+        why: "На сервер отправляет git push."
+      - text: "Добавляет файл в .gitignore"
+        why: "Наоборот — git add готовит файл к коммиту."
+    explanation: "Рабочая папка → git add → индекс → git commit → история."
+
+  - id: q3
+    type: multiple
+    prompt: |
+      В `.gitignore` записано:
+
+      ```text
+      *.log
+      /dist/
+      .env
+      !.env.example
+      ```
+
+      Какие файлы git будет **игнорировать**? Выберите все.
+    options:
+      - text: "`logs/app.log`"
+        correct: true
+        why: "Шаблон без слэша действует на любой глубине."
+      - text: "`dist/fxcli-0.1.0.whl`"
+        correct: true
+        why: "Папка dist в корне игнорируется вместе с содержимым."
+      - text: "`.env`"
+        correct: true
+        why: "Секреты не должны попадать в репозиторий."
+      - text: "`.env.example`"
+        why: "Отрицание ! исключает его из игнорирования."
+      - text: "`src/dist/data.json`"
+        why: "/dist/ привязан к корню и не действует на вложенные папки dist."
+    explanation: "Слэш в начале — привязка к корню, в конце — только папки, ! — исключение."
+
+  - id: q4
+    type: find_bug
+    prompt: "Разработчик заметил в репозитории файл `.env` с ключом и выполнил эти команды. Чего он не учёл?"
+    code: |
+      echo ".env" >> .gitignore
+      git add .gitignore
+      git commit -m "chore: игнорировать .env"
+      git push
+    options:
+      - text: "Файл уже отслеживается — .gitignore на него не действует, а ключ остаётся в истории; нужно git rm --cached .env и отозвать ключ"
+        correct: true
+        why: ".gitignore влияет только на неотслеживаемые файлы, а история хранит все прошлые версии."
+      - text: "Нужно было написать /.env"
+        why: "Шаблон верный; проблема в том, что файл уже в репозитории."
+      - text: "Изменения .gitignore нельзя коммитить"
+        why: ".gitignore — обычный файл репозитория, его коммитят."
+    explanation: "Утёкший ключ считается скомпрометированным: его отзывают у провайдера и выпускают новый."
+
+  - id: q5
+    type: single
+    prompt: "Что означает этот фрагмент в файле после `git merge feature/retry`?"
+    code: |
+      <<<<<<< HEAD
+      MAX_RETRIES = 3
+      =======
+      MAX_RETRIES = 5
+      >>>>>>> feature/retry
+    options:
+      - text: "Конфликт: в текущей ветке строка стала `3`, в сливаемой — `5`; нужно выбрать или объединить, удалить маркеры и закоммитить"
+        correct: true
+        why: "Верхняя часть — HEAD (текущая ветка), нижняя — feature/retry."
+      - text: "Git сохранил оба варианта, и Python выберет последний"
+        why: "Маркеры — синтаксическая ошибка; конфликт обязан разрешить человек."
+      - text: "Слияние прошло успешно, это комментарий"
+        why: "Это маркеры незавершённого слияния."
+    explanation: "После правки: git add файл и git commit (или git merge --abort, чтобы отменить слияние)."
+
+  - id: q6
+    type: output
+    prompt: "Граф коммитов задан словарём «коммит → родители». Что выведет код?"
+    code: |
+      parents = {"A": [], "B": ["A"], "C": ["B"], "D": ["C"], "X": ["B"]}
+
+      def ancestors(commit):
+          result, stack = set(), [commit]
+          while stack:
+              current = stack.pop()
+              if current not in result:
+                  result.add(current)
+                  stack.extend(parents[current])
+          return result
+
+      def can_fast_forward(target, source):
+          return target in ancestors(source)
+
+      print(can_fast_forward("B", "D"), can_fast_forward("C", "X"))
+    options:
+      - text: "`True False`"
+        correct: true
+        why: "B — предок D, указатель можно просто сдвинуть; C не предок X — ветки разошлись, нужен merge-коммит."
+      - text: "`True True`"
+        why: "X ответвился от B и не содержит C."
+      - text: "`False False`"
+        why: "D происходит от B через C."
+    explanation: "Fast-forward возможен, когда текущая ветка — предок сливаемой."
+
+tasks:
+  - id: t1
+    title: "Правила .gitignore"
+    difficulty: 2
+    statement: |
+      Напишите `is_ignored(path, patterns)` — игнорирует ли git файл по упрощённым правилам `.gitignore`. `path` — путь файла от корня через `/` (`"src/app/__pycache__/m.pyc"`), `patterns` — список строк файла `.gitignore`.
+
+      - Пустые строки и строки, начинающиеся с `#`, пропускаются; пробелы в конце строки обрезаются.
+      - `!шаблон` — исключение: файл, подходящий под него, **не** игнорируется. Если подходят несколько шаблонов, решает **последний**.
+      - Шаблон с `/` в конце подходит только к **папкам**.
+      - Шаблон, содержащий `/` в начале или в середине, сравнивается с путём **от корня** (ведущий `/` отбрасывается). Шаблон без `/` (кроме конечного) сравнивается с **именем** на любой глубине.
+      - `*` — любые символы, кроме `/`; `?` — один символ, кроме `/`; `**` — любые символы, включая `/`; `**/` в начале и `/**/` в середине — любое число папок, в том числе ноль.
+      - Папки на пути проверяются сверху вниз: если какая-то папка игнорируется, игнорируется и всё внутри неё (исключение для файла внутри уже ничего не меняет — как в git). Иначе решение принимается по самому файлу.
+    examples:
+      - input: "is_ignored('logs/app.log', ['*.log'])"
+        output: "True"
+    starter: |
+      import fnmatch
+
+
+      def is_ignored(path, patterns):
+          name = path.split("/")[-1]
+          return any(fnmatch.fnmatch(name, p) for p in patterns)
+    hints:
+      - "Переведите шаблон в регулярное выражение посимвольно: `**` → `.*`, `*` → `[^/]*`, `?` → `[^/]`, остальное через `re.escape`; ведущее `**/` → `(?:.*/)?`. Сравнивайте через `re.fullmatch`."
+      - "Функция `matches(candidate, is_dir)`: перебирает шаблоны, запоминая результат последнего подошедшего (`True` для обычного, `False` для `!`). Для пути `a/b/c.txt` проверьте `a` и `a/b` как папки, затем `a/b/c.txt` как файл."
+    solution: |
+      import re
+
+
+      def _to_regex(pattern):
+          result = ""
+          if pattern.startswith("**/"):
+              result, pattern = "(?:.*/)?", pattern[3:]
+          index = 0
+          while index < len(pattern):
+              if pattern.startswith("/**/", index):
+                  result += "/(?:.*/)?"
+                  index += 4
+              elif pattern.startswith("**", index):
+                  result += ".*"
+                  index += 2
+              elif pattern[index] == "*":
+                  result += "[^/]*"
+                  index += 1
+              elif pattern[index] == "?":
+                  result += "[^/]"
+                  index += 1
+              else:
+                  result += re.escape(pattern[index])
+                  index += 1
+          return re.compile(result)
+
+
+      def _parse(patterns):
+          rules = []
+          for line in patterns:
+              line = line.rstrip()
+              if not line or line.startswith("#"):
+                  continue
+              negate = line.startswith("!")
+              if negate:
+                  line = line[1:]
+              dir_only = line.endswith("/")
+              line = line.rstrip("/")
+              anchored = "/" in line
+              rules.append((_to_regex(line.lstrip("/")), negate, dir_only, anchored))
+          return rules
+
+
+      def _decision(candidate, is_dir, rules):
+          ignored = False
+          name = candidate.rsplit("/", 1)[-1]
+          for regex, negate, dir_only, anchored in rules:
+              if dir_only and not is_dir:
+                  continue
+              if regex.fullmatch(candidate if anchored else name):
+                  ignored = not negate
+          return ignored
+
+
+      def is_ignored(path, patterns):
+          """Игнорирует ли .gitignore файл path."""
+          rules = _parse(patterns)
+          parts = path.split("/")
+          for depth in range(1, len(parts)):
+              if _decision("/".join(parts[:depth]), True, rules):
+                  return True
+          return _decision(path, False, rules)
+    solution_explanation: "Шаблоны переводятся в регулярные выражения, где `*` не пересекает `/`, а `**` пересекает. Решение для каждого кандидата принимает последний подошедший шаблон, а проверка папок сверху вниз повторяет правило git: из игнорируемой папки файл исключением не вернуть."
+    tests:
+      - name: "Пример"
+        call: "is_ignored('logs/app.log', ['*.log'])"
+        expected: "True"
+      - name: "Типичный .gitignore Python-проекта"
+        code: |
+          patterns = ["# кэши", ".venv/", "__pycache__/", "*.pyc", "", ".env", "!.env.example", "/dist/"]
+          cases = {
+              ".venv/bin/python": True,
+              "src/pkg/__pycache__/m.cpython-312.pyc": True,
+              "tools/x.pyc": True,
+              ".env": True,
+              "app/.env": True,
+              ".env.example": False,
+              "dist/fxcli.whl": True,
+              "src/dist/data.json": False,
+              "src/fxcli/client.py": False,
+          }
+          wrong = {path: expected for path, expected in cases.items() if is_ignored(path, patterns) != expected}
+          assert not wrong, f"Неверно для: {wrong}"
+      - name: "Шаблон только для папок"
+        call: "(is_ignored('build', ['build/']), is_ignored('build/out.txt', ['build/']))"
+        expected: "(False, True)"
+      - name: "Шаблон со слэшем внутри — от корня"
+        call: "[is_ignored(p, ['docs/*.pdf']) for p in ['docs/a.pdf', 'docs/sub/b.pdf', 'x/docs/a.pdf']]"
+        expected: "[True, False, False]"
+      - name: "Две звёздочки"
+        call: "[is_ignored(p, ['**/cache', 'data/**/*.csv']) for p in ['cache', 'a/b/cache', 'data/x.csv', 'data/raw/2024/x.csv', 'other/x.csv']]"
+        expected: "[True, True, True, True, False]"
+      - name: "Последний шаблон решает"
+        call: "[is_ignored('debug.log', ['*.log', '!debug.log']), is_ignored('debug.log', ['!debug.log', '*.log'])]"
+        expected: "[False, True]"
+      - name: "Исключение внутри игнорируемой папки не работает"
+        call: "(is_ignored('logs/keep.txt', ['logs/', '!logs/keep.txt']), is_ignored('logs/keep.txt', ['logs/*', '!logs/keep.txt']))"
+        expected: "(True, False)"
+
+  - id: t2
+    title: "Conventional Commits и версия"
+    difficulty: 2
+    statement: |
+      Напишите две функции.
+
+      `parse_commit(message)` разбирает сообщение коммита по соглашению Conventional Commits. Первая строка должна иметь вид `тип(область)!: описание`, где тип — строчные латинские буквы, `(область)` и `!` необязательны, описание непустое. Вернуть словарь `{"type", "scope", "breaking", "description"}` (`scope` — `None`, если нет) или `None`, если формат не подходит. `breaking` — `True`, если есть `!` или в теле (строки после первой) есть строка, начинающаяся с `BREAKING CHANGE:`.
+
+      `next_version(version, messages)` — новая версия `MAJOR.MINOR.PATCH` по списку сообщений коммитов: есть несовместимое изменение → MAJOR + 1 (MINOR и PATCH обнуляются); иначе есть `feat` → MINOR + 1 (PATCH = 0); иначе есть `fix` → PATCH + 1; иначе версия не меняется. Сообщения не по формату не учитываются.
+    examples:
+      - input: "parse_commit('feat(cli): добавить команду history')"
+        output: "{'type': 'feat', 'scope': 'cli', 'breaking': False, 'description': 'добавить команду history'}"
+    starter: |
+      def parse_commit(message):
+          kind, description = message.split(": ", 1)
+          return {"type": kind, "scope": None, "breaking": False, "description": description}
+
+
+      def next_version(version, messages):
+          return version
+    hints:
+      - "Регулярное выражение для первой строки: `r\"([a-z]+)(?:\\(([^()\\s]+)\\))?(!)?: (\\S.*)\"` с `re.fullmatch`. Тело — `message.splitlines()[1:]`."
+      - "В `next_version` разберите все сообщения, отбросьте `None`, затем проверьте по убыванию важности: `any(c[\"breaking\"] ...)`, `any(c[\"type\"] == \"feat\" ...)`, `fix`."
+    solution: |
+      import re
+
+      HEADER = re.compile(r"([a-z]+)(?:\(([^()\s]+)\))?(!)?: (\S.*)")
+
+
+      def parse_commit(message):
+          """Разобрать сообщение по Conventional Commits или вернуть None."""
+          lines = message.splitlines()
+          if not lines:
+              return None
+          match = HEADER.fullmatch(lines[0].strip())
+          if not match:
+              return None
+          kind, scope, bang, description = match.groups()
+          breaking = bool(bang) or any(line.startswith("BREAKING CHANGE:") for line in lines[1:])
+          return {"type": kind, "scope": scope, "breaking": breaking, "description": description.strip()}
+
+
+      def next_version(version, messages):
+          """Следующая версия по семантическому версионированию."""
+          major, minor, patch = (int(part) for part in version.split("."))
+          commits = [commit for commit in map(parse_commit, messages) if commit]
+          if any(commit["breaking"] for commit in commits):
+              return f"{major + 1}.0.0"
+          if any(commit["type"] == "feat" for commit in commits):
+              return f"{major}.{minor + 1}.0"
+          if any(commit["type"] == "fix" for commit in commits):
+              return f"{major}.{minor}.{patch + 1}"
+          return version
+    solution_explanation: "Структурированные сообщения превращают историю git в данные: по ним инструменты вроде semantic-release сами вычисляют версию и собирают список изменений. Порядок проверок в next_version отражает важность: несовместимое изменение важнее новой возможности, а та — исправления."
+    tests:
+      - name: "Пример"
+        call: "parse_commit('feat(cli): добавить команду history')"
+        expected: "{'type': 'feat', 'scope': 'cli', 'breaking': False, 'description': 'добавить команду history'}"
+      - name: "Без области и с !"
+        call: "[parse_commit('fix: повтор при 503'), parse_commit('refactor!: переименовать клиент')]"
+        expected: "[{'type': 'fix', 'scope': None, 'breaking': False, 'description': 'повтор при 503'}, {'type': 'refactor', 'scope': None, 'breaking': True, 'description': 'переименовать клиент'}]"
+      - name: "BREAKING CHANGE в теле"
+        call: "parse_commit('feat(api): новый формат\\n\\nBREAKING CHANGE: поле rate переименовано')['breaking']"
+        expected: "True"
+      - name: "Не по формату"
+        call: "[parse_commit(m) for m in ['обновил код', 'Feat: x', 'feat:x', 'feat: ', 'fix(): y', '']]"
+        expected: "[None, None, None, None, None, None]"
+      - name: "Версии"
+        call: "[next_version('1.4.2', ['fix: a', 'docs: b']), next_version('1.4.2', ['fix: a', 'feat: b']), next_version('1.4.2', ['feat: a', 'chore!: b']), next_version('1.4.2', ['docs: a', 'просто текст'])]"
+        expected: "['1.4.3', '1.5.0', '2.0.0', '1.4.2']"
+      - name: "Пустой список"
+        call: "next_version('0.9.9', [])"
+        expected: "'0.9.9'"
+
+  - id: t3
+    title: "Трёхстороннее слияние"
+    difficulty: 3
+    statement: |
+      Напишите `merge3(base, ours, theirs)` — упрощённое трёхстороннее слияние, как в `git merge`. Аргументы — списки строк файла: общий предок и две версии. Упрощение: изменения только **заменяют** строки, поэтому длины всех трёх списков равны (иначе `ValueError`).
+
+      Для каждой позиции `i`:
+
+      - `ours[i] == theirs[i]` → эта строка;
+      - изменила только одна сторона (другая совпадает с `base[i]`) → строка изменившей стороны;
+      - обе изменили по-разному → **конфликт**.
+
+      Подряд идущие конфликтующие позиции объединяются в один блок:
+
+      ```text
+      <<<<<<< ours
+      строки ours этого блока
+      =======
+      строки theirs этого блока
+      >>>>>>> theirs
+      ```
+
+      Вернуть кортеж `(строки_результата, число_конфликтных_блоков)`.
+    examples:
+      - input: "merge3(['a', 'b'], ['A', 'b'], ['a', 'B'])"
+        output: "(['A', 'B'], 0)"
+    starter: |
+      def merge3(base, ours, theirs):
+          return list(ours), 0
+    hints:
+      - "Пройдите по индексам, решая для каждой позиции: результат-строка или конфликт `(ours[i], theirs[i])`. Конфликты копите во временных списках `block_ours`, `block_theirs`."
+      - "Когда встречается неконфликтная позиция (или конец списка), а временные списки непусты — выпишите блок с маркерами, увеличьте счётчик и очистите списки."
+    solution: |
+      def merge3(base, ours, theirs):
+          """Трёхстороннее слияние списков строк одинаковой длины."""
+          if not len(base) == len(ours) == len(theirs):
+              raise ValueError("длины версий должны совпадать")
+          result, conflicts = [], 0
+          block_ours, block_theirs = [], []
+
+          def flush():
+              nonlocal conflicts
+              if block_ours:
+                  result.extend(["<<<<<<< ours", *block_ours, "=======", *block_theirs, ">>>>>>> theirs"])
+                  conflicts += 1
+                  block_ours.clear()
+                  block_theirs.clear()
+
+          for original, mine, other in zip(base, ours, theirs):
+              if mine == other:
+                  line = mine
+              elif mine == original:
+                  line = other
+              elif other == original:
+                  line = mine
+              else:
+                  block_ours.append(mine)
+                  block_theirs.append(other)
+                  continue
+              flush()
+              result.append(line)
+          flush()
+          return result, conflicts
+    solution_explanation: "Общий предок позволяет понять, кто именно изменил строку: если одна сторона совпадает с base, изменение сделала другая, и его можно принять автоматически. Конфликт возникает, только когда обе стороны изменили одно место по-разному, — тогда решение остаётся за человеком."
+    tests:
+      - name: "Пример"
+        call: "merge3(['a', 'b'], ['A', 'b'], ['a', 'B'])"
+        expected: "(['A', 'B'], 0)"
+      - name: "Одинаковые изменения"
+        call: "merge3(['x', 'y'], ['X', 'y'], ['X', 'y'])"
+        expected: "(['X', 'y'], 0)"
+      - name: "Один конфликт"
+        call: "merge3(['TIMEOUT = 5', 'RETRIES = 2'], ['TIMEOUT = 10', 'RETRIES = 2'], ['TIMEOUT = 30', 'RETRIES = 3'])"
+        expected: "(['<<<<<<< ours', 'TIMEOUT = 10', '=======', 'TIMEOUT = 30', '>>>>>>> theirs', 'RETRIES = 3'], 1)"
+      - name: "Соседние конфликты — один блок"
+        call: "merge3(['a', 'b', 'c', 'd'], ['1', '2', 'c', '4'], ['x', 'y', 'c', 'z'])"
+        expected: "(['<<<<<<< ours', '1', '2', '=======', 'x', 'y', '>>>>>>> theirs', 'c', '<<<<<<< ours', '4', '=======', 'z', '>>>>>>> theirs'], 2)"
+      - name: "Никто не менял"
+        call: "merge3(['a'], ['a'], ['a'])"
+        expected: "(['a'], 0)"
+      - name: "Разные длины"
+        code: |
+          try:
+              merge3(["a"], ["a", "b"], ["a"])
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Пустые файлы"
+        call: "merge3([], [], [])"
+        expected: "([], 0)"
+
+  - id: t4
+    title: "Git-хуки против утечки ключей"
+    mode: local
+    difficulty: 2
+    statement: |
+      Нужен установленный git. Скачайте архив и реализуйте два хука на Python и `.gitignore`:
+
+      1. **`hooks/check_secrets.py`** (хук `pre-commit`) — проверяет файлы, **добавленные в индекс** (`git diff --cached --name-only --diff-filter=ACM`), причём их версию из индекса (`git show :путь`), а не из рабочей папки. Блокирует коммит (код выхода 1), если:
+         - добавлен файл с именем `.env` (в любой папке);
+         - в файле есть строка с ключом `sk-` и не менее 16 символов `[A-Za-z0-9_-]` после него;
+         - в файле есть заголовок приватного ключа `-----BEGIN ... PRIVATE KEY-----`.
+
+         Для каждой находки печатает в stderr строку вида `путь:номер_строки: причина` (для `.env` — `путь: причина`). Если всё чисто — код 0.
+      2. **`hooks/check_commit_msg.py`** (хук `commit-msg`) — получает путь к файлу с сообщением первым аргументом. Строки, начинающиеся с `#`, пропускаются. Первая оставшаяся строка должна соответствовать Conventional Commits: тип из списка `feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert`, необязательные `(область)` и `!`, затем `: ` и непустое описание; длина строки не больше 72 символов. Сообщения слияний (`Merge ...`) пропускаются. Нарушение → сообщение в stderr и код 1.
+      3. **`.gitignore`**: окружение `.venv/`, кэши `__pycache__/`, `*.pyc`, `.pytest_cache/`, артефакты `dist/`, секреты `.env` — но `.env.example` должен оставаться в репозитории.
+
+      Тесты сами создают временные репозитории. Подключить хуки к своему проекту можно так (на Windows — через Git Bash):
+
+      ```bash
+      pip install pytest
+      pytest -q
+      cp hooks/check_secrets.py .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+      cp hooks/check_commit_msg.py .git/hooks/commit-msg && chmod +x .git/hooks/commit-msg
+      ```
+    files:
+      hooks/check_secrets.py: |
+        #!/usr/bin/env python3
+        """pre-commit: не пускать в коммит секреты."""
+        import sys
+
+
+        def main():
+            return 0
+
+
+        if __name__ == "__main__":
+            sys.exit(main())
+      hooks/check_commit_msg.py: |
+        #!/usr/bin/env python3
+        """commit-msg: проверить формат сообщения коммита."""
+        import sys
+
+
+        def main(argv):
+            return 0
+
+
+        if __name__ == "__main__":
+            sys.exit(main(sys.argv[1:]))
+      .gitignore: |
+        # допишите правила
+      test_hooks.py: |
+        """Тесты задания. Не меняйте этот файл."""
+        import shutil
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        import pytest
+
+        HERE = Path(__file__).parent
+        HOOKS = HERE / "hooks"
+        pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="нужен установленный git")
+
+
+        def git(repo, *args):
+            return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True)
+
+
+        @pytest.fixture
+        def repo(tmp_path):
+            git(tmp_path, "init", "-q")
+            git(tmp_path, "config", "user.email", "test@example.com")
+            git(tmp_path, "config", "user.name", "Test")
+            git(tmp_path, "config", "core.autocrlf", "false")
+            return tmp_path
+
+
+        def write(repo, path, text):
+            file = repo / path
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(text, encoding="utf-8")
+
+
+        def stage(repo, path, text):
+            write(repo, path, text)
+            git(repo, "add", "-f", path)
+
+
+        def secrets(repo):
+            return subprocess.run(
+                [sys.executable, str(HOOKS / "check_secrets.py")],
+                cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace",
+            )
+
+
+        def commit_msg(tmp_path, message):
+            path = tmp_path / "COMMIT_EDITMSG"
+            path.write_text(message, encoding="utf-8")
+            return subprocess.run(
+                [sys.executable, str(HOOKS / "check_commit_msg.py"), str(path)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+            )
+
+
+        # --- check_secrets.py ---
+
+        def test_clean_files_pass(repo):
+            stage(repo, "app.py", "print('hello')\nAPI_URL = 'https://api.example.com'\n")
+            stage(repo, ".env.example", "LLM_API_KEY=\n")
+            assert secrets(repo).returncode == 0
+
+
+        def test_api_key_blocked(repo):
+            stage(repo, "app.py", "x = 1\n")
+            stage(repo, "src/config.py", "import os\nKEY = 'sk-abcdefghijklmnop1234'\n")
+            result = secrets(repo)
+            assert result.returncode == 1
+            assert "src/config.py:2" in result.stderr, result.stderr
+
+
+        def test_short_sk_is_fine(repo):
+            stage(repo, "notes.md", "токены вида sk-short не ключи\n")
+            assert secrets(repo).returncode == 0
+
+
+        @pytest.mark.parametrize("path", [".env", "app/.env"])
+        def test_env_file_blocked(repo, path):
+            stage(repo, path, "DEBUG=1\n")
+            result = secrets(repo)
+            assert result.returncode == 1
+            assert path in result.stderr, result.stderr
+
+
+        def test_private_key_blocked(repo):
+            stage(repo, "deploy/key.pem", "-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----\n")
+            result = secrets(repo)
+            assert result.returncode == 1
+            assert "deploy/key.pem:1" in result.stderr, result.stderr
+
+
+        def test_checks_staged_version_not_working_copy(repo):
+            stage(repo, "a.py", "KEY = 'sk-abcdefghijklmnop1234'\n")
+            write(repo, "a.py", "KEY = None\n")
+            assert secrets(repo).returncode == 1, "В индексе ключ есть — коммит нужно блокировать"
+            stage(repo, "b.py", "x = 1\n")
+            git(repo, "rm", "-q", "--cached", "-f", "a.py")
+            write(repo, "b.py", "KEY = 'sk-abcdefghijklmnop1234'\n")
+            assert secrets(repo).returncode == 0, "Неиндексированные изменения в коммит не попадут"
+
+
+        def test_untracked_and_deleted_files(repo):
+            stage(repo, "old.py", "x = 1\n")
+            git(repo, "commit", "-q", "-m", "init")
+            git(repo, "rm", "-q", "old.py")
+            write(repo, "untracked.py", "KEY = 'sk-abcdefghijklmnop1234'\n")
+            assert secrets(repo).returncode == 0
+
+
+        # --- check_commit_msg.py ---
+
+        @pytest.mark.parametrize("message", [
+            "feat(cli): добавить команду history\n",
+            "fix: повторять запрос при 503\n\nПодробности в теле.\n",
+            "refactor!: переименовать клиент\n",
+            "# Please enter the commit message\n# Lines starting with '#' will be ignored\nchore: обновить зависимости\n",
+            "Merge branch 'feature/cache'\n",
+        ])
+        def test_good_messages(tmp_path, message):
+            result = commit_msg(tmp_path, message)
+            assert result.returncode == 0, result.stderr
+
+
+        @pytest.mark.parametrize("message", [
+            "обновил код\n",
+            "feat: \n",
+            "Feat: добавить\n",
+            "feature: добавить\n",
+            "fix:без пробела\n",
+            "feat: " + "x" * 70 + "\n",
+            "# только комментарий\n",
+        ])
+        def test_bad_messages(tmp_path, message):
+            result = commit_msg(tmp_path, message)
+            assert result.returncode == 1
+            assert result.stderr.strip(), "Объясните в stderr, что не так"
+
+
+        # --- .gitignore ---
+
+        @pytest.mark.parametrize("path, ignored", [
+            (".env", True),
+            ("app/.env", True),
+            (".env.example", False),
+            (".venv/bin/python", True),
+            ("src/pkg/__pycache__/m.cpython-312.pyc", True),
+            ("tools/x.pyc", True),
+            (".pytest_cache/v/cache", True),
+            ("dist/fxcli-0.1.0.whl", True),
+            ("src/fxcli/client.py", False),
+            ("README.md", False),
+        ])
+        def test_gitignore(repo, path, ignored):
+            shutil.copy(HERE / ".gitignore", repo / ".gitignore")
+            write(repo, path, "x\n")
+            result = subprocess.run(["git", "check-ignore", "-q", path], cwd=repo)
+            assert (result.returncode == 0) == ignored, f"{path}: ожидалось {'игнорировать' if ignored else 'не игнорировать'}"
+    run: "pytest -q"
+    hints:
+      - "Список файлов: `subprocess.run([\"git\", \"diff\", \"--cached\", \"--name-only\", \"--diff-filter=ACM\"], capture_output=True, text=True, check=True).stdout.splitlines()`; содержимое из индекса — `git show :путь` (передайте `encoding=\"utf-8\", errors=\"replace\"`). Имя файла: `Path(path).name == \".env\"`."
+      - "Сообщение: `lines = [l for l in text.splitlines() if not l.startswith(\"#\")]`, первая строка — `lines[0]` (если строк нет — ошибка). Шаблон: `rf\"({'|'.join(TYPES)})(\\([^()\\s]+\\))?!?: \\S.*\"` с `re.fullmatch`."
+    solution_files:
+      hooks/check_secrets.py: |
+        #!/usr/bin/env python3
+        """pre-commit: не пускать в коммит секреты."""
+        import re
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        RULES = [
+            (re.compile(r"sk-[A-Za-z0-9_-]{16,}"), "похоже на API-ключ"),
+            (re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"), "приватный ключ"),
+        ]
+
+
+        def git(*args):
+            return subprocess.run(
+                ["git", *args], capture_output=True, text=True, encoding="utf-8", errors="replace", check=True
+            ).stdout
+
+
+        def main():
+            problems = []
+            for path in git("diff", "--cached", "--name-only", "--diff-filter=ACM").splitlines():
+                if Path(path).name == ".env":
+                    problems.append(f"{path}: файл .env нельзя коммитить")
+                    continue
+                for number, line in enumerate(git("show", f":{path}").splitlines(), start=1):
+                    for pattern, reason in RULES:
+                        if pattern.search(line):
+                            problems.append(f"{path}:{number}: {reason}")
+            for problem in problems:
+                print(problem, file=sys.stderr)
+            if problems:
+                print("Коммит отменён: уберите секреты из индекса (git restore --staged <файл>).", file=sys.stderr)
+            return 1 if problems else 0
+
+
+        if __name__ == "__main__":
+            sys.exit(main())
+      hooks/check_commit_msg.py: |
+        #!/usr/bin/env python3
+        """commit-msg: проверить формат сообщения коммита."""
+        import re
+        import sys
+        from pathlib import Path
+
+        TYPES = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "build", "ci", "chore", "revert"]
+        HEADER = re.compile(rf"({'|'.join(TYPES)})(\([^()\s]+\))?!?: \S.*")
+        MAX_LENGTH = 72
+
+
+        def check(text):
+            """Текст ошибки или None, если сообщение в порядке."""
+            lines = [line for line in text.splitlines() if not line.startswith("#")]
+            if not lines or not lines[0].strip():
+                return "пустое сообщение коммита"
+            header = lines[0].rstrip()
+            if header.startswith("Merge "):
+                return None
+            if len(header) > MAX_LENGTH:
+                return f"первая строка длиннее {MAX_LENGTH} символов ({len(header)})"
+            if not HEADER.fullmatch(header):
+                return "формат: тип(область): описание, тип — " + ", ".join(TYPES)
+            return None
+
+
+        def main(argv):
+            text = Path(argv[0]).read_text(encoding="utf-8")
+            error = check(text)
+            if error:
+                print(f"Сообщение коммита не по Conventional Commits: {error}", file=sys.stderr)
+                return 1
+            return 0
+
+
+        if __name__ == "__main__":
+            sys.exit(main(sys.argv[1:]))
+      .gitignore: |
+        # окружение и кэши
+        .venv/
+        __pycache__/
+        *.pyc
+        .pytest_cache/
+        .ruff_cache/
+
+        # артефакты
+        dist/
+        build/
+
+        # секреты
+        .env
+        !.env.example
+    solution_explanation: "Хук pre-commit смотрит именно на индекс: `--cached` даёт список подготовленных файлов, а `git show :путь` — их версию в индексе, то есть ровно то, что попадёт в коммит. Хук commit-msg проверяет первую значимую строку сообщения; ненулевой код выхода любого хука отменяет коммит. .gitignore дополняет защиту: секреты и мусор вообще не попадают в git status."

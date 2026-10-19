@@ -1,0 +1,281 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "Чем отличаются `x = 5` и `x == 5`?"
+    options:
+      - text: "`=` привязывает имя к значению, `==` проверяет равенство и возвращает True/False"
+        correct: true
+        why: "Присваивание — команда, сравнение — вопрос с ответом bool."
+      - text: "Ничем, это две записи одного и того же"
+        why: "Это разные операции: результат `x == 5` — bool, а `x = 5` ничего не возвращает."
+      - text: "`==` — более строгое присваивание"
+        why: "`==` ничего не присваивает."
+      - text: "`=` используется для чисел, `==` для строк"
+        why: "Оба оператора работают с любыми типами; их назначение разное."
+    explanation: "Путаница `=` и `==` — одна из самых частых ошибок. В условиях `if x = 5:` даже вызовет SyntaxError."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print("10" < "9", 10 < 9)
+    options:
+      - text: "`True False`"
+        correct: true
+        why: "Строки сравниваются посимвольно: «1» < «9». Числа — по значению: 10 > 9."
+      - text: "`False False`"
+        why: "Строки не сравниваются как числа — первый символ «1» меньше «9»."
+      - text: "`True True`"
+        why: "10 < 9 для чисел — ложь."
+      - text: "Ошибку TypeError"
+        why: "Строку со строкой и число с числом сравнивать можно."
+    explanation: "Числа, записанные строками, нужно преобразовать через int() перед сравнением."
+
+  - id: q3
+    type: multiple
+    prompt: "Какие выражения равны `True`? Выберите все."
+    options:
+      - text: "`10 == 10.0`"
+        correct: true
+        why: "int и float сравниваются по значению."
+      - text: "`\"abc\" < \"abd\"`"
+        correct: true
+        why: "Третий символ: c < d."
+      - text: "`0 <= 5 <= 10`"
+        correct: true
+        why: "Цепочка: 0 <= 5 и 5 <= 10."
+      - text: "`\"Apple\" > \"apple\"`"
+        why: "Заглавные буквы идут раньше строчных: «A» (65) < «a» (97)."
+      - text: "`5 == \"5\"`"
+        why: "Число и строка никогда не равны."
+    explanation: "Сравнения строк идут по кодам Unicode, цепочки — это несколько сравнений через «и»."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      checks = (3 > 1) + (2 == 2.0) + ("a" > "b")
+      print(checks)
+    options:
+      - text: "`2`"
+        correct: true
+        why: "True + True + False = 1 + 1 + 0 = 2."
+      - text: "`True`"
+        why: "Сложение bool даёт int, а не bool."
+      - text: "`3`"
+        why: "«a» > «b» — ложь, она добавляет 0."
+      - text: "Ошибку TypeError"
+        why: "bool — подтип int, складывать их можно."
+    explanation: "True ведёт себя как 1, False — как 0, поэтому сумма bool — количество истинных."
+
+  - id: q5
+    type: find_bug
+    prompt: "Программа должна проверять, что пользователю больше 18 лет. Почему она всегда выводит неправильный результат для двузначного возраста вроде 25?"
+    code: |
+      age = input("Возраст: ")
+      print(age > "18")
+    options:
+      - text: "Сравниваются строки, а не числа; нужно `int(input(...)) > 18`"
+        correct: true
+        why: "Для строк «25» > «18» верно случайно, но «5» > «18» тоже True, а «100» > «18» — False."
+      - text: "Нужно писать `=>` вместо `>`"
+        why: "Оператора `=>` в Python нет; правильно `>=`."
+      - text: "print() не умеет печатать сравнения"
+        why: "Умеет — печатает True или False."
+      - text: "Нужно сравнивать с `\"18 лет\"`"
+        why: "Проблема в типах, а не в тексте."
+    explanation: "Лексикографическое сравнение строк-чисел даёт неверные результаты. Всегда преобразуйте ввод в число перед числовым сравнением."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      x = 7
+      print(1 < x < 5, x != 7, x >= 7)
+    answer: "False False True"
+    explanation: "1 < 7, но 7 < 5 — ложь, значит цепочка False; 7 != 7 — False; 7 >= 7 — True."
+
+tasks:
+  - id: t1
+    title: "Совершеннолетие"
+    difficulty: 1
+    statement: |
+      Программа читает возраст (целое число) и выводит `True`, если человеку 18 лет или больше, иначе `False`.
+
+      Условных операторов пока не нужно — достаточно вывести результат сравнения.
+    examples:
+      - input: "20"
+        output: "True"
+      - input: "17"
+        output: "False"
+    starter: |
+      age = input()
+      print(age)
+    hints:
+      - "Преобразуйте ввод в число."
+      - "`print(age >= 18)` — сравнение само даёт True или False."
+    solution: |
+      age = int(input())
+      print(age >= 18)
+    solution_explanation: "Результат сравнения — значение bool, его можно сразу напечатать. Граница 18 включена, поэтому `>=`."
+    tests:
+      - name: "20 лет"
+        stdin: "20\n"
+        stdout: "True"
+      - name: "17 лет"
+        stdin: "17\n"
+        stdout: "False"
+      - name: "Ровно 18"
+        stdin: "18\n"
+        stdout: "True"
+      - name: "Младенец"
+        stdin: "0\n"
+        stdout: "False"
+      - name: "Двузначное vs однозначное"
+        stdin: "5\n"
+        stdout: "False"
+      - name: "Сто лет"
+        stdin: "100\n"
+        stdout: "True"
+
+  - id: t2
+    title: "Чётность и делимость"
+    difficulty: 1
+    statement: |
+      Программа читает целое число `n` и выводит две строки:
+
+      ```text
+      Чётное: <True/False>
+      Делится на 3: <True/False>
+      ```
+    examples:
+      - input: "12"
+        output: "Чётное: True\nДелится на 3: True"
+      - input: "7"
+        output: "Чётное: False\nДелится на 3: False"
+    starter: |
+      n = int(input())
+    hints:
+      - "Число чётное, если остаток от деления на 2 равен нулю."
+      - "`print(\"Чётное:\", n % 2 == 0)`."
+    solution: |
+      n = int(input())
+      print("Чётное:", n % 2 == 0)
+      print("Делится на 3:", n % 3 == 0)
+    solution_explanation: "Делимость проверяется сравнением остатка с нулём. Сначала вычисляется `n % 2`, затем сравнение — арифметика старше сравнений."
+    tests:
+      - name: "12"
+        stdin: "12\n"
+        stdout: "Чётное: True\nДелится на 3: True"
+      - name: "7"
+        stdin: "7\n"
+        stdout: "Чётное: False\nДелится на 3: False"
+      - name: "Ноль"
+        stdin: "0\n"
+        stdout: "Чётное: True\nДелится на 3: True"
+      - name: "Отрицательное"
+        stdin: "-9\n"
+        stdout: "Чётное: False\nДелится на 3: True"
+      - name: "Чётное, не делится на 3"
+        stdin: "10\n"
+        stdout: "Чётное: True\nДелится на 3: False"
+
+  - id: t3
+    title: "Сравнение слов"
+    difficulty: 2
+    statement: |
+      Программа читает два слова (на отдельных строках) и выводит три строки:
+
+      ```text
+      Совпадают: <True/False>
+      Первое раньше по алфавиту: <True/False>
+      Одинаковой длины: <True/False>
+      ```
+
+      «Раньше по алфавиту» — значит первое слово строго меньше второго при обычном сравнении строк.
+    examples:
+      - input: "кот\nкит"
+        output: "Совпадают: False\nПервое раньше по алфавиту: False\nОдинаковой длины: True"
+    starter: |
+      first = input()
+      second = input()
+    hints:
+      - "Строки сравниваются операторами `==` и `<` напрямую."
+      - "Для длины сравните `len(first)` и `len(second)`."
+    solution: |
+      first = input()
+      second = input()
+      print("Совпадают:", first == second)
+      print("Первое раньше по алфавиту:", first < second)
+      print("Одинаковой длины:", len(first) == len(second))
+    solution_explanation: "Каждая проверка — отдельное сравнение. Сравнение длин — это сравнение двух чисел, полученных через len()."
+    tests:
+      - name: "кот и кит"
+        stdin: "кот\nкит\n"
+        stdout: "Совпадают: False\nПервое раньше по алфавиту: False\nОдинаковой длины: True"
+      - name: "Одинаковые"
+        stdin: "python\npython\n"
+        stdout: "Совпадают: True\nПервое раньше по алфавиту: False\nОдинаковой длины: True"
+      - name: "Префикс"
+        stdin: "data\ndataset\n"
+        stdout: "Совпадают: False\nПервое раньше по алфавиту: True\nОдинаковой длины: False"
+      - name: "Регистр"
+        stdin: "Apple\napple\n"
+        stdout: "Совпадают: False\nПервое раньше по алфавиту: True\nОдинаковой длины: True"
+      - name: "Разные буквы"
+        stdin: "яблоко\nабрикос\n"
+        stdout: "Совпадают: False\nПервое раньше по алфавиту: False\nОдинаковой длины: False"
+
+  - id: t4
+    title: "Валидация параметров генерации"
+    difficulty: 2
+    statement: |
+      Языковые модели принимают параметры генерации с ограничениями. Программа читает:
+
+      1. `temperature` — дробное число;
+      2. `max_tokens` — целое число.
+
+      Выведите две строки:
+
+      ```text
+      temperature в диапазоне [0, 2]: <True/False>
+      max_tokens в диапазоне [1, 4096]: <True/False>
+      ```
+
+      Границы включены. Используйте цепочки сравнений.
+    examples:
+      - input: "0.7\n500"
+        output: "temperature в диапазоне [0, 2]: True\nmax_tokens в диапазоне [1, 4096]: True"
+    starter: |
+      temperature = float(input())
+      max_tokens = int(input())
+    hints:
+      - "Цепочка: `0 <= temperature <= 2`."
+      - "Выведите текст и результат сравнения через запятую в print."
+    solution: |
+      temperature = float(input())
+      max_tokens = int(input())
+      print("temperature в диапазоне [0, 2]:", 0 <= temperature <= 2)
+      print("max_tokens в диапазоне [1, 4096]:", 1 <= max_tokens <= 4096)
+    solution_explanation: "Цепочка `a <= x <= b` проверяет обе границы сразу и читается как математическая запись диапазона."
+    constraints:
+      require: ["<="]
+    tests:
+      - name: "Обычные значения"
+        stdin: "0.7\n500\n"
+        stdout: "temperature в диапазоне [0, 2]: True\nmax_tokens в диапазоне [1, 4096]: True"
+      - name: "Границы включены"
+        stdin: "2\n4096\n"
+        stdout: "temperature в диапазоне [0, 2]: True\nmax_tokens в диапазоне [1, 4096]: True"
+      - name: "Нижние границы"
+        stdin: "0\n1\n"
+        stdout: "temperature в диапазоне [0, 2]: True\nmax_tokens в диапазоне [1, 4096]: True"
+      - name: "Слишком горячо"
+        stdin: "2.5\n100\n"
+        stdout: "temperature в диапазоне [0, 2]: False\nmax_tokens в диапазоне [1, 4096]: True"
+      - name: "Ноль токенов"
+        stdin: "1\n0\n"
+        stdout: "temperature в диапазоне [0, 2]: True\nmax_tokens в диапазоне [1, 4096]: False"
+      - name: "Отрицательная температура"
+        stdin: "-0.1\n5000\n"
+        stdout: "temperature в диапазоне [0, 2]: False\nmax_tokens в диапазоне [1, 4096]: False"

@@ -1,0 +1,285 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      data = [1, 2, 2, 3, 3, 3]
+      print(len(data), len(set(data)))
+    options:
+      - text: "`6 3`"
+        correct: true
+        why: "Множество оставляет только уникальные значения: 1, 2, 3."
+      - text: "`6 6`"
+        why: "Повторы во множестве не хранятся."
+      - text: "`3 3`"
+        why: "У списка повторы сохраняются — длина 6."
+    explanation: "set(seq) — быстрый способ получить уникальные значения."
+
+  - id: q2
+    type: single
+    prompt: "Как создать пустое множество?"
+    options:
+      - text: "`set()`"
+        correct: true
+        why: "Единственный способ создать пустое множество."
+      - text: "`{}`"
+        why: "Это пустой словарь."
+      - text: "`[]`"
+        why: "Это пустой список."
+      - text: "`{,}`"
+        why: "Синтаксическая ошибка."
+    explanation: "Фигурные скобки без элементов исторически означают словарь."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      a = {1, 2, 3}
+      b = {2, 3, 4}
+      print(sorted(a & b), sorted(a - b), sorted(a ^ b))
+    options:
+      - text: "`[2, 3] [1] [1, 4]`"
+        correct: true
+        why: "& — общие, - — только в a, ^ — ровно в одном."
+      - text: "`[1, 2, 3, 4] [1] [2, 3]`"
+        why: "Перепутаны операции: | — объединение, а & — пересечение."
+      - text: "`[2, 3] [4] [1, 4]`"
+        why: "a - b — элементы a, которых нет в b: только 1."
+    explanation: "Операции над множествами: & | - ^."
+
+  - id: q4
+    type: find_bug
+    prompt: "Почему код падает с `AttributeError: 'dict' object has no attribute 'add'`?"
+    code: |
+      seen = {}
+      for word in ["a", "b", "a"]:
+          seen.add(word)
+      print(len(seen))
+    options:
+      - text: "`{}` создаёт пустой словарь, а не множество; нужно `seen = set()`"
+        correct: true
+        why: "У словаря нет метода add."
+      - text: "Множество нельзя заполнять в цикле"
+        why: "Можно — add внутри цикла обычен."
+      - text: "Нужно `append` вместо `add`"
+        why: "append — метод списка; у множества — add."
+    explanation: "Пустое множество — только set()."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие утверждения о множествах верны? Выберите все."
+    options:
+      - text: "Проверка `x in s` выполняется мгновенно независимо от размера"
+        correct: true
+        why: "Множество — хеш-таблица, как словарь."
+      - text: "Элементы множества должны быть неизменяемыми"
+        correct: true
+        why: "Нужен хеш, как у ключей словаря."
+      - text: "`discard` не вызывает ошибку, если элемента нет"
+        correct: true
+        why: "В отличие от remove."
+      - text: "Множество хранит элементы в порядке добавления"
+        why: "Порядок не гарантирован — это делает словарь."
+      - text: "К элементам можно обращаться по индексу"
+        why: "Индексов у множества нет."
+    explanation: "Множество: уникальность, нет порядка, быстрая проверка, хешируемые элементы."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print({1, 2} <= {1, 2, 3}, {1, 2}.isdisjoint({3}), {1, 2} < {1, 2})
+    answer: "True True False"
+    explanation: "{1, 2} — подмножество; общих элементов с {3} нет; строгое подмножество требует неравенства."
+
+tasks:
+  - id: t1
+    title: "Словарь текста"
+    difficulty: 1
+    statement: |
+      Программа читает текст. Слова приводятся к нижнему регистру, с краёв снимаются `.,!?;:—-«»"()`, пустые отбрасываются. Выведите:
+
+      ```text
+      Всего слов: <количество>
+      Уникальных: <количество различных>
+      <различные слова по алфавиту через пробел>
+      ```
+    examples:
+      - input: "Кот, кот и ещё кот!"
+        output: "Всего слов: 5\nУникальных: 3\nещё и кот"
+    starter: |
+      text = input()
+      punctuation = ".,!?;:—-«»\"()"
+      words = []
+    hints:
+      - "Соберите список очищенных слов, затем `vocabulary = set(words)`."
+      - "Вывод уникальных: `\" \".join(sorted(vocabulary))`."
+    solution: |
+      text = input()
+      punctuation = ".,!?;:—-«»\"()"
+      words = []
+      for token in text.lower().split():
+          word = token.strip(punctuation)
+          if word:
+              words.append(word)
+      vocabulary = set(words)
+      print("Всего слов:", len(words))
+      print("Уникальных:", len(vocabulary))
+      print(" ".join(sorted(vocabulary)))
+    solution_explanation: "set(words) одной операцией находит словарь текста; sorted даёт стабильный порядок вывода."
+    tests:
+      - name: "Пример"
+        stdin: "Кот, кот и ещё кот!\n"
+        stdout: "Всего слов: 5\nУникальных: 3\nещё и кот"
+      - name: "Без повторов"
+        stdin: "b a c\n"
+        stdout: "Всего слов: 3\nУникальных: 3\na b c"
+      - name: "Пусто"
+        stdin: "\n"
+        stdout: "Всего слов: 0\nУникальных: 0"
+      - name: "Регистр объединяется"
+        stdin: "AI ai Ai\n"
+        stdout: "Всего слов: 3\nУникальных: 1\nai"
+      - name: "Только пунктуация"
+        stdin: "— ... !\n"
+        stdout: "Всего слов: 0\nУникальных: 0"
+
+  - id: t2
+    title: "Сравнение навыков"
+    difficulty: 2
+    statement: |
+      Программа читает две строки — навыки вакансии и навыки кандидата (через пробел). Выведите (каждый список — по алфавиту через `, `, пустой — `—`):
+
+      ```text
+      Совпадают: <навыки из обеих строк>
+      Не хватает: <требуются, но нет у кандидата>
+      Дополнительно: <есть у кандидата, но не требуются>
+      Подходит: <True, если у кандидата есть все требуемые>
+      ```
+    examples:
+      - input: "python sql git\npython git docker"
+        output: "Совпадают: git, python\nНе хватает: sql\nДополнительно: docker\nПодходит: False"
+    starter: |
+      required = input().split()
+      candidate = input().split()
+    hints:
+      - "Превратите строки в множества и используйте `&`, `-` и `<=`."
+      - "Вывод: `\", \".join(sorted(s)) or \"—\"` — пустая строка falsy, поэтому подставится тире."
+    solution: |
+      required = set(input().split())
+      candidate = set(input().split())
+      print("Совпадают:", ", ".join(sorted(required & candidate)) or "—")
+      print("Не хватает:", ", ".join(sorted(required - candidate)) or "—")
+      print("Дополнительно:", ", ".join(sorted(candidate - required)) or "—")
+      print("Подходит:", required <= candidate)
+    solution_explanation: "Каждый вопрос — одна операция над множествами. Проверка «есть ли все требуемые» — отношение подмножества `<=`."
+    tests:
+      - name: "Пример"
+        stdin: "python sql git\npython git docker\n"
+        stdout: "Совпадают: git, python\nНе хватает: sql\nДополнительно: docker\nПодходит: False"
+      - name: "Идеальный кандидат"
+        stdin: "python sql\nsql python ml\n"
+        stdout: "Совпадают: python, sql\nНе хватает: —\nДополнительно: ml\nПодходит: True"
+      - name: "Ничего общего"
+        stdin: "java\npython\n"
+        stdout: "Совпадают: —\nНе хватает: java\nДополнительно: python\nПодходит: False"
+      - name: "Совпадение полное"
+        stdin: "a b\nb a\n"
+        stdout: "Совпадают: a, b\nНе хватает: —\nДополнительно: —\nПодходит: True"
+      - name: "Повторы не мешают"
+        stdin: "git git\ngit\n"
+        stdout: "Совпадают: git\nНе хватает: —\nДополнительно: —\nПодходит: True"
+
+  - id: t3
+    title: "Сходство Жаккара"
+    difficulty: 2
+    statement: |
+      Программа читает две строки текста. Слова приводятся к нижнему регистру, с краёв снимаются `.,!?;:—-«»"()`. Выведите коэффициент Жаккара (размер пересечения множеств слов / размер объединения) с тремя знаками после запятой. Если оба множества пусты — `0.000`.
+    examples:
+      - input: "Кот сидит на окне.\nкот лежит на диване"
+        output: "0.333"
+    starter: |
+      first = input()
+      second = input()
+    hints:
+      - "Напишите очистку для каждой строки отдельно и получите два множества."
+      - "`len(a & b) / len(a | b)`, но сначала проверьте, что объединение не пусто."
+    solution: |
+      punctuation = ".,!?;:—-«»\"()"
+      sets = []
+      for _ in range(2):
+          words = set()
+          for token in input().lower().split():
+              word = token.strip(punctuation)
+              if word:
+                  words.add(word)
+          sets.append(words)
+      a, b = sets
+      union = a | b
+      similarity = len(a & b) / len(union) if union else 0.0
+      print(f"{similarity:.3f}")
+    solution_explanation: "Цикл на два повтора избавляет от дублирования кода очистки (в блоке про функции это станет функцией). Проверка непустого объединения защищает от деления на ноль."
+    tests:
+      - name: "Пример"
+        stdin: "Кот сидит на окне.\nкот лежит на диване\n"
+        stdout: "0.333"
+      - name: "Одинаковые"
+        stdin: "data science\nScience, data!\n"
+        stdout: "1.000"
+      - name: "Ничего общего"
+        stdin: "a b\nc d\n"
+        stdout: "0.000"
+      - name: "Повторы не влияют"
+        stdin: "a a a b\na c\n"
+        stdout: "0.333"
+      - name: "Обе пустые"
+        stdin: "\n...\n"
+        stdout: "0.000"
+
+  - id: t4
+    title: "Precision и recall поиска"
+    difficulty: 3
+    statement: |
+      RAG-система вернула список документов, а эксперт отметил релевантные. Программа читает две строки идентификаторов через пробел: найденные и релевантные (обе непустые). Повторы среди найденных считаются один раз.
+
+      ```text
+      Найдено релевантных: <количество>
+      Precision: <релевантных среди найденных / найденных, 2 знака>
+      Recall: <найденных среди релевантных / релевантных, 2 знака>
+      Пропущены: <релевантные, которые не найдены, по алфавиту через пробел или «нет»>
+      ```
+    examples:
+      - input: "d1 d4 d7 d9\nd1 d2 d9"
+        output: "Найдено релевантных: 2\nPrecision: 0.50\nRecall: 0.67\nПропущены: d2"
+    starter: |
+      retrieved = input().split()
+      relevant = input().split()
+    hints:
+      - "Множества: `hits = retrieved & relevant`."
+      - "Precision = `len(hits) / len(retrieved)`, recall = `len(hits) / len(relevant)`; пропущены — `relevant - retrieved`."
+    solution: |
+      retrieved = set(input().split())
+      relevant = set(input().split())
+      hits = retrieved & relevant
+      missed = relevant - retrieved
+      print("Найдено релевантных:", len(hits))
+      print(f"Precision: {len(hits) / len(retrieved):.2f}")
+      print(f"Recall: {len(hits) / len(relevant):.2f}")
+      print("Пропущены:", " ".join(sorted(missed)) if missed else "нет")
+    solution_explanation: "Precision — какая доля найденного полезна, recall — какую долю полезного нашли. Обе метрики — операции над множествами. Вы встретите их снова в блоке 5.4 (метрики классификации) и 7.7 (эвалы RAG)."
+    tests:
+      - name: "Пример"
+        stdin: "d1 d4 d7 d9\nd1 d2 d9\n"
+        stdout: "Найдено релевантных: 2\nPrecision: 0.50\nRecall: 0.67\nПропущены: d2"
+      - name: "Идеально"
+        stdin: "a b\nb a\n"
+        stdout: "Найдено релевантных: 2\nPrecision: 1.00\nRecall: 1.00\nПропущены: нет"
+      - name: "Ничего не нашли"
+        stdin: "x y\na\n"
+        stdout: "Найдено релевантных: 0\nPrecision: 0.00\nRecall: 0.00\nПропущены: a"
+      - name: "Повторы в найденных"
+        stdin: "a a a b\na\n"
+        stdout: "Найдено релевантных: 1\nPrecision: 0.50\nRecall: 1.00\nПропущены: нет"
+      - name: "Много пропусков"
+        stdin: "d3\nd1 d2 d3 d4\n"
+        stdout: "Найдено релевантных: 1\nPrecision: 1.00\nRecall: 0.25\nПропущены: d1 d2 d4"

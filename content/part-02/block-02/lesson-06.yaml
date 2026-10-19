@@ -1,0 +1,480 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from enum import Enum
+
+
+      class Color(Enum):
+          RED = "red"
+          GREEN = "green"
+
+
+      print(Color.RED == "red", Color.RED.value == "red", Color("green") is Color.GREEN)
+    options:
+      - text: "`False True True`"
+        correct: true
+        why: "Член обычного Enum не равен своему значению; поиск по значению возвращает тот же единственный объект."
+      - text: "`True True True`"
+        why: "Обычный Enum не сравнивается со строками напрямую."
+      - text: "`False True False`"
+        why: "Каждый член существует в единственном экземпляре — is даёт True."
+    explanation: "Члены Enum — отдельные объекты; для равенства со строками нужен StrEnum или .value."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from enum import Enum
+
+
+      class Size(Enum):
+          SMALL = "s"
+          LARGE = "l"
+
+
+      print(Size("l").name, Size["SMALL"].value)
+    options:
+      - text: "`LARGE s`"
+        correct: true
+        why: "Вызов класса ищет по значению, квадратные скобки — по имени."
+      - text: "`l SMALL`"
+        why: "name — имя члена, value — его значение."
+      - text: "KeyError"
+        why: "Size[\"SMALL\"] — корректный поиск по имени."
+    explanation: "Size(value) — по значению, Size[name] — по имени."
+
+  - id: q3
+    type: find_bug
+    prompt: "`json.dumps(task)` падает с TypeError. Почему?"
+    code: |
+      import json
+      from enum import Enum
+
+
+      class Status(Enum):
+          DONE = "done"
+
+
+      task = {"title": "отчёт", "status": Status.DONE}
+      json.dumps(task)
+    options:
+      - text: "Член обычного Enum не сериализуется в JSON; нужен StrEnum или Status.DONE.value"
+        correct: true
+        why: "json не знает, как записать объект Status."
+      - text: "Значения Enum должны быть числами"
+        why: "Числовые значения тоже не помогут для обычного Enum."
+      - text: "Ключи словаря должны быть Enum"
+        why: "Ключи — обычные строки, проблема в значении."
+    explanation: "StrEnum/IntEnum — строки/числа, поэтому сериализуются без дополнительного кода."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from enum import Enum, auto
+
+
+      class Step(Enum):
+          LOAD = auto()
+          TRAIN = auto()
+          SAVE = auto()
+
+
+      print([s.value for s in Step], len(Step))
+    options:
+      - text: "`[1, 2, 3] 3`"
+        correct: true
+        why: "auto() для Enum выдаёт 1, 2, 3… в порядке объявления."
+      - text: "`[0, 1, 2] 3`"
+        why: "auto() начинает с 1."
+      - text: "`['LOAD', 'TRAIN', 'SAVE'] 3`"
+        why: "Это имена, а не значения."
+    explanation: "auto() генерирует значения, когда они не важны."
+
+  - id: q5
+    type: single
+    prompt: "Роль сообщения уходит в JSON-запрос к API и сравнивается со строками из ответа. Что выбрать?"
+    options:
+      - text: "`StrEnum`"
+        correct: true
+        why: "Член одновременно строка: сериализуется и сравнивается со строками."
+      - text: "Обычный `Enum`"
+        why: "Не сериализуется в JSON и не равен строкам."
+      - text: "`Flag`"
+        why: "Flag — для комбинаций нескольких вариантов."
+      - text: "Глобальные строковые константы без перечисления"
+        why: "Нет единого набора и проверки допустимых значений."
+    explanation: "StrEnum — для значений, живущих на границе с JSON и API."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно про Enum? Выберите все."
+    options:
+      - text: "Перечисление можно перебирать в порядке объявления"
+        correct: true
+        why: "for member in MyEnum."
+      - text: "В перечислении можно определять методы и свойства"
+        correct: true
+        why: "Это обычный класс со специальным поведением."
+      - text: "Члены хешируемы и подходят как ключи словаря"
+        correct: true
+        why: "Например, словарь переходов между статусами."
+      - text: "Член можно переприсвоить: `Status.DONE = \"finished\"`"
+        why: "Перечисления неизменяемы."
+    explanation: "Enum — неизменяемый набор хешируемых членов с возможностью добавлять методы."
+
+tasks:
+  - id: t1
+    title: "Светофор"
+    difficulty: 1
+    statement: |
+      Создайте перечисление `Light` с членами `RED = "red"`, `YELLOW = "yellow"`, `GREEN = "green"`:
+
+      - метод `next()` — следующий сигнал по циклу RED → GREEN → YELLOW → RED;
+      - свойство `can_go` — `True` только для зелёного.
+
+      Функция `simulate(start, steps)` принимает **строку** начального сигнала и возвращает список значений (строк) сигналов, включая начальный, после `steps` переключений.
+    examples:
+      - input: "simulate(\"red\", 3)"
+        output: "['red', 'green', 'yellow', 'red']"
+    starter: |
+      from enum import Enum
+
+
+      class Light(Enum):
+          RED = "red"
+          YELLOW = "yellow"
+          GREEN = "green"
+    hints:
+      - "В `next` используйте словарь переходов внутри метода: `{Light.RED: Light.GREEN, ...}[self]`."
+      - "simulate: `light = Light(start)`, затем цикл `steps` раз с `light = light.next()`."
+    solution: |
+      from enum import Enum
+
+
+      class Light(Enum):
+          RED = "red"
+          YELLOW = "yellow"
+          GREEN = "green"
+
+          def next(self):
+              order = {Light.RED: Light.GREEN, Light.GREEN: Light.YELLOW, Light.YELLOW: Light.RED}
+              return order[self]
+
+          @property
+          def can_go(self):
+              return self is Light.GREEN
+
+
+      def simulate(start, steps):
+          """Значения сигналов после steps переключений."""
+          light = Light(start)
+          result = [light.value]
+          for _ in range(steps):
+              light = light.next()
+              result.append(light.value)
+          return result
+    solution_explanation: "Логика переключения живёт в самом перечислении. Строка превращается в Light один раз на входе — дальше код работает с проверенными значениями."
+    tests:
+      - name: "Пример"
+        call: "simulate(\"red\", 3)"
+        expected: "['red', 'green', 'yellow', 'red']"
+      - name: "next"
+        code: |
+          assert Light.GREEN.next() is Light.YELLOW and Light.YELLOW.next() is Light.RED
+          assert Light.RED.next() is Light.GREEN
+      - name: "can_go"
+        call: "[light.can_go for light in Light]"
+        expected: "[False, False, True]"
+      - name: "Неверный сигнал"
+        code: |
+          try:
+              simulate("blue", 1)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Ноль шагов"
+        call: "simulate(\"yellow\", 0)"
+        expected: "['yellow']"
+
+  - id: t2
+    title: "Роли сообщений"
+    difficulty: 2
+    statement: |
+      Создайте `StrEnum` `Role`: `SYSTEM = "system"`, `USER = "user"`, `ASSISTANT = "assistant"`, `TOOL = "tool"`.
+
+      - `parse_messages(raw)` — список словарей `{"role": str, "content": str}` превращает в список кортежей `(Role, content)`; неизвестная роль → `ValueError` с сообщением `сообщение <индекс>: неизвестная роль <роль>`;
+      - `count_by_role(messages)` — словарь `{Role: количество}` для **всех** ролей в порядке объявления (нулевые тоже).
+    examples:
+      - input: "parse_messages([{\"role\": \"user\", \"content\": \"Привет\"}])"
+        output: "[(<Role.USER: 'user'>, 'Привет')]"
+    starter: |
+      def parse_messages(raw):
+          return [(m["role"], m["content"]) for m in raw]
+    hints:
+      - "`from enum import StrEnum`; в цикле `try: role = Role(message[\"role\"])` / `except ValueError: raise ValueError(...) from None`."
+      - "count_by_role: `counts = {role: 0 for role in Role}`, затем увеличивайте."
+    solution: |
+      from enum import StrEnum
+
+
+      class Role(StrEnum):
+          SYSTEM = "system"
+          USER = "user"
+          ASSISTANT = "assistant"
+          TOOL = "tool"
+
+
+      def parse_messages(raw):
+          """Проверить роли и вернуть пары (Role, content)."""
+          result = []
+          for index, message in enumerate(raw):
+              try:
+                  role = Role(message["role"])
+              except ValueError:
+                  raise ValueError(f"сообщение {index}: неизвестная роль {message['role']}") from None
+              result.append((role, message["content"]))
+          return result
+
+
+      def count_by_role(messages):
+          """Количество сообщений каждой роли."""
+          counts = {role: 0 for role in Role}
+          for role, _ in messages:
+              counts[role] += 1
+          return counts
+    solution_explanation: "Перечисление проверяет роли на входе: дальше по коду ходят только члены Role. Перебор Role даёт все роли в порядке объявления, поэтому в статистике есть и нулевые."
+    tests:
+      - name: "Пример"
+        code: |
+          result = parse_messages([{"role": "user", "content": "Привет"}])
+          assert result == [(Role.USER, "Привет")] and result[0][0] is Role.USER, result
+      - name: "Неизвестная роль"
+        code: |
+          try:
+              parse_messages([{"role": "user", "content": "a"}, {"role": "bot", "content": "b"}])
+          except ValueError as error:
+              assert str(error) == "сообщение 1: неизвестная роль bot", str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Подсчёт"
+        code: |
+          raw = [{"role": "user", "content": "a"}, {"role": "assistant", "content": "b"}, {"role": "user", "content": "c"}]
+          counts = count_by_role(parse_messages(raw))
+          assert list(counts.items()) == [(Role.SYSTEM, 0), (Role.USER, 2), (Role.ASSISTANT, 1), (Role.TOOL, 0)], counts
+      - name: "StrEnum"
+        code: |
+          import json
+          assert Role.TOOL == "tool"
+          assert json.dumps({"role": Role.SYSTEM}) == '{"role": "system"}'
+      - name: "Пустой список"
+        call: "list(count_by_role([]).values())"
+        expected: "[0, 0, 0, 0]"
+
+  - id: t3
+    title: "Приоритеты задач"
+    difficulty: 2
+    statement: |
+      Создайте `IntEnum` `Priority`: `LOW = 1`, `MEDIUM = 2`, `HIGH = 3`, `CRITICAL = 4`.
+
+      - `parse_priority(text)` — по имени без учёта регистра (`"high"`) или по числу-строке (`"3"`); пробелы по краям игнорируются; иначе `ValueError`;
+      - `escalate(priority)` — следующий по важности приоритет; `CRITICAL` остаётся `CRITICAL`;
+      - `sort_tasks(tasks)` — список пар `(title, Priority)`, отсортированный по убыванию приоритета, при равенстве — по названию.
+    examples:
+      - input: "sort_tasks([(\"b\", Priority.LOW), (\"a\", Priority.HIGH), (\"c\", Priority.HIGH)])"
+        output: "[('a', <Priority.HIGH: 3>), ('c', <Priority.HIGH: 3>), ('b', <Priority.LOW: 1>)]"
+    starter: |
+      from enum import IntEnum
+
+
+      class Priority(IntEnum):
+          LOW = 1
+          MEDIUM = 2
+          HIGH = 3
+          CRITICAL = 4
+    hints:
+      - "parse_priority: если `text.isdigit()` — `Priority(int(text))`, иначе `Priority[text.upper()]`; KeyError превратите в ValueError."
+      - "escalate: `Priority(min(priority + 1, Priority.CRITICAL))` — IntEnum поддерживает арифметику. sort_tasks: ключ `(-priority, title)`."
+    solution: |
+      from enum import IntEnum
+
+
+      class Priority(IntEnum):
+          LOW = 1
+          MEDIUM = 2
+          HIGH = 3
+          CRITICAL = 4
+
+
+      def parse_priority(text):
+          """Приоритет по имени или номеру."""
+          text = text.strip()
+          if text.isdigit():
+              return Priority(int(text))
+          try:
+              return Priority[text.upper()]
+          except KeyError:
+              raise ValueError(f"неизвестный приоритет: {text!r}") from None
+
+
+      def escalate(priority):
+          """Повысить приоритет на один уровень."""
+          return Priority(min(priority + 1, Priority.CRITICAL))
+
+
+      def sort_tasks(tasks):
+          """Задачи по убыванию приоритета, затем по названию."""
+          return sorted(tasks, key=lambda task: (-task[1], task[0]))
+    solution_explanation: "IntEnum позволяет сравнивать и складывать приоритеты как числа, сохраняя понятные имена. Поиск по имени (Priority[...]) и по значению (Priority(...)) покрывает оба формата ввода."
+    tests:
+      - name: "Пример"
+        code: |
+          result = sort_tasks([("b", Priority.LOW), ("a", Priority.HIGH), ("c", Priority.HIGH)])
+          assert result == [("a", Priority.HIGH), ("c", Priority.HIGH), ("b", Priority.LOW)], result
+      - name: "Разбор"
+        code: |
+          parsed = [parse_priority(" high "), parse_priority("1"), parse_priority("Critical")]
+          assert parsed == [Priority.HIGH, Priority.LOW, Priority.CRITICAL], parsed
+          assert all(type(p) is Priority for p in parsed)
+      - name: "Неверный приоритет"
+        code: |
+          for bad in ("urgent", "9", ""):
+              try:
+                  parse_priority(bad)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"{bad!r} должен вызывать ValueError")
+      - name: "escalate"
+        code: |
+          assert escalate(Priority.LOW) is Priority.MEDIUM
+          assert escalate(Priority.CRITICAL) is Priority.CRITICAL
+      - name: "escalate возвращает Priority"
+        code: |
+          result = escalate(Priority.MEDIUM)
+          assert type(result) is Priority, f"Ожидался Priority, получено {type(result).__name__}"
+
+  - id: t4
+    title: "Жизненный цикл заказа"
+    difficulty: 3
+    statement: |
+      Создайте `StrEnum` `OrderState`: `NEW`, `PAID`, `SHIPPED`, `DELIVERED`, `CANCELLED` (значения — имена строчными буквами). Свойство `is_final` — `True` для `DELIVERED` и `CANCELLED`.
+
+      Класс `Order(order_id)`:
+
+      - атрибут `state` (сначала `NEW`) и список `history` — пары `(старое, новое)`;
+      - методы `pay()`, `ship()`, `deliver()`, `cancel()`. Разрешённые переходы: NEW → PAID, PAID → SHIPPED, SHIPPED → DELIVERED; `cancel` — только из NEW и PAID. Запрещённый переход → `ValueError` с текстом `нельзя перейти из <старое> в <новое>`;
+      - `to_dict()` → `{"id": ..., "state": "paid", "history": [["new", "paid"]]}` (значения — обычные строки).
+    examples:
+      - input: "o = Order(7); o.pay(); o.ship(); o.to_dict()"
+        output: "{'id': 7, 'state': 'shipped', 'history': [['new', 'paid'], ['paid', 'shipped']]}"
+    starter: |
+      class Order:
+          def __init__(self, order_id):
+              self.order_id = order_id
+              self.state = "new"
+
+          def pay(self):
+              self.state = "paid"
+    hints:
+      - "Словарь `TRANSITIONS = {OrderState.NEW: {OrderState.PAID, OrderState.CANCELLED}, ...}` и один внутренний метод `_move(new_state)`, который вызывают pay/ship/deliver/cancel."
+      - "В to_dict: `str(state)` для StrEnum даёт строку значения; history — `[[str(a), str(b)] for a, b in self.history]`."
+    solution: |
+      from enum import StrEnum
+
+
+      class OrderState(StrEnum):
+          NEW = "new"
+          PAID = "paid"
+          SHIPPED = "shipped"
+          DELIVERED = "delivered"
+          CANCELLED = "cancelled"
+
+          @property
+          def is_final(self):
+              return self in (OrderState.DELIVERED, OrderState.CANCELLED)
+
+
+      TRANSITIONS = {
+          OrderState.NEW: {OrderState.PAID, OrderState.CANCELLED},
+          OrderState.PAID: {OrderState.SHIPPED, OrderState.CANCELLED},
+          OrderState.SHIPPED: {OrderState.DELIVERED},
+      }
+
+
+      class Order:
+          """Заказ с конечным автоматом состояний."""
+
+          def __init__(self, order_id):
+              self.order_id = order_id
+              self.state = OrderState.NEW
+              self.history = []
+
+          def _move(self, new_state):
+              if new_state not in TRANSITIONS.get(self.state, set()):
+                  raise ValueError(f"нельзя перейти из {self.state} в {new_state}")
+              self.history.append((self.state, new_state))
+              self.state = new_state
+
+          def pay(self):
+              self._move(OrderState.PAID)
+
+          def ship(self):
+              self._move(OrderState.SHIPPED)
+
+          def deliver(self):
+              self._move(OrderState.DELIVERED)
+
+          def cancel(self):
+              self._move(OrderState.CANCELLED)
+
+          def to_dict(self):
+              return {
+                  "id": self.order_id,
+                  "state": str(self.state),
+                  "history": [[str(old), str(new)] for old, new in self.history],
+              }
+    solution_explanation: "Все правила жизненного цикла собраны в одном словаре переходов, а четыре публичных метода делегируют общей проверке _move. Добавить новое состояние — значит дописать член перечисления и строку в TRANSITIONS."
+    tests:
+      - name: "Пример"
+        code: |
+          o = Order(7)
+          o.pay()
+          o.ship()
+          assert o.to_dict() == {"id": 7, "state": "shipped", "history": [["new", "paid"], ["paid", "shipped"]]}, o.to_dict()
+      - name: "Полный путь"
+        code: |
+          o = Order(1)
+          o.pay(); o.ship(); o.deliver()
+          assert o.state is OrderState.DELIVERED and o.state.is_final
+      - name: "Запрещённые переходы"
+        code: |
+          o = Order(1)
+          try:
+              o.ship()
+          except ValueError as error:
+              assert str(error) == "нельзя перейти из new в shipped", str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+          o.pay(); o.ship()
+          try:
+              o.cancel()
+          except ValueError:
+              assert o.state is OrderState.SHIPPED
+          else:
+              raise AssertionError("Отправленный заказ нельзя отменить")
+      - name: "Отмена"
+        code: |
+          o = Order(2)
+          o.cancel()
+          assert o.state.is_final and o.history == [(OrderState.NEW, OrderState.CANCELLED)]
+      - name: "is_final"
+        call: "[state.is_final for state in OrderState]"
+        expected: "[False, False, False, True, True]"
+      - name: "Строки в to_dict"
+        code: |
+          d = Order(3).to_dict()
+          assert type(d["state"]) is str, "В to_dict должны быть обычные строки"

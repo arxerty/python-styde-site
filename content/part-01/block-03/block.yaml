@@ -1,0 +1,16 @@
+title: "Циклы"
+description: "while и for, range(), break/continue/else, вложенные циклы, накопители и алгоритмическое мышление."
+mini_project: "Игра «Угадай число» со статистикой попыток"
+lessons:
+  - id: lesson-01
+    title: "Цикл while и условие выхода"
+  - id: lesson-02
+    title: "Цикл for и range()"
+  - id: lesson-03
+    title: "break, continue и else у цикла"
+  - id: lesson-04
+    title: "Вложенные циклы"
+  - id: lesson-05
+    title: "Накопители: сумма, счётчик, максимум, поиск"
+  - id: lesson-06
+    title: "Алгоритмическое мышление"

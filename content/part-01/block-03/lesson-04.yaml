@@ -1,0 +1,319 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      for a in range(2):
+          for b in range(3):
+              print(a, b)
+    options:
+      - text: |
+          ```
+          0 0
+          0 1
+          0 2
+          1 0
+          1 1
+          1 2
+          ```
+        correct: true
+        why: "Для каждого a внутренний цикл проходит b = 0, 1, 2 полностью."
+      - text: |
+          ```
+          0 0
+          1 1
+          ```
+        why: "Циклы не идут «параллельно» — внутренний полностью проходит для каждого a."
+      - text: |
+          ```
+          0 0
+          1 0
+          0 1
+          1 1
+          0 2
+          1 2
+          ```
+        why: "Быстрее меняется переменная внутреннего цикла (b), а не внешнего."
+    explanation: "Внешний цикл — «часовая стрелка», внутренний — «минутная»."
+
+  - id: q2
+    type: single
+    prompt: "Сколько раз выполнится `print` в этом коде?"
+    code: |
+      for i in range(3):
+          for j in range(4):
+              print(i, j)
+    options:
+      - text: "12"
+        correct: true
+        why: "3 итерации внешнего × 4 итерации внутреннего."
+      - text: "7"
+        why: "Итерации не складываются, а умножаются."
+      - text: "4"
+        why: "Внутренний цикл запускается заново на каждой итерации внешнего."
+      - text: "3"
+        why: "print стоит во внутреннем цикле."
+    explanation: "Тело внутреннего цикла выполняется n × m раз."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      for i in range(1, 4):
+          for j in range(i):
+              print("*", end="")
+          print()
+    options:
+      - text: |
+          ```
+          *
+          **
+          ***
+          ```
+        correct: true
+        why: "Внутренний цикл зависит от i: 1, 2, 3 звезды."
+      - text: |
+          ```
+          ***
+          ***
+          ***
+          ```
+        why: "Граница range(i) меняется с каждой строкой."
+      - text: "`******`"
+        why: "После каждой строки — print() с переводом строки."
+    explanation: "Границы внутреннего цикла могут зависеть от внешней переменной."
+
+  - id: q4
+    type: find_bug
+    prompt: "Программа должна найти **первую** пару чисел с произведением 12 и остановиться. Но она печатает несколько пар. Почему?"
+    code: |
+      for a in range(1, 13):
+          for b in range(1, 13):
+              if a * b == 12:
+                  print(a, b)
+                  break
+    options:
+      - text: "break выходит только из внутреннего цикла, внешний продолжает перебор"
+        correct: true
+        why: "Нужен флаг или другой способ выйти и из внешнего цикла."
+      - text: "break нельзя использовать во вложенных циклах"
+        why: "Можно, но он действует только на ближайший цикл."
+      - text: "Нужно поменять циклы местами"
+        why: "Проблема осталась бы: break всё так же прерывает только внутренний."
+      - text: "range должен начинаться с 0"
+        why: "С нуля произведение 12 не появится раньше."
+    explanation: "Чтобы прервать оба цикла: флаг, for…else или функция с return."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие утверждения о вложенных циклах верны? Выберите все."
+    options:
+      - text: "Перевод строки после строки таблицы ставят во внешнем цикле, после внутреннего"
+        correct: true
+        why: "Так он выполняется один раз на строку."
+      - text: "Внутренний цикл может использовать переменную внешнего в своих границах"
+        correct: true
+        why: "Например, range(i) или range(a + 1, n + 1)."
+      - text: "Если у внутреннего и внешнего цикла одинаковое имя переменной, Python создаст две разные переменные"
+        why: "Имя одно — внутренний цикл перезапишет значение внешней переменной."
+      - text: "Два вложенных цикла по 1000 итераций выполнят тело 2000 раз"
+        why: "1000 × 1000 = миллион."
+    explanation: "Вложенность умножает итерации; имена переменных должны различаться."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      count = 0
+      for i in range(3):
+          for j in range(i, 3):
+              count += 1
+      print(count)
+    answer: "6"
+    explanation: "Внутренний цикл даёт 3, 2 и 1 итерацию для i = 0, 1, 2: всего 6."
+
+tasks:
+  - id: t1
+    title: "Таблица умножения n × n"
+    difficulty: 1
+    statement: |
+      Программа читает целое `n` (1 ≤ n ≤ 12) и выводит таблицу умножения размером n × n.
+      В строке `i` — произведения `i × 1`, `i × 2`, …, `i × n` через пробел.
+    examples:
+      - input: "3"
+        output: "1 2 3\n2 4 6\n3 6 9"
+    starter: |
+      n = int(input())
+      for row in range(1, n + 1):
+          print(row)
+    hints:
+      - "Внутри цикла по строкам нужен цикл по столбцам; числа печатайте с `end=\" \"`."
+      - "После внутреннего цикла — пустой `print()`, чтобы перейти на новую строку."
+    solution: |
+      n = int(input())
+      for row in range(1, n + 1):
+          for col in range(1, n + 1):
+              print(row * col, end=" ")
+          print()
+    solution_explanation: "Внешний цикл — строки, внутренний — столбцы. Перевод строки стоит после внутреннего цикла. Пробел в конце строки при проверке не учитывается."
+    tests:
+      - name: "3 × 3"
+        stdin: "3\n"
+        stdout: "1 2 3\n2 4 6\n3 6 9"
+      - name: "1 × 1"
+        stdin: "1\n"
+        stdout: "1"
+      - name: "5 × 5"
+        stdin: "5\n"
+        stdout: "1 2 3 4 5\n2 4 6 8 10\n3 6 9 12 15\n4 8 12 16 20\n5 10 15 20 25"
+      - name: "Последняя строка 12 × 12"
+        stdin: "12\n"
+        code: |
+          lines = __stdout__.strip().splitlines()
+          assert len(lines) == 12
+          assert lines[-1].split() == [str(12 * k) for k in range(1, 13)]
+      - name: "Количество чисел"
+        stdin: "7\n"
+        code: |
+          assert len(__stdout__.split()) == 49
+
+  - id: t2
+    title: "Числовой треугольник"
+    difficulty: 1
+    statement: |
+      Программа читает `n` и выводит треугольник: в строке `i` — числа от 1 до i через пробел.
+    examples:
+      - input: "4"
+        output: "1\n1 2\n1 2 3\n1 2 3 4"
+    starter: |
+      n = int(input())
+    hints:
+      - "Внешний цикл: `for row in range(1, n + 1):`."
+      - "Внутренний цикл зависит от строки: `for k in range(1, row + 1):`."
+    solution: |
+      n = int(input())
+      for row in range(1, n + 1):
+          for k in range(1, row + 1):
+              print(k, end=" ")
+          print()
+    solution_explanation: "Граница внутреннего цикла зависит от номера строки — так получается треугольник."
+    tests:
+      - name: "4"
+        stdin: "4\n"
+        stdout: "1\n1 2\n1 2 3\n1 2 3 4"
+      - name: "1"
+        stdin: "1\n"
+        stdout: "1"
+      - name: "0 — пусто"
+        stdin: "0\n"
+        stdout: ""
+      - name: "6"
+        stdin: "6\n"
+        stdout: "1\n1 2\n1 2 3\n1 2 3 4\n1 2 3 4 5\n1 2 3 4 5 6"
+      - name: "Число строк для 15"
+        stdin: "15\n"
+        code: |
+          assert len(__stdout__.strip().splitlines()) == 15
+
+  - id: t3
+    title: "Пары с заданной суммой"
+    difficulty: 2
+    statement: |
+      Программа читает `n` и `target`. Выведите все пары чисел `a b`, где `1 ≤ a < b ≤ n` и `a + b == target`, в порядке возрастания `a`.
+      В конце выведите `Пар: <количество>`.
+    examples:
+      - input: "6\n7"
+        output: "1 6\n2 5\n3 4\nПар: 3"
+    starter: |
+      n = int(input())
+      target = int(input())
+      count = 0
+    hints:
+      - "Чтобы a < b и пары не повторялись: `for b in range(a + 1, n + 1)`."
+      - "Внутри: если сумма равна target — печатаем пару и увеличиваем count."
+    solution: |
+      n = int(input())
+      target = int(input())
+      count = 0
+      for a in range(1, n + 1):
+          for b in range(a + 1, n + 1):
+              if a + b == target:
+                  print(a, b)
+                  count += 1
+      print("Пар:", count)
+    solution_explanation: "Внутренний цикл начинается с a + 1 — так каждая пара рассматривается один раз и без повтора элемента. (Есть и решение без вложенного цикла: b = target − a. Попробуйте его тоже!)"
+    tests:
+      - name: "6, 7"
+        stdin: "6\n7\n"
+        stdout: "1 6\n2 5\n3 4\nПар: 3"
+      - name: "Нет пар"
+        stdin: "3\n10\n"
+        stdout: "Пар: 0"
+      - name: "Чётная сумма"
+        stdin: "5\n6\n"
+        stdout: "1 5\n2 4\nПар: 2"
+      - name: "Минимальная сумма"
+        stdin: "10\n3\n"
+        stdout: "1 2\nПар: 1"
+      - name: "Количество для 100, 101"
+        stdin: "100\n101\n"
+        code: |
+          assert __stdout__.strip().splitlines()[-1] == "Пар: 50"
+
+  - id: t4
+    title: "Сетка гиперпараметров"
+    difficulty: 3
+    statement: |
+      Программа читает две строки: значения learning rate через пробел и размеры батча через пробел. `input().split()` разбивает строку на части по пробелам — перебирайте их циклом `for`.
+
+      Для каждой комбинации (сначала по lr, внутри — по batch) вычислите оценку:
+
+      `score = round(1 - abs(lr - 0.01) * 3 - abs(batch - 32) / 200, 3)`
+
+      и выведите `lr=<lr> batch=<batch> score=<score>`. В конце выведите `best: lr=<lr> batch=<batch>` — комбинацию с наибольшей оценкой (при равенстве — первую встреченную).
+    examples:
+      - input: "0.1 0.01\n16 32"
+        output: "lr=0.1 batch=16 score=0.65\nlr=0.1 batch=32 score=0.73\nlr=0.01 batch=16 score=0.92\nlr=0.01 batch=32 score=1.0\nbest: lr=0.01 batch=32"
+    starter: |
+      lr_values = input().split()
+      batch_values = input().split()
+    hints:
+      - "Внутри циклов преобразуйте: `lr = float(lr_text)`, `batch = int(batch_text)`."
+      - "Храните лучшую оценку и её параметры; обновляйте при строго большем score. Строку собирайте склейкой: `\"lr=\" + str(lr)`."
+    solution: |
+      lr_values = input().split()
+      batch_values = input().split()
+      best_score = None
+      best_lr = None
+      best_batch = None
+      for lr_text in lr_values:
+          lr = float(lr_text)
+          for batch_text in batch_values:
+              batch = int(batch_text)
+              score = round(1 - abs(lr - 0.01) * 3 - abs(batch - 32) / 200, 3)
+              print("lr=" + str(lr), "batch=" + str(batch), "score=" + str(score))
+              if best_score is None or score > best_score:
+                  best_score = score
+                  best_lr = lr
+                  best_batch = batch
+      print("best: lr=" + str(best_lr), "batch=" + str(best_batch))
+    solution_explanation: "Вложенные циклы перебирают все комбинации. Лучшая хранится в трёх переменных; начальное `None` + проверка `is None` позволяют обойтись без «магического» стартового значения. Строгое `>` оставляет первую из равных комбинаций."
+    tests:
+      - name: "Пример"
+        stdin: "0.1 0.01\n16 32\n"
+        stdout: "lr=0.1 batch=16 score=0.65\nlr=0.1 batch=32 score=0.73\nlr=0.01 batch=16 score=0.92\nlr=0.01 batch=32 score=1.0\nbest: lr=0.01 batch=32"
+      - name: "Одна комбинация"
+        stdin: "0.001\n64\n"
+        stdout: "lr=0.001 batch=64 score=0.813\nbest: lr=0.001 batch=64"
+      - name: "Лучшая — последняя"
+        stdin: "0.5 0.01\n8 32\n"
+        code: |
+          assert __stdout__.strip().splitlines()[-1] == "best: lr=0.01 batch=32"
+      - name: "Количество строк"
+        stdin: "0.1 0.01 0.001\n16 32 64 128\n"
+        code: |
+          assert len(__stdout__.strip().splitlines()) == 13, "12 комбинаций + строка best"
+      - name: "Равные оценки — первая"
+        stdin: "0.01\n22 42\n"
+        code: |
+          assert __stdout__.strip().splitlines()[-1] == "best: lr=0.01 batch=22"

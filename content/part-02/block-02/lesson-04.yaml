@@ -1,0 +1,522 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from abc import ABC, abstractmethod
+
+
+      class Storage(ABC):
+          @abstractmethod
+          def save(self, data):
+              """Сохранить данные."""
+
+          @abstractmethod
+          def load(self):
+              """Загрузить данные."""
+
+
+      class FileStorage(Storage):
+          def save(self, data):
+              return "ok"
+
+
+      try:
+          storage = FileStorage()
+          print("создан")
+      except TypeError:
+          print("ошибка при создании")
+    options:
+      - text: "`ошибка при создании`"
+        correct: true
+        why: "load не реализован — объект абстрактного класса создать нельзя."
+      - text: "`создан`"
+        why: "FileStorage остаётся абстрактным, пока не реализован load."
+      - text: "Ошибка при объявлении класса FileStorage"
+        why: "Объявить неполный подкласс можно, ошибка — при создании объекта."
+    explanation: "ABC проверяет реализацию абстрактных методов в момент создания объекта."
+
+  - id: q2
+    type: single
+    prompt: "Функция ожидает `model: TextModel`, где `TextModel` — `Protocol` без `@runtime_checkable`. Кто обнаружит, что передан объект без нужного метода?"
+    options:
+      - text: "Статический анализатор (mypy, Pyright) и редактор — до запуска; во время выполнения — только AttributeError при вызове метода"
+        correct: true
+        why: "Python не проверяет аннотации и протоколы при вызове функции."
+      - text: "Python при вызове функции бросит TypeError"
+        why: "Аннотации не проверяются во время выполнения."
+      - text: "Python при создании объекта"
+        why: "Объект не наследует протокол — при создании проверять нечего."
+      - text: "Никто и никогда"
+        why: "mypy проверяет соответствие протоколу."
+    explanation: "Протоколы — инструмент статической проверки; в рантайме работает обычная утиная типизация."
+
+  - id: q3
+    type: find_bug
+    prompt: "Абстрактный метод не мешает создать `Base()`. Почему?"
+    code: |
+      from abc import abstractmethod
+
+
+      class Base:
+          @abstractmethod
+          def run(self):
+              """Выполнить задачу."""
+
+
+      Base()
+    options:
+      - text: "Класс не наследует ABC — без него @abstractmethod ничего не запрещает"
+        correct: true
+        why: "Нужно class Base(ABC)."
+      - text: "У абстрактного метода должно быть тело с raise"
+        why: "Тело может быть любым, хватает docstring."
+      - text: "Декоратор нужно писать как @abstractmethod()"
+        why: "Он применяется без скобок."
+    explanation: "Запрет на создание работает только для потомков ABC."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from collections.abc import Sized
+
+
+      class Box:
+          def __len__(self):
+              return 3
+
+
+      print(isinstance(Box(), Sized), isinstance(5, Sized))
+    options:
+      - text: "`True False`"
+        correct: true
+        why: "Sized признаёт любой класс с __len__, даже без наследования."
+      - text: "`False False`"
+        why: "Box не наследует Sized, но isinstance проверяет наличие __len__."
+      - text: "`True True`"
+        why: "У int нет __len__."
+    explanation: "Некоторые ABC из collections.abc работают структурно — по наличию методов."
+
+  - id: q5
+    type: multiple
+    prompt: "Что верно про ABC и Protocol? Выберите все."
+    options:
+      - text: "Чтобы подойти под Protocol, наследовать его не нужно"
+        correct: true
+        why: "Достаточно иметь нужные методы."
+      - text: "Абстрактный класс может содержать обычные методы с общим кодом"
+        correct: true
+        why: "Потомки получают их по наследству."
+      - text: "Объект класса с нереализованным абстрактным методом создать нельзя"
+        correct: true
+        why: "Будет TypeError."
+      - text: "isinstance с @runtime_checkable-протоколом проверяет типы параметров методов"
+        why: "Только наличие методов."
+    explanation: "ABC — наследование и общий код; Protocol — структурная типизация."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from collections.abc import Sequence
+
+
+      class Digits(Sequence):
+          def __init__(self, number):
+              self._digits = [int(d) for d in str(number)]
+
+          def __getitem__(self, index):
+              return self._digits[index]
+
+          def __len__(self):
+              return len(self._digits)
+
+
+      d = Digits(1231)
+      print(d.count(1), 3 in d, d.index(2))
+    options:
+      - text: "`2 True 1`"
+        correct: true
+        why: "Sequence достраивает count, in и index по __getitem__ и __len__."
+      - text: "AttributeError: нет метода count"
+        why: "count — готовый метод-миксин Sequence."
+      - text: "`1 True 2`"
+        why: "Цифр 1 две, а 2 стоит на позиции 1."
+    explanation: "Унаследовав Sequence, получаете готовые методы последовательности."
+
+tasks:
+  - id: t1
+    title: "Абстрактная фигура"
+    difficulty: 1
+    statement: |
+      Создайте абстрактный класс `Shape(ABC)` с абстрактными методами `area()` и `perimeter()` и обычным методом `describe()` → `"<ИмяКласса>: S=<area:.2f>, P=<perimeter:.2f>"`.
+
+      Конкретные классы: `Rectangle(width, height)` и `Circle(radius)` (используйте `math.pi`).
+    examples:
+      - input: "Rectangle(2, 3).describe()"
+        output: "'Rectangle: S=6.00, P=10.00'"
+    starter: |
+      class Shape:
+          def area(self):
+              raise NotImplementedError
+
+          def perimeter(self):
+              raise NotImplementedError
+    hints:
+      - "`from abc import ABC, abstractmethod`; `class Shape(ABC):` и `@abstractmethod` над area и perimeter."
+      - "Имя класса: `type(self).__name__`."
+    solution: |
+      import math
+      from abc import ABC, abstractmethod
+
+
+      class Shape(ABC):
+          """Абстрактная фигура."""
+
+          @abstractmethod
+          def area(self):
+              """Площадь."""
+
+          @abstractmethod
+          def perimeter(self):
+              """Периметр."""
+
+          def describe(self):
+              return f"{type(self).__name__}: S={self.area():.2f}, P={self.perimeter():.2f}"
+
+
+      class Rectangle(Shape):
+          def __init__(self, width, height):
+              self.width = width
+              self.height = height
+
+          def area(self):
+              return self.width * self.height
+
+          def perimeter(self):
+              return 2 * (self.width + self.height)
+
+
+      class Circle(Shape):
+          def __init__(self, radius):
+              self.radius = radius
+
+          def area(self):
+              return math.pi * self.radius ** 2
+
+          def perimeter(self):
+              return 2 * math.pi * self.radius
+    solution_explanation: "Абстрактный класс фиксирует контракт (area и perimeter) и даёт общий describe. Любая фигура без одного из методов не создастся — ошибка видна сразу."
+    tests:
+      - name: "Прямоугольник"
+        call: "Rectangle(2, 3).describe()"
+        expected: "'Rectangle: S=6.00, P=10.00'"
+      - name: "Круг"
+        call: "Circle(1).describe()"
+        expected: "'Circle: S=3.14, P=6.28'"
+      - name: "Shape нельзя создать"
+        code: |
+          try:
+              Shape()
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("Shape должен быть абстрактным")
+      - name: "Неполный потомок"
+        code: |
+          class Half(Shape):
+              def area(self):
+                  return 1
+          try:
+              Half()
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("Класс без perimeter не должен создаваться")
+      - name: "Иерархия"
+        code: |
+          from abc import ABC
+          assert issubclass(Shape, ABC) and isinstance(Circle(2), Shape)
+
+  - id: t2
+    title: "Предложение как последовательность"
+    difficulty: 2
+    statement: |
+      Создайте класс `Sentence(text)`, наследующий `collections.abc.Sequence`. Элементы — слова текста (`split()`), слова приводятся к нижнему регистру, а знаки `.,!?` по краям слова убираются.
+
+      Реализуйте только `__getitem__`, `__len__` и `__repr__` (→ `Sentence(5 words)`). Методы `in`, `count`, `index`, `reversed` должны работать за счёт `Sequence`.
+    examples:
+      - input: "Sentence(\"Мама мыла раму. Раму!\").count(\"раму\")"
+        output: "2"
+    starter: |
+      class Sentence:
+          def __init__(self, text):
+              self.words = text.split()
+    hints:
+      - "`from collections.abc import Sequence`; в `__init__`: `self._words = [w.strip(\".,!?\").lower() for w in text.split()]`."
+      - "`__getitem__` просто возвращает `self._words[index]` — список сам обработает и индексы, и срезы."
+    solution: |
+      from collections.abc import Sequence
+
+
+      class Sentence(Sequence):
+          """Предложение как последовательность нормализованных слов."""
+
+          def __init__(self, text):
+              self._words = [word.strip(".,!?").lower() for word in text.split()]
+
+          def __getitem__(self, index):
+              return self._words[index]
+
+          def __len__(self):
+              return len(self._words)
+
+          def __repr__(self):
+              return f"Sentence({len(self)} words)"
+    solution_explanation: "Два абстрактных метода Sequence — и класс получает in, count, index, перебор и reversed, реализованные через них."
+    tests:
+      - name: "count"
+        call: "Sentence(\"Мама мыла раму. Раму!\").count(\"раму\")"
+        expected: "2"
+      - name: "in и index"
+        code: |
+          s = Sentence("Python — язык для ML!")
+          assert "ml" in s and "java" not in s
+          assert s.index("язык") == 2
+      - name: "reversed и перебор"
+        code: |
+          s = Sentence("раз, два, три")
+          assert list(reversed(s)) == ["три", "два", "раз"]
+          assert [w for w in s] == ["раз", "два", "три"]
+      - name: "repr и len"
+        call: "repr(Sentence(\"a b c d e\"))"
+        expected: "'Sentence(5 words)'"
+      - name: "Наследует Sequence и не дублирует методы"
+        code: |
+          from collections.abc import Sequence
+          assert issubclass(Sentence, Sequence)
+          for name in ("count", "index", "__contains__"):
+              assert name not in Sentence.__dict__, f"{name} должен приходить из Sequence"
+
+  - id: t3
+    title: "Протокол эмбеддера"
+    difficulty: 2
+    statement: |
+      1. Опишите протокол `Embedder` (с `@runtime_checkable`) с методом `embed(self, text: str) -> list`.
+      2. Класс `LetterEmbedder(alphabet)` (без наследования протокола): `embed(text)` — список количеств каждой буквы `alphabet` в тексте (регистр не учитывается).
+      3. Функция `most_similar(embedder, query, candidates)` — кандидат с наибольшим косинусным сходством эмбеддингов с запросом (при равенстве — первый в списке). Если эмбеддинг нулевой, сходство считается 0.
+    examples:
+      - input: "most_similar(LetterEmbedder(\"ab\"), \"aaa\", [\"bbb\", \"aab\", \"a\"])"
+        output: "'a'"
+    starter: |
+      class LetterEmbedder:
+          def __init__(self, alphabet):
+              self.alphabet = alphabet
+
+
+      def most_similar(embedder, query, candidates):
+          return candidates[0]
+    hints:
+      - "`from typing import Protocol, runtime_checkable`; тело метода протокола — `...`."
+      - "Косинус: `dot / (norm_a * norm_b)`, где `norm = math.sqrt(sum(x * x for x in v))`; `max(candidates, key=...)` вернёт первый из равных."
+    solution: |
+      import math
+      from typing import Protocol, runtime_checkable
+
+
+      @runtime_checkable
+      class Embedder(Protocol):
+          def embed(self, text: str) -> list:
+              ...
+
+
+      class LetterEmbedder:
+          """Эмбеддинг — количества букв алфавита в тексте."""
+
+          def __init__(self, alphabet):
+              self.alphabet = alphabet.lower()
+
+          def embed(self, text: str) -> list:
+              text = text.lower()
+              return [text.count(letter) for letter in self.alphabet]
+
+
+      def _cosine(a, b):
+          norm_a = math.sqrt(sum(x * x for x in a))
+          norm_b = math.sqrt(sum(x * x for x in b))
+          if norm_a == 0 or norm_b == 0:
+              return 0.0
+          return sum(x * y for x, y in zip(a, b)) / (norm_a * norm_b)
+
+
+      def most_similar(embedder: Embedder, query: str, candidates: list) -> str:
+          """Кандидат, наиболее похожий на запрос."""
+          query_vector = embedder.embed(query)
+          return max(candidates, key=lambda text: _cosine(query_vector, embedder.embed(text)))
+    solution_explanation: "most_similar зависит только от протокола Embedder: ей подойдёт и учебный LetterEmbedder, и настоящая модель эмбеддингов, и фейк в тестах — никто из них не обязан наследовать Embedder."
+    tests:
+      - name: "Пример"
+        call: "most_similar(LetterEmbedder(\"ab\"), \"aaa\", [\"bbb\", \"aab\", \"a\"])"
+        expected: "'a'"
+      - name: "embed"
+        call: "LetterEmbedder(\"abc\").embed(\"Abba\")"
+        expected: "[2, 2, 0]"
+      - name: "Протокол без наследования"
+        code: |
+          assert isinstance(LetterEmbedder("a"), Embedder)
+          assert not isinstance(42, Embedder)
+          assert Embedder not in LetterEmbedder.__mro__, "LetterEmbedder не должен наследовать протокол"
+      - name: "Любой эмбеддер"
+        code: |
+          class Fake:
+              def embed(self, text):
+                  return {"кот": [1, 0], "кошка": [0.9, 0.1], "машина": [0, 1]}[text]
+          assert most_similar(Fake(), "кот", ["машина", "кошка"]) == "кошка"
+      - name: "Нулевой эмбеддинг"
+        call: "most_similar(LetterEmbedder(\"xyz\"), \"abc\", [\"x\", \"y\"])"
+        expected: "'x'"
+
+  - id: t4
+    title: "Платёжные провайдеры"
+    difficulty: 3
+    statement: |
+      1. Исключение `PaymentError(Exception)`.
+      2. Абстрактный класс `PaymentProvider(ABC)`:
+         - абстрактное свойство `name`;
+         - абстрактный метод `_charge(amount)` — выполнить списание и вернуть id транзакции (или бросить `PaymentError`);
+         - обычный метод `pay(amount)`: сумма ≤ 0 → `ValueError`; вызывает `_charge`, добавляет `(name, amount, id)` в список `transactions` объекта и возвращает id.
+      3. `CardProvider` (`name` = `"card"`): id вида `"card-1"`, `"card-2"`… (счётчик у каждого объекта свой).
+      4. `WalletProvider(balance)` (`name` = `"wallet"`): если сумма больше остатка — `PaymentError`; иначе уменьшает остаток и возвращает `"wallet-<остаток после списания>"`.
+      5. Функция `pay_with_fallback(providers, amount)` пробует провайдеров по порядку и возвращает `(name, id)` первого успешного; если все отказали — `PaymentError("все провайдеры отказали")`.
+    examples:
+      - input: "pay_with_fallback([WalletProvider(50), CardProvider()], 100)"
+        output: "('card', 'card-1')"
+    starter: |
+      class PaymentError(Exception):
+          pass
+
+
+      class PaymentProvider:
+          def pay(self, amount):
+              return self._charge(amount)
+    hints:
+      - "Абстрактное свойство: `@property` над `@abstractmethod`. В `__init__` базового класса — `self.transactions = []`; потомки вызывают `super().__init__()`."
+      - "pay_with_fallback: `for provider in providers: try: return provider.name, provider.pay(amount)` / `except PaymentError: continue`; после цикла — raise."
+    solution: |
+      from abc import ABC, abstractmethod
+
+
+      class PaymentError(Exception):
+          """Платёж отклонён."""
+
+
+      class PaymentProvider(ABC):
+          """Базовый платёжный провайдер."""
+
+          def __init__(self):
+              self.transactions = []
+
+          @property
+          @abstractmethod
+          def name(self):
+              """Имя провайдера."""
+
+          @abstractmethod
+          def _charge(self, amount):
+              """Списать сумму и вернуть id транзакции."""
+
+          def pay(self, amount):
+              if amount <= 0:
+                  raise ValueError(f"сумма должна быть положительной, получено {amount}")
+              transaction_id = self._charge(amount)
+              self.transactions.append((self.name, amount, transaction_id))
+              return transaction_id
+
+
+      class CardProvider(PaymentProvider):
+          def __init__(self):
+              super().__init__()
+              self._counter = 0
+
+          @property
+          def name(self):
+              return "card"
+
+          def _charge(self, amount):
+              self._counter += 1
+              return f"card-{self._counter}"
+
+
+      class WalletProvider(PaymentProvider):
+          def __init__(self, balance):
+              super().__init__()
+              self.balance = balance
+
+          @property
+          def name(self):
+              return "wallet"
+
+          def _charge(self, amount):
+              if amount > self.balance:
+                  raise PaymentError(f"в кошельке {self.balance}, нужно {amount}")
+              self.balance -= amount
+              return f"wallet-{self.balance}"
+
+
+      def pay_with_fallback(providers, amount):
+          """Оплатить через первого провайдера, который примет платёж."""
+          for provider in providers:
+              try:
+                  return provider.name, provider.pay(amount)
+              except PaymentError:
+                  continue
+          raise PaymentError("все провайдеры отказали")
+    solution_explanation: "Базовый класс отвечает за общее — проверку суммы и учёт транзакций, а провайдеры реализуют только списание. pay_with_fallback полагается на интерфейс и исключение PaymentError — так же устроены цепочки запасных LLM-провайдеров: если основной не ответил, запрос уходит следующему."
+    tests:
+      - name: "Пример"
+        call: "pay_with_fallback([WalletProvider(50), CardProvider()], 100)"
+        expected: "('card', 'card-1')"
+      - name: "Кошелёк"
+        code: |
+          w = WalletProvider(100)
+          assert w.pay(30) == "wallet-70" and w.balance == 70
+          assert w.transactions == [("wallet", 30, "wallet-70")]
+      - name: "Счётчик карты"
+        code: |
+          a, b = CardProvider(), CardProvider()
+          a.pay(1)
+          assert a.pay(2) == "card-2" and b.pay(5) == "card-1"
+      - name: "Все отказали"
+        code: |
+          try:
+              pay_with_fallback([WalletProvider(1), WalletProvider(2)], 10)
+          except PaymentError as error:
+              assert "все провайдеры отказали" in str(error)
+          else:
+              raise AssertionError("Ожидался PaymentError")
+      - name: "Неверная сумма"
+        code: |
+          try:
+              CardProvider().pay(0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Абстрактность"
+        code: |
+          try:
+              PaymentProvider()
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("PaymentProvider должен быть абстрактным")
+          class NoName(PaymentProvider):
+              def _charge(self, amount):
+                  return "x"
+          try:
+              NoName()
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("Без свойства name объект не должен создаваться")

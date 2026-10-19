@@ -1,0 +1,478 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import os
+
+      os.environ["RETRIES"] = "3"
+      os.environ["VERBOSE"] = "0"
+      print(os.environ["RETRIES"] * 2, bool(os.environ["VERBOSE"]))
+    options:
+      - text: "`33 True`"
+        correct: true
+        why: "Значения — строки: \"3\" * 2 = \"33\", а непустая строка \"0\" истинна."
+      - text: "`6 False`"
+        why: "Переменные окружения не преобразуются в числа автоматически."
+      - text: "`33 False`"
+        why: "bool(\"0\") — True: строка непустая."
+    explanation: "Всё в окружении — строки; преобразуйте типы явно."
+
+  - id: q2
+    type: single
+    prompt: "Как правильно поступить с файлом `.env`, в котором лежит API-ключ?"
+    options:
+      - text: "Добавить `.env` в `.gitignore`, а в репозиторий положить `.env.example` без секретов"
+        correct: true
+        why: "Секреты не попадают в git, а список настроек задокументирован."
+      - text: "Закоммитить, но в приватный репозиторий"
+        why: "Приватные репозитории тоже утекают, а ключ остаётся в истории навсегда."
+      - text: "Закодировать ключ в base64 и закоммитить"
+        why: "base64 — не шифрование, декодируется за секунду."
+      - text: "Хранить ключ прямо в коде, а .env не использовать"
+        why: "Это худший вариант."
+    explanation: ".env — локально, .env.example — в git."
+
+  - id: q3
+    type: multiple
+    prompt: "Что верно про `load_dotenv()` из python-dotenv? Выберите все."
+    options:
+      - text: "Читает файл .env и добавляет переменные в os.environ"
+        correct: true
+        why: "После вызова они доступны через os.environ."
+      - text: "По умолчанию не перезаписывает уже заданные переменные окружения"
+        correct: true
+        why: "Для перезаписи нужен override=True."
+      - text: "Значения остаются строками"
+        correct: true
+        why: "Типы преобразует ваш код (или pydantic-settings)."
+      - text: "Меняет переменные окружения терминала, из которого запущен Python"
+        why: "Только окружение текущего процесса."
+    explanation: "Настоящие переменные окружения важнее файла .env."
+
+  - id: q4
+    type: find_bug
+    prompt: "Найдите проблему в функции загрузки настроек."
+    code: |
+      import os
+
+      def get_debug():
+          return bool(os.getenv("DEBUG", "false"))
+    options:
+      - text: "`bool` от любой непустой строки — True, поэтому DEBUG всегда включён, даже при значении «false»"
+        correct: true
+        why: "Флаг нужно разбирать по списку допустимых значений."
+      - text: "os.getenv нельзя вызывать со значением по умолчанию"
+        why: "Можно — второй аргумент и есть значение по умолчанию."
+      - text: "Имя переменной должно быть в нижнем регистре"
+        why: "Принято как раз ВЕРХНИМ_РЕГИСТРОМ."
+    explanation: "Используйте parse_bool: {'1','true','yes','on'} / {'0','false','no','off'}."
+
+  - id: q5
+    type: single
+    prompt: "Ключ API случайно попал в коммит и был отправлен на GitHub. Что сделать в первую очередь?"
+    options:
+      - text: "Отозвать ключ в панели провайдера и выпустить новый"
+        correct: true
+        why: "Ключ мог быть скопирован ботами за минуты; удаление из файла его не спасёт."
+      - text: "Удалить строку с ключом и сделать новый коммит"
+        why: "Ключ останется в истории git."
+      - text: "Сделать репозиторий приватным"
+        why: "Копию уже могли сделать."
+    explanation: "Утёкший секрет считается скомпрометированным — его меняют."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      env = {"LLM_TIMEOUT": "30"}
+      timeout = float(env.get("LLM_TIMEOUT", "10")) + float(env.get("LLM_RETRY_DELAY", "1.5"))
+      print(timeout)
+    options:
+      - text: "`31.5`"
+        correct: true
+        why: "30.0 из словаря плюс значение по умолчанию 1.5."
+      - text: "`11.5`"
+        why: "LLM_TIMEOUT задан — значение по умолчанию не используется."
+      - text: "KeyError"
+        why: "get с умолчанием не бросает KeyError."
+    explanation: "env.get(имя, умолчание) — для необязательных настроек."
+
+tasks:
+  - id: t1
+    title: "Разбор .env-файла"
+    difficulty: 2
+    statement: |
+      Напишите `parse_env(text)`: разобрать содержимое `.env` в словарь `имя → значение` (значения — строки).
+
+      Правила:
+
+      - пустые строки и строки, начинающиеся с `#` (после пробелов), пропускаются;
+      - в начале строки может стоять `export ` — его отбросить;
+      - строка делится по **первому** `=`; пробелы вокруг имени и значения убираются;
+      - если значение заключено в одинаковые кавычки (`"..."` или `'...'`), кавычки снимаются (внутри значение не трогать);
+      - иначе, если в значении есть ` #` (пробел и решётка), всё начиная с него — комментарий;
+      - строка без `=` или с пустым именем → `ValueError` с текстом `"строка <номер>: <исходная строка без пробелов по краям>"` (нумерация с 1);
+      - повторное имя перезаписывает предыдущее значение.
+    examples:
+      - input: "parse_env('A=1\\n# c\\nexport B = \"x y\"\\nC=2 # comment')"
+        output: "{'A': '1', 'B': 'x y', 'C': '2'}"
+    starter: |
+      def parse_env(text):
+          return dict(line.split("=") for line in text.splitlines())
+    hints:
+      - "Перебирайте `enumerate(text.splitlines(), start=1)`; `line.strip()`, пропуск пустых и `#`; `line.removeprefix(\"export \")`; `name, sep, value = line.partition(\"=\")`."
+      - "Кавычки: `if len(value) >= 2 and value[0] == value[-1] and value[0] in \"\\\"'\": value = value[1:-1]`, иначе `value = value.split(\" #\", 1)[0].strip()`."
+    solution: |
+      def parse_env(text):
+          """Разобрать содержимое .env в словарь строк."""
+          result = {}
+          for number, raw in enumerate(text.splitlines(), start=1):
+              line = raw.strip()
+              if not line or line.startswith("#"):
+                  continue
+              body = line.removeprefix("export ").strip()
+              name, sep, value = body.partition("=")
+              name, value = name.strip(), value.strip()
+              if not sep or not name:
+                  raise ValueError(f"строка {number}: {line}")
+              if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                  value = value[1:-1]
+              else:
+                  value = value.split(" #", 1)[0].strip()
+              result[name] = value
+          return result
+    solution_explanation: "partition делит строку по первому «=», поэтому значения вида URL с параметрами (a=b) сохраняются целиком. Кавычки проверяются раньше комментария: внутри кавычек « #» — часть значения."
+    tests:
+      - name: "Пример"
+        call: "parse_env('A=1\\n# c\\nexport B = \"x y\"\\nC=2 # comment')"
+        expected: "{'A': '1', 'B': 'x y', 'C': '2'}"
+      - name: "Знак = в значении"
+        call: "parse_env('URL=https://x.io/?a=1&b=2')"
+        expected: "{'URL': 'https://x.io/?a=1&b=2'}"
+      - name: "Кавычки защищают #"
+        call: "parse_env(\"P='abc #1'\\nQ=\\\"\\\"\\nR=\")"
+        expected: "{'P': 'abc #1', 'Q': '', 'R': ''}"
+      - name: "Пустые строки, отступы и повторы"
+        call: "parse_env('\\n   \\n  # заголовок\\n  K = v1  \\nK=v2\\n')"
+        expected: "{'K': 'v2'}"
+      - name: "Строка без ="
+        code: |
+          try:
+              parse_env("A=1\n\n  BROKEN LINE  ")
+          except ValueError as error:
+              assert str(error) == "строка 3: BROKEN LINE", str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Пустое имя"
+        code: |
+          try:
+              parse_env("=value")
+          except ValueError as error:
+              assert str(error) == "строка 1: =value", str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Пусто"
+        call: "parse_env('')"
+        expected: "{}"
+
+  - id: t2
+    title: "Проверенные настройки"
+    difficulty: 2
+    statement: |
+      Напишите `load_settings(env)` — собрать настройки из словаря `env` (в программе это `os.environ`) в словарь с типами:
+
+      | Ключ результата | Переменная | Тип | По умолчанию | Ограничения |
+      |---|---|---|---|---|
+      | `api_key` | `LLM_API_KEY` | str | — (обязательна) | непустая |
+      | `timeout` | `LLM_TIMEOUT` | float | 30.0 | > 0 |
+      | `max_concurrency` | `MAX_CONCURRENCY` | int | 5 | от 1 до 100 |
+      | `debug` | `DEBUG` | bool | False | `1/true/yes/on` или `0/false/no/off` без учёта регистра и пробелов |
+
+      Ошибки собрать **все** и бросить один `ValueError` с сообщениями через `"; "` в порядке строк таблицы:
+
+      - `"LLM_API_KEY: обязательна"`;
+      - `"<ИМЯ>: не число"` (для float/int), `"<ИМЯ>: вне диапазона"`;
+      - `"DEBUG: не логическое значение"`.
+    examples:
+      - input: "load_settings({'LLM_API_KEY': 'sk', 'DEBUG': 'Yes'})"
+        output: "{'api_key': 'sk', 'timeout': 30.0, 'max_concurrency': 5, 'debug': True}"
+    starter: |
+      def load_settings(env):
+          return {
+              "api_key": env["LLM_API_KEY"],
+              "timeout": env.get("LLM_TIMEOUT", 30.0),
+              "max_concurrency": env.get("MAX_CONCURRENCY", 5),
+              "debug": bool(env.get("DEBUG")),
+          }
+    hints:
+      - "Заведите `errors = []` и для каждой переменной отдельный `try/except ValueError`, добавляя сообщение в список; в конце `if errors: raise ValueError(\"; \".join(errors))`."
+      - "`int(\"2.5\")` бросает ValueError — это тоже «не число». Для debug: `value.strip().lower()` и проверка по двум множествам."
+    solution: |
+      TRUE_VALUES = {"1", "true", "yes", "on"}
+      FALSE_VALUES = {"0", "false", "no", "off"}
+
+
+      def load_settings(env):
+          """Прочитать и проверить настройки, собрав все ошибки."""
+          errors = []
+          api_key = env.get("LLM_API_KEY", "").strip()
+          if not api_key:
+              errors.append("LLM_API_KEY: обязательна")
+
+          timeout = 30.0
+          if "LLM_TIMEOUT" in env:
+              try:
+                  timeout = float(env["LLM_TIMEOUT"])
+              except ValueError:
+                  errors.append("LLM_TIMEOUT: не число")
+              else:
+                  if not timeout > 0:
+                      errors.append("LLM_TIMEOUT: вне диапазона")
+
+          max_concurrency = 5
+          if "MAX_CONCURRENCY" in env:
+              try:
+                  max_concurrency = int(env["MAX_CONCURRENCY"])
+              except ValueError:
+                  errors.append("MAX_CONCURRENCY: не число")
+              else:
+                  if not 1 <= max_concurrency <= 100:
+                      errors.append("MAX_CONCURRENCY: вне диапазона")
+
+          debug = False
+          if "DEBUG" in env:
+              value = env["DEBUG"].strip().lower()
+              if value in TRUE_VALUES:
+                  debug = True
+              elif value not in FALSE_VALUES:
+                  errors.append("DEBUG: не логическое значение")
+
+          if errors:
+              raise ValueError("; ".join(errors))
+          return {"api_key": api_key, "timeout": timeout, "max_concurrency": max_concurrency, "debug": debug}
+    solution_explanation: "Каждая переменная проверяется независимо, и ошибки накапливаются в списке — пользователь видит всё, что нужно исправить, за один запуск. Функция получает env параметром, поэтому проверяется обычными словарями."
+    tests:
+      - name: "Пример"
+        call: "load_settings({'LLM_API_KEY': 'sk', 'DEBUG': 'Yes'})"
+        expected: "{'api_key': 'sk', 'timeout': 30.0, 'max_concurrency': 5, 'debug': True}"
+      - name: "Все значения заданы"
+        call: "load_settings({'LLM_API_KEY': 'k', 'LLM_TIMEOUT': '2.5', 'MAX_CONCURRENCY': '100', 'DEBUG': ' off '})"
+        expected: "{'api_key': 'k', 'timeout': 2.5, 'max_concurrency': 100, 'debug': False}"
+      - name: "Нет ключа"
+        code: |
+          try:
+              load_settings({})
+          except ValueError as error:
+              assert str(error) == "LLM_API_KEY: обязательна", str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Все ошибки сразу"
+        code: |
+          env = {"LLM_API_KEY": "  ", "LLM_TIMEOUT": "быстро", "MAX_CONCURRENCY": "2.5", "DEBUG": "ture"}
+          try:
+              load_settings(env)
+          except ValueError as error:
+              expected = ("LLM_API_KEY: обязательна; LLM_TIMEOUT: не число; "
+                          "MAX_CONCURRENCY: не число; DEBUG: не логическое значение")
+              assert str(error) == expected, str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Диапазоны"
+        code: |
+          try:
+              load_settings({"LLM_API_KEY": "k", "LLM_TIMEOUT": "0", "MAX_CONCURRENCY": "101"})
+          except ValueError as error:
+              assert str(error) == "LLM_TIMEOUT: вне диапазона; MAX_CONCURRENCY: вне диапазона", str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Флаг false"
+        call: "load_settings({'LLM_API_KEY': 'k', 'DEBUG': 'FALSE'})['debug']"
+        expected: "False"
+
+  - id: t3
+    title: "Маскировка секретов"
+    difficulty: 1
+    statement: |
+      Напишите:
+
+      - `mask(value)` — если длина значения меньше 12, вернуть `"***"`; иначе первые 3 символа + `"..."` + последние 4;
+      - `safe_config(config)` — вернуть **новый** словарь, где значения ключей, имя которых (без учёта регистра) содержит `key`, `token`, `secret` или `password`, заменены на `mask(str(значение))`; остальные значения не меняются. Исходный словарь не изменять.
+    examples:
+      - input: "safe_config({'api_key': 'sk-live-abcdef123456', 'timeout': 30})"
+        output: "{'api_key': 'sk-...3456', 'timeout': 30}"
+    starter: |
+      def mask(value):
+          return value
+
+
+      def safe_config(config):
+          return config
+    hints:
+      - "`any(marker in name.lower() for marker in (\"key\", \"token\", \"secret\", \"password\"))`."
+      - "Новый словарь — через словарное включение: `{name: (mask(str(v)) if is_secret(name) else v) for name, v in config.items()}`."
+    solution: |
+      SECRET_MARKERS = ("key", "token", "secret", "password")
+
+
+      def mask(value):
+          """Скрыть значение, оставив края длинных строк."""
+          if len(value) < 12:
+              return "***"
+          return f"{value[:3]}...{value[-4:]}"
+
+
+      def safe_config(config):
+          """Копия настроек со скрытыми секретами."""
+          def is_secret(name):
+              return any(marker in name.lower() for marker in SECRET_MARKERS)
+
+          return {name: (mask(str(value)) if is_secret(name) else value) for name, value in config.items()}
+    solution_explanation: "Секретность определяется по имени настройки, а не по значению. Короткие значения скрываются полностью — по краям их было бы легко восстановить."
+    tests:
+      - name: "Пример"
+        call: "safe_config({'api_key': 'sk-live-abcdef123456', 'timeout': 30})"
+        expected: "{'api_key': 'sk-...3456', 'timeout': 30}"
+      - name: "mask: граница 12"
+        call: "[mask('a' * 11), mask('abcdefghijkl')]"
+        expected: "['***', 'abc...ijkl']"
+      - name: "Регистр и разные маркеры"
+        call: "safe_config({'GITHUB_TOKEN': 'ghp_1234567890abcd', 'DB_Password': 'qwerty', 'Client_Secret': 12345678901234, 'model': 'mini'})"
+        expected: "{'GITHUB_TOKEN': 'ghp...abcd', 'DB_Password': '***', 'Client_Secret': '123...1234', 'model': 'mini'}"
+      - name: "Исходный словарь не меняется"
+        code: |
+          config = {"api_key": "sk-live-abcdef123456"}
+          result = safe_config(config)
+          assert config == {"api_key": "sk-live-abcdef123456"}, config
+          assert result is not config
+      - name: "Без секретов"
+        call: "safe_config({'timeout': 30, 'debug': False})"
+        expected: "{'timeout': 30, 'debug': False}"
+      - name: "Пусто"
+        call: "safe_config({})"
+        expected: "{}"
+
+  - id: t4
+    title: "Настройки из .env и окружения"
+    mode: local
+    difficulty: 3
+    statement: |
+      Скачайте архив. В `config.py` напишите `get_settings(env_file=".env")` с помощью python-dotenv:
+
+      - значения читаются из файла `env_file` (`dotenv_values`), если он существует, а затем **поверх** — из `os.environ` (настоящее окружение важнее файла);
+      - результат — `Settings` (dataclass уже описан): `api_key` из `LLM_API_KEY` (обязательна), `model` из `LLM_MODEL` (по умолчанию `"mini"`), `timeout` из `LLM_TIMEOUT` (float, по умолчанию 30.0);
+      - нет ключа → `RuntimeError("LLM_API_KEY не задан")`; таймаут не число → `RuntimeError("LLM_TIMEOUT должен быть числом")`;
+      - функция **не изменяет** `os.environ`.
+
+      Тесты используют фикстуры pytest `tmp_path` (временная папка) и `monkeypatch` (временно меняет окружение) — подробно о них в следующем блоке.
+
+      ```bash
+      pip install python-dotenv pytest
+      pytest -q
+      ```
+    files:
+      config.py: |
+        import os
+        from dataclasses import dataclass
+
+        from dotenv import dotenv_values
+
+
+        @dataclass(frozen=True)
+        class Settings:
+            api_key: str
+            model: str = "mini"
+            timeout: float = 30.0
+
+
+        def get_settings(env_file: str = ".env") -> Settings:
+            """Собрать настройки: .env, затем переменные окружения поверх."""
+            return Settings(api_key=os.environ["LLM_API_KEY"])
+      test_config.py: |
+        import os
+
+        import pytest
+
+        from config import Settings, get_settings
+
+
+        @pytest.fixture(autouse=True)
+        def clean_env(monkeypatch):
+            for name in ["LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT"]:
+                monkeypatch.delenv(name, raising=False)
+
+
+        def write_env(tmp_path, text):
+            path = tmp_path / ".env"
+            path.write_text(text, encoding="utf-8")
+            return str(path)
+
+
+        def test_from_file(tmp_path):
+            path = write_env(tmp_path, "LLM_API_KEY=file-key\nLLM_MODEL=large\nLLM_TIMEOUT=12.5\n")
+            assert get_settings(path) == Settings(api_key="file-key", model="large", timeout=12.5)
+
+
+        def test_environment_wins(tmp_path, monkeypatch):
+            path = write_env(tmp_path, "LLM_API_KEY=file-key\nLLM_MODEL=large\n")
+            monkeypatch.setenv("LLM_API_KEY", "env-key")
+            settings = get_settings(path)
+            assert settings.api_key == "env-key"
+            assert settings.model == "large"
+
+
+        def test_no_file_uses_environment(tmp_path, monkeypatch):
+            monkeypatch.setenv("LLM_API_KEY", "env-key")
+            settings = get_settings(str(tmp_path / "missing.env"))
+            assert settings == Settings(api_key="env-key")
+
+
+        def test_missing_key(tmp_path):
+            path = write_env(tmp_path, "LLM_MODEL=large\n")
+            with pytest.raises(RuntimeError, match="LLM_API_KEY не задан"):
+                get_settings(path)
+
+
+        def test_bad_timeout(tmp_path):
+            path = write_env(tmp_path, "LLM_API_KEY=k\nLLM_TIMEOUT=долго\n")
+            with pytest.raises(RuntimeError, match="LLM_TIMEOUT должен быть числом"):
+                get_settings(path)
+
+
+        def test_environ_not_modified(tmp_path):
+            path = write_env(tmp_path, "LLM_API_KEY=file-key\n")
+            get_settings(path)
+            assert "LLM_API_KEY" not in os.environ
+    run: "pytest -q"
+    hints:
+      - "`values = dict(dotenv_values(env_file)) if os.path.exists(env_file) else {}`, затем `values.update({k: v for k, v in os.environ.items() if k.startswith(\"LLM_\")})`."
+      - "Не вызывайте `load_dotenv` — он меняет `os.environ`. Таймаут: `try: timeout = float(values.get(\"LLM_TIMEOUT\", 30.0)) except ValueError: raise RuntimeError(...) from None`."
+    solution_files:
+      config.py: |
+        import os
+        from dataclasses import dataclass
+
+        from dotenv import dotenv_values
+
+
+        @dataclass(frozen=True)
+        class Settings:
+            api_key: str
+            model: str = "mini"
+            timeout: float = 30.0
+
+
+        def get_settings(env_file: str = ".env") -> Settings:
+            """Собрать настройки: .env, затем переменные окружения поверх."""
+            values = dict(dotenv_values(env_file)) if os.path.exists(env_file) else {}
+            values.update({name: value for name, value in os.environ.items() if name.startswith("LLM_")})
+
+            api_key = (values.get("LLM_API_KEY") or "").strip()
+            if not api_key:
+                raise RuntimeError("LLM_API_KEY не задан")
+            try:
+                timeout = float(values.get("LLM_TIMEOUT") or 30.0)
+            except ValueError:
+                raise RuntimeError("LLM_TIMEOUT должен быть числом") from None
+            return Settings(api_key=api_key, model=values.get("LLM_MODEL") or "mini", timeout=timeout)
+    solution_explanation: "dotenv_values читает файл в словарь, не трогая os.environ, а update с переменными окружения реализует приоритет «окружение важнее файла» — тот же, что у load_dotenv без override."

@@ -1,0 +1,866 @@
+title: "Практикум: типизация и валидация"
+description: |
+  Вопросы и задачи по всему блоку: аннотации типов, объединения и литералы, TypedDict и обобщённые типы, mypy, Pydantic и structured output.
+  Последняя задача — мини-проект «Валидатор конфигурации ML-эксперимента на Pydantic».
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def scale(values: list[float], k: float) -> list[float]:
+          return [v * k for v in values]
+
+
+      print(scale("ab", 2))
+    options:
+      - text: "`['aa', 'bb']`"
+        correct: true
+        why: "Аннотации не проверяются при выполнении: строка перебирается посимвольно."
+      - text: "TypeError: ожидался list[float]"
+        why: "Интерпретатор аннотации не проверяет."
+      - text: "`['ab', 'ab']`"
+        why: "Перебор строки даёт отдельные символы."
+    explanation: "Ошибку несоответствия типов найдёт mypy, а не Python."
+
+  - id: q2
+    type: single
+    prompt: "Как правильно аннотировать необязательный параметр, который может быть строкой или отсутствовать?"
+    options:
+      - text: "`title: str | None = None`"
+        correct: true
+        why: "«Строка или None» и значение по умолчанию None."
+      - text: "`title: str = None`"
+        why: "Аннотация str не допускает None — mypy сообщит об ошибке."
+      - text: "`title: Optional[str]` без значения по умолчанию"
+        why: "Параметр останется обязательным."
+      - text: "`title: None | str | bool`"
+        why: "bool здесь лишний."
+    explanation: "Необязательность задаёт значение по умолчанию, допустимость None — | None."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def describe(value: int | str) -> str:
+          if isinstance(value, int):
+              return "int"
+          return "str"
+
+
+      print(describe(True), describe("5"))
+    options:
+      - text: "`int str`"
+        correct: true
+        why: "bool — подкласс int, поэтому isinstance(True, int) истинно."
+      - text: "`str str`"
+        why: "True проходит проверку isinstance(value, int)."
+      - text: "TypeError"
+        why: "Аннотации не проверяются; выполнение доходит до isinstance."
+    explanation: "Помните: bool — разновидность int; проверяйте bool отдельно, если это важно."
+
+  - id: q4
+    type: single
+    prompt: "Что делает `Literal[\"train\", \"eval\"]` в аннотации обычной функции (без Pydantic)?"
+    options:
+      - text: "Сообщает mypy и редактору допустимые значения; при выполнении ничего не проверяет"
+        correct: true
+        why: "Аннотации — подсказки для инструментов."
+      - text: "Бросает ValueError для других строк"
+        why: "Проверки во время выполнения нет."
+      - text: "Создаёт перечисление Enum"
+        why: "Literal — не класс и не Enum."
+      - text: "Приводит строку к нижнему регистру"
+        why: "Никаких преобразований."
+    explanation: "Проверку во время выполнения Literal получает только в Pydantic."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from typing import TypedDict
+
+
+      class Row(TypedDict):
+          text: str
+          label: int
+
+
+      row: Row = {"text": "ok", "label": 1}
+      print(type(row) is dict, list(row))
+    options:
+      - text: "`True ['text', 'label']`"
+        correct: true
+        why: "TypedDict во время выполнения — обычный словарь."
+      - text: "`False ['text', 'label']`"
+        why: "Объект типа Row не создаётся — это просто dict."
+      - text: "TypeError"
+        why: "Аннотация переменной корректна."
+    explanation: "TypedDict описывает форму словаря для анализатора."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def longest[T](items: list[T], key_len) -> T:
+          return max(items, key=key_len)
+
+
+      print(longest(["a", "abc", "ab"], len), longest([[1], [1, 2]], len))
+    options:
+      - text: "`abc [1, 2]`"
+        correct: true
+        why: "Обобщённая функция работает с элементами любого типа."
+      - text: "`3 2`"
+        why: "Возвращается сам элемент, а не его длина."
+      - text: "TypeError: T не определён"
+        why: "Синтаксис def f[T] поддерживается с Python 3.12."
+    explanation: "Переменная типа связывает тип элементов и результата."
+
+  - id: q7
+    type: single
+    prompt: "mypy молчит об очевидной ошибке в функции `def f(x): return x + 1 + \"a\"`. Почему?"
+    options:
+      - text: "Функция без аннотаций по умолчанию не проверяется"
+        correct: true
+        why: "Нужен --strict или аннотации."
+      - text: "mypy проверяет только классы"
+        why: "Проверяет и функции."
+      - text: "Ошибки нет"
+        why: "1 + \"a\" — TypeError при выполнении."
+      - text: "mypy проверяет только импортированные модули"
+        why: "Проверяет переданные ему файлы."
+    explanation: "Постепенная типизация: неаннотированный код считается Any."
+
+  - id: q8
+    type: find_bug
+    prompt: "Как правильно исправить ошибку mypy `Item \"None\" of \"str | None\" has no attribute \"split\"`?"
+    code: |
+      def words(text: str | None) -> list[str]:
+          return text.split()
+    options:
+      - text: "Обработать None: `if text is None: return []` перед split"
+        correct: true
+        why: "После проверки тип сузится до str."
+      - text: "Добавить `# type: ignore` в конце строки"
+        why: "Это спрячет ошибку, а при None программа упадёт."
+      - text: "Заменить аннотацию на `text: Any`"
+        why: "Проверка отключится, проблема останется."
+    explanation: "Исправляйте причину — необработанный None."
+
+  - id: q9
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from pydantic import BaseModel, Field, ValidationError
+
+
+      class Cfg(BaseModel):
+          lr: float = Field(gt=0)
+          batch: int = 32
+
+
+      try:
+          print(Cfg(lr="0.01", batch="64"))
+          Cfg(lr=0)
+      except ValidationError as error:
+          print(error.errors()[0]["type"])
+    options:
+      - text: |
+          ```
+          lr=0.01 batch=64
+          greater_than
+          ```
+        correct: true
+        why: "Строки приведены к числам; lr=0 нарушает gt=0."
+      - text: |
+          ```
+          lr='0.01' batch='64'
+          greater_than
+          ```
+        why: "Pydantic приводит значения к аннотированным типам."
+      - text: "`greater_than`"
+        why: "Первая модель создаётся успешно и печатается."
+    explanation: "Pydantic проверяет и преобразует данные при создании модели."
+
+  - id: q10
+    type: multiple
+    prompt: "Что верно про валидаторы Pydantic? Выберите все."
+    options:
+      - text: "`@field_validator` должен вернуть итоговое значение поля"
+        correct: true
+        why: "Иначе поле станет None."
+      - text: "`@model_validator(mode=\"after\")` видит все уже проверенные поля"
+        correct: true
+        why: "Подходит для проверок, связывающих несколько полей."
+      - text: "Ошибку сигнализируют через raise ValueError"
+        correct: true
+        why: "Pydantic превратит её в ValidationError."
+      - text: "Валидатор с mode=\"before\" получает уже приведённое к типу значение"
+        why: "before получает сырое значение до проверки типа."
+    explanation: "before — до встроенной проверки, after — после."
+
+  - id: q11
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from pydantic import BaseModel, ConfigDict, ValidationError
+
+
+      class Settings(BaseModel):
+          model_config = ConfigDict(extra="forbid")
+          temperature: float = 0.7
+
+
+      try:
+          Settings(temperatur=0.1)
+      except ValidationError as error:
+          print(error.errors()[0]["type"], error.errors()[0]["loc"])
+    options:
+      - text: "`extra_forbidden ('temperatur',)`"
+        correct: true
+        why: "Опечатка в имени поля стала ошибкой благодаря extra=\"forbid\"."
+      - text: "`missing ('temperature',)`"
+        why: "У temperature есть значение по умолчанию."
+      - text: "Ничего — опечатка игнорируется"
+        why: "Так было бы без extra=\"forbid\"."
+    explanation: "extra=\"forbid\" защищает конфигурации от опечаток."
+
+  - id: q12
+    type: single
+    prompt: "Ответ API использует ключ `\"maxTokens\"`, а в коде хочется писать `max_tokens`. Что использовать?"
+    options:
+      - text: "`max_tokens: int = Field(alias=\"maxTokens\")` и `model_dump(by_alias=True)` при отправке"
+        correct: true
+        why: "Псевдоним связывает имя поля и ключ JSON."
+      - text: "Назвать поле maxTokens"
+        why: "Работает, но нарушает PEP 8 во всём коде."
+      - text: "Переименовывать ключи вручную до и после каждого вызова"
+        why: "Этим и занимается alias."
+      - text: "Это невозможно"
+        why: "Возможно — через alias."
+    explanation: "alias изолирует стиль внешнего API."
+
+  - id: q13
+    type: multiple
+    prompt: "Почему ответы LLM в structured output нужно проверять Pydantic-моделью? Выберите все."
+    options:
+      - text: "Модель может обернуть JSON в текст или markdown"
+        correct: true
+        why: "Нужно извлечение и проверка."
+      - text: "Модель может пропустить поле или вернуть значение не того типа"
+        correct: true
+        why: "Проверка ловит это сразу."
+      - text: "Модель может придумать категорию вне допустимого списка"
+        correct: true
+        why: "Literal-поле отвергнет такой ответ."
+      - text: "Без проверки ответ LLM нельзя прочитать как строку"
+        why: "Строку читать можно — нельзя доверять её структуре."
+    explanation: "Схема в промпте — пожелание, проверка — гарантия."
+
+tasks:
+  - id: t1
+    title: "Типизированный подсчёт"
+    difficulty: 1
+    statement: |
+      Опишите TypedDict `WordStat` с ключами `word: str` и `count: int` и напишите аннотированные функции:
+
+      - `merge_counts(a: dict[str, int], b: dict[str, int]) -> dict[str, int]` — сумма счётчиков (исходные словари не меняются);
+      - `top(counts: dict[str, int], n: int = 3) -> list[WordStat]` — `n` самых частых слов (при равенстве — по алфавиту) в виде списка словарей `WordStat`.
+    examples:
+      - input: "top(merge_counts({\"кот\": 2}, {\"кот\": 1, \"пёс\": 3}))"
+        output: "[{'word': 'кот', 'count': 3}, {'word': 'пёс', 'count': 3}]"
+    starter: |
+      def merge_counts(a, b):
+          a.update(b)
+          return a
+    hints:
+      - "`result = dict(a)`, затем для каждого ключа b — `result[key] = result.get(key, 0) + value`."
+      - "`sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:n]` и для каждой пары — `{\"word\": word, \"count\": count}`."
+    solution: |
+      from typing import TypedDict
+
+
+      class WordStat(TypedDict):
+          word: str
+          count: int
+
+
+      def merge_counts(a: dict[str, int], b: dict[str, int]) -> dict[str, int]:
+          """Сложить два счётчика слов."""
+          result = dict(a)
+          for key, value in b.items():
+              result[key] = result.get(key, 0) + value
+          return result
+
+
+      def top(counts: dict[str, int], n: int = 3) -> list[WordStat]:
+          """Самые частые слова."""
+          ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:n]
+          return [{"word": word, "count": count} for word, count in ranked]
+    solution_explanation: "TypedDict описывает форму элементов результата — потребителю видно, какие ключи у каждого словаря, а данные остаются обычными словарями, готовыми к JSON."
+    tests:
+      - name: "Пример"
+        call: "top(merge_counts({\"кот\": 2}, {\"кот\": 1, \"пёс\": 3}))"
+        expected: "[{'word': 'кот', 'count': 3}, {'word': 'пёс', 'count': 3}]"
+      - name: "Исходные не меняются"
+        code: |
+          a, b = {"x": 1}, {"x": 2, "y": 1}
+          assert merge_counts(a, b) == {"x": 3, "y": 1} and a == {"x": 1} and b == {"x": 2, "y": 1}
+      - name: "n"
+        call: "top({\"a\": 1, \"b\": 5, \"c\": 2}, n=1)"
+        expected: "[{'word': 'b', 'count': 5}]"
+      - name: "Аннотации"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(merge_counts) == {"a": dict[str, int], "b": dict[str, int], "return": dict[str, int]}
+          assert get_type_hints(top)["return"] == list[WordStat]
+          assert WordStat.__required_keys__ == {"word", "count"}
+      - name: "Пусто"
+        call: "[merge_counts({}, {}), top({})]"
+        expected: "[{}, []]"
+
+  - id: t2
+    title: "Обобщённая очередь с приоритетом"
+    difficulty: 2
+    statement: |
+      Создайте обобщённый класс `PriorityQueue[T]` (или `Generic[T]`):
+
+      - `push(item: T, priority: int) -> None`;
+      - `pop() -> T` — элемент с наибольшим приоритетом; при равных приоритетах — добавленный раньше; пустая очередь → `IndexError`;
+      - `peek() -> T | None` — то же без удаления (для пустой — `None`);
+      - `len(queue)`.
+    examples:
+      - input: "q = PriorityQueue[str](); q.push(\"low\", 1); q.push(\"high\", 5); q.push(\"high2\", 5); [q.pop(), q.pop(), q.pop()]"
+        output: "['high', 'high2', 'low']"
+    starter: |
+      class PriorityQueue:
+          def __init__(self):
+              self.items = []
+
+          def push(self, item, priority):
+              self.items.append(item)
+
+          def pop(self):
+              return self.items.pop()
+    hints:
+      - "Храните кортежи `(priority, order, item)`, где `order` — порядковый номер добавления."
+      - "Лучший элемент: максимум по `(priority, -order)` — `max(range(len(self._items)), key=...)` даст индекс для удаления."
+    solution: |
+      class PriorityQueue[T]:
+          """Очередь: первым выходит элемент с наибольшим приоритетом."""
+
+          def __init__(self) -> None:
+              self._items: list[tuple[int, int, T]] = []
+              self._counter = 0
+
+          def push(self, item: T, priority: int) -> None:
+              self._items.append((priority, self._counter, item))
+              self._counter += 1
+
+          def _best_index(self) -> int:
+              return max(range(len(self._items)), key=lambda i: (self._items[i][0], -self._items[i][1]))
+
+          def pop(self) -> T:
+              if not self._items:
+                  raise IndexError("очередь пуста")
+              return self._items.pop(self._best_index())[2]
+
+          def peek(self) -> T | None:
+              if not self._items:
+                  return None
+              return self._items[self._best_index()][2]
+
+          def __len__(self) -> int:
+              return len(self._items)
+    solution_explanation: "Порядковый номер добавления разрешает ничьи по приоритету: среди равных первым выходит более ранний. Параметр T сообщает анализатору, что pop очереди строк вернёт строку."
+    tests:
+      - name: "Пример"
+        code: |
+          q = PriorityQueue[str]()
+          q.push("low", 1)
+          q.push("high", 5)
+          q.push("high2", 5)
+          assert [q.pop(), q.pop(), q.pop()] == ["high", "high2", "low"]
+      - name: "peek и len"
+        code: |
+          q = PriorityQueue()
+          assert q.peek() is None and len(q) == 0
+          q.push({"task": "a"}, 2)
+          assert q.peek() == {"task": "a"} and len(q) == 1
+      - name: "Пустая очередь"
+        code: |
+          try:
+              PriorityQueue().pop()
+          except IndexError:
+              pass
+          else:
+              raise AssertionError("Ожидался IndexError")
+      - name: "Отрицательные приоритеты"
+        code: |
+          q = PriorityQueue()
+          for item, priority in (("a", -5), ("b", 0), ("c", -1)):
+              q.push(item, priority)
+          assert [q.pop() for _ in range(3)] == ["b", "c", "a"]
+      - name: "Обобщённый класс"
+        code: |
+          assert len(getattr(PriorityQueue, "__parameters__", ())) == 1, "Класс должен иметь параметр типа T"
+
+  - id: t3
+    title: "Модель товара"
+    difficulty: 2
+    statement: |
+      Pydantic-модель `Product` (`extra="forbid"`, `str_strip_whitespace=True`):
+
+      - `sku: str` — формат `ABC-1234` (три заглавные латинские буквы, дефис, четыре цифры); перед проверкой приводится к верхнему регистру;
+      - `title: str` — от 2 до 100 символов;
+      - `price: float` — больше 0;
+      - `discount: float` — от 0 до 0.9, по умолчанию 0;
+      - `tags: list[str]` — по умолчанию пустой; теги приводятся к нижнему регистру, повторы удаляются с сохранением порядка;
+      - метод `final_price() -> float` — цена со скидкой, округлённая до 2 знаков.
+    examples:
+      - input: "Product(sku=\"abc-0001\", title=\" Ноутбук \", price=1000, discount=0.15, tags=[\"Tech\", \"tech\", \"Sale\"]).model_dump()"
+        output: "{'sku': 'ABC-0001', 'title': 'Ноутбук', 'price': 1000.0, 'discount': 0.15, 'tags': ['tech', 'sale']}"
+    starter: |
+      from pydantic import BaseModel
+
+
+      class Product(BaseModel):
+          sku: str
+          title: str
+          price: float
+    hints:
+      - "`sku: str = Field(pattern=r\"^[A-Z]{3}-\\d{4}$\")` и валидатор `mode=\"before\"`, который делает `.strip().upper()` для строк."
+      - "Теги — `@field_validator(\"tags\")`: `list(dict.fromkeys(tag.lower() for tag in value))` — словарь сохраняет порядок и убирает повторы."
+    solution: |
+      from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+      class Product(BaseModel):
+          model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+          sku: str = Field(pattern=r"^[A-Z]{3}-\d{4}$")
+          title: str = Field(min_length=2, max_length=100)
+          price: float = Field(gt=0)
+          discount: float = Field(default=0, ge=0, le=0.9)
+          tags: list[str] = []
+
+          @field_validator("sku", mode="before")
+          @classmethod
+          def upper_sku(cls, value: object) -> object:
+              return value.strip().upper() if isinstance(value, str) else value
+
+          @field_validator("tags")
+          @classmethod
+          def normalize_tags(cls, value: list[str]) -> list[str]:
+              return list(dict.fromkeys(tag.lower() for tag in value))
+
+          def final_price(self) -> float:
+              return round(self.price * (1 - self.discount), 2)
+    solution_explanation: "Нормализация (регистр, пробелы, повторы) и проверка (формат, диапазоны) описаны в одном месте — модели. Валидатор before подготавливает значение к встроенной проверке pattern."
+    tests:
+      - name: "Пример"
+        call: "Product(sku=\"abc-0001\", title=\" Ноутбук \", price=1000, discount=0.15, tags=[\"Tech\", \"tech\", \"Sale\"]).model_dump()"
+        expected: "{'sku': 'ABC-0001', 'title': 'Ноутбук', 'price': 1000.0, 'discount': 0.15, 'tags': ['tech', 'sale']}"
+      - name: "final_price"
+        call: "Product(sku=\"XYZ-9999\", title=\"Мышь\", price=999.99, discount=0.1).final_price()"
+        expected: "899.99"
+      - name: "Неверные данные"
+        code: |
+          from pydantic import ValidationError
+          bad_cases = [
+              {"sku": "AB-1234", "title": "ok", "price": 1},
+              {"sku": "ABC-1234", "title": "x", "price": 1},
+              {"sku": "ABC-1234", "title": "ok", "price": 0},
+              {"sku": "ABC-1234", "title": "ok", "price": 1, "discount": 0.95},
+              {"sku": "ABC-1234", "title": "ok", "price": 1, "color": "red"},
+          ]
+          for data in bad_cases:
+              try:
+                  Product(**data)
+              except ValidationError:
+                  pass
+              else:
+                  raise AssertionError(f"{data} должен вызывать ValidationError")
+      - name: "Теги по умолчанию независимы"
+        code: |
+          a = Product(sku="AAA-0000", title="ok", price=1)
+          b = Product(sku="BBB-0000", title="ok", price=1)
+          a.tags.append("x")
+          assert b.tags == []
+      - name: "Приведение цены"
+        call: "Product(sku=\"aaa-1111\", title=\"ok\", price=\"12.5\").price"
+        expected: "12.5"
+
+  - id: t4
+    title: "Извлечение заказа из ответа модели"
+    difficulty: 3
+    statement: |
+      LLM извлекает заказ из письма клиента и отвечает JSON (иногда внутри текста или markdown-блока). Опишите модели:
+
+      - `OrderItem`: `name: str` (не пустая), `quantity: int` (≥ 1), `unit_price: float` (> 0);
+      - `Order`: `customer: str`, `items: list[OrderItem]` (хотя бы один), `currency: Literal["RUB", "USD"] = "RUB"`; метод `total() -> float` — сумма `quantity * unit_price`, округлённая до 2 знаков.
+
+      Функция `parse_order(answer: str) -> Order | list[str]`: извлекает JSON (markdown-блок или подстрока от первой `{` до последней `}`), проверяет и возвращает `Order`; при ошибке — список строк `"<путь через точку>: <type>"` (для ошибки без поля — `"json: <type>"`).
+    examples:
+      - input: "parse_order('Готово: {\"customer\": \"Ада\", \"items\": [{\"name\": \"чай\", \"quantity\": 2, \"unit_price\": 150}]}').total()"
+        output: "300.0"
+    starter: |
+      import json
+
+
+      def parse_order(answer):
+          return json.loads(answer)
+    hints:
+      - "Используйте `re.search(r\"```(?:json)?\\s*(\\{.*?\\})\\s*```\", text, re.DOTALL)`, затем поиск `{` … `}`."
+      - "Путь: `\".\".join(str(p) for p in item[\"loc\"]) or \"json\"`; `items: list[OrderItem] = Field(min_length=1)`."
+    solution: |
+      import re
+      from typing import Literal
+
+      from pydantic import BaseModel, Field, ValidationError
+
+
+      class OrderItem(BaseModel):
+          name: str = Field(min_length=1)
+          quantity: int = Field(ge=1)
+          unit_price: float = Field(gt=0)
+
+
+      class Order(BaseModel):
+          customer: str
+          items: list[OrderItem] = Field(min_length=1)
+          currency: Literal["RUB", "USD"] = "RUB"
+
+          def total(self) -> float:
+              return round(sum(item.quantity * item.unit_price for item in self.items), 2)
+
+
+      def _extract_json(text: str) -> str:
+          fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+          if fenced:
+              return fenced.group(1)
+          start, end = text.find("{"), text.rfind("}")
+          return text[start:end + 1] if start != -1 and end > start else text
+
+
+      def parse_order(answer: str) -> Order | list[str]:
+          """Заказ из ответа модели или список ошибок."""
+          try:
+              return Order.model_validate_json(_extract_json(answer))
+          except ValidationError as error:
+              return [
+                  f"{'.'.join(str(part) for part in item['loc']) or 'json'}: {item['type']}"
+                  for item in error.errors()
+              ]
+    solution_explanation: "Извлечение JSON, проверка схемы и бизнес-логика (total) разделены. Список ошибок с путями вида items.1.quantity удобно и показать оператору, и отправить модели для исправления."
+    tests:
+      - name: "Пример"
+        call: "parse_order('Готово: {\"customer\": \"Ада\", \"items\": [{\"name\": \"чай\", \"quantity\": 2, \"unit_price\": 150}]}').total()"
+        expected: "300.0"
+      - name: "Markdown-блок и валюта"
+        code: |
+          order = parse_order('```json\n{"customer": "Алан", "items": [{"name": "книга", "quantity": 1, "unit_price": 9.99}, {"name": "ручка", "quantity": 3, "unit_price": 0.5}], "currency": "USD"}\n```')
+          assert isinstance(order, Order) and order.currency == "USD" and order.total() == 11.49
+      - name: "Ошибки в позициях"
+        call: "parse_order('{\"customer\": \"Ада\", \"items\": [{\"name\": \"чай\", \"quantity\": 1, \"unit_price\": 1}, {\"name\": \"\", \"quantity\": 0, \"unit_price\": 5}]}')"
+        expected: "['items.1.name: string_too_short', 'items.1.quantity: greater_than_equal']"
+      - name: "Пустой заказ и неизвестная валюта"
+        call: "parse_order('{\"customer\": \"Ада\", \"items\": [], \"currency\": \"EUR\"}')"
+        expected: "['items: too_short', 'currency: literal_error']"
+      - name: "Нет JSON"
+        call: "parse_order(\"Не удалось найти заказ в письме\")"
+        expected: "['json: json_invalid']"
+
+  - id: t5
+    title: "Мини-проект: валидатор конфигурации ML-эксперимента"
+    difficulty: 3
+    mini_project: true
+    statement: |
+      Ошибка в конфигурации эксперимента — отрицательный learning rate, опечатка в имени оптимизатора, доли выборок, не дающие в сумме 1, — обнаруживается обычно через несколько часов обучения. Сделайте валидатор, который ловит такие ошибки **до запуска**.
+
+      Все модели — с `extra="forbid"`.
+
+      **`ModelConfig`**: `architecture: Literal["mlp", "cnn", "transformer"]`; `hidden_sizes: list[int]` — хотя бы один элемент, каждый > 0 (свой валидатор; сообщение `"размеры слоёв должны быть положительными"`); `dropout: float` от 0 (включительно) до 1 (не включительно), по умолчанию 0.1.
+
+      **`TrainingConfig`**: `learning_rate: float` (> 0, ≤ 1); `batch_size: int` — степень двойки от 1 до 4096 (сообщение `"batch_size должен быть степенью двойки"`); `epochs: int` от 1 до 1000; `optimizer: Literal["adam", "adamw", "sgd"] = "adam"`; `weight_decay: float` ≥ 0, по умолчанию 0; `warmup_epochs: int` ≥ 0, по умолчанию 0. Проверки модели: `warmup_epochs < epochs` (`"warmup_epochs должен быть меньше epochs"`); `weight_decay > 0` недопустим с `optimizer == "adam"` (`"для weight_decay используйте adamw или sgd"`).
+
+      **`DataConfig`**: `path: str` — оканчивается на `.jsonl` или `.csv` (`"поддерживаются только .jsonl и .csv"`); `train`, `val`, `test: float` — каждая от 0 до 1, сумма равна 1 с точностью `1e-6` (`"доли выборок должны давать в сумме 1"`); `max_samples: int | None = None` (если задан — ≥ 1).
+
+      **`ExperimentConfig`**: `name: str` — шаблон `^[a-z0-9_-]{3,40}$`; `seed: int` ≥ 0, по умолчанию 42; `model: ModelConfig`; `training: TrainingConfig`; `data: DataConfig`; `tags: list[str]` — по умолчанию пустой, приводятся к нижнему регистру, повторы удаляются с сохранением порядка.
+
+      **Функции**:
+
+      - `ConfigError(Exception)` с атрибутом `errors` — список строк;
+      - `format_errors(error: ValidationError) -> list[str]` — строки `"<путь через точку>: <msg>"` (для ошибки без пути — `"<config>: <msg>"`);
+      - `load_config(text: str) -> ExperimentConfig` — разбор JSON; при ошибке — `ConfigError`, сообщение — ошибки через `"; "`, атрибут `errors` — их список;
+      - `apply_overrides(config: ExperimentConfig, overrides: dict[str, object]) -> ExperimentConfig` — переопределения вида `{"training.learning_rate": 0.01}` (как из командной строки) применяются к копии конфигурации **с повторной проверкой**; неизвестный путь → `ConfigError`;
+      - `run_name(config: ExperimentConfig) -> str` — `"<name>-<architecture>-lr<learning_rate>-bs<batch_size>"`.
+    examples:
+      - input: "run_name(load_config(VALID))"
+        output: "'baseline-mlp-lr0.001-bs32'"
+    setup: |
+      import json
+
+      VALID_DICT = {
+          "name": "baseline",
+          "model": {"architecture": "mlp", "hidden_sizes": [128, 64]},
+          "training": {"learning_rate": 0.001, "batch_size": 32, "epochs": 10},
+          "data": {"path": "data/reviews.jsonl", "train": 0.8, "val": 0.1, "test": 0.1},
+          "tags": ["NLP", "nlp", "baseline"],
+      }
+      VALID = json.dumps(VALID_DICT)
+
+
+      def make(**changes):
+          data = json.loads(VALID)
+          for path, value in changes.items():
+              target = data
+              keys = path.split("__")
+              for key in keys[:-1]:
+                  target = target[key]
+              target[keys[-1]] = value
+          return json.dumps(data)
+    starter: |
+      import json
+
+      from pydantic import BaseModel
+
+
+      class ExperimentConfig(BaseModel):
+          name: str
+
+
+      def load_config(text):
+          return ExperimentConfig(**json.loads(text))
+    hints:
+      - "Вложенные модели: поля `model: ModelConfig`, `training: TrainingConfig`, `data: DataConfig`. Каждая — `model_config = ConfigDict(extra=\"forbid\")`. Степень двойки: `value > 0 and value & (value - 1) == 0`."
+      - "apply_overrides: `data = config.model_dump()`, пройдите по частям пути `path.split(\".\")` (проверяя, что ключ есть, иначе ConfigError), присвойте значение и создайте `ExperimentConfig.model_validate(data)` — ошибки ValidationError превратите в ConfigError через format_errors."
+    solution: |
+      from typing import Literal
+
+      from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+
+
+      class ConfigError(Exception):
+          """Конфигурация эксперимента некорректна."""
+
+          def __init__(self, errors: list[str]) -> None:
+              super().__init__("; ".join(errors))
+              self.errors = errors
+
+
+      class ModelConfig(BaseModel):
+          model_config = ConfigDict(extra="forbid")
+
+          architecture: Literal["mlp", "cnn", "transformer"]
+          hidden_sizes: list[int] = Field(min_length=1)
+          dropout: float = Field(default=0.1, ge=0, lt=1)
+
+          @field_validator("hidden_sizes")
+          @classmethod
+          def positive_sizes(cls, value: list[int]) -> list[int]:
+              if any(size <= 0 for size in value):
+                  raise ValueError("размеры слоёв должны быть положительными")
+              return value
+
+
+      class TrainingConfig(BaseModel):
+          model_config = ConfigDict(extra="forbid")
+
+          learning_rate: float = Field(gt=0, le=1)
+          batch_size: int = Field(ge=1, le=4096)
+          epochs: int = Field(ge=1, le=1000)
+          optimizer: Literal["adam", "adamw", "sgd"] = "adam"
+          weight_decay: float = Field(default=0, ge=0)
+          warmup_epochs: int = Field(default=0, ge=0)
+
+          @field_validator("batch_size")
+          @classmethod
+          def power_of_two(cls, value: int) -> int:
+              if value & (value - 1) != 0:
+                  raise ValueError("batch_size должен быть степенью двойки")
+              return value
+
+          @model_validator(mode="after")
+          def consistent(self) -> "TrainingConfig":
+              if self.warmup_epochs >= self.epochs:
+                  raise ValueError("warmup_epochs должен быть меньше epochs")
+              if self.weight_decay > 0 and self.optimizer == "adam":
+                  raise ValueError("для weight_decay используйте adamw или sgd")
+              return self
+
+
+      class DataConfig(BaseModel):
+          model_config = ConfigDict(extra="forbid")
+
+          path: str
+          train: float = Field(ge=0, le=1)
+          val: float = Field(ge=0, le=1)
+          test: float = Field(ge=0, le=1)
+          max_samples: int | None = Field(default=None, ge=1)
+
+          @field_validator("path")
+          @classmethod
+          def supported_format(cls, value: str) -> str:
+              if not value.endswith((".jsonl", ".csv")):
+                  raise ValueError("поддерживаются только .jsonl и .csv")
+              return value
+
+          @model_validator(mode="after")
+          def splits_sum_to_one(self) -> "DataConfig":
+              if abs(self.train + self.val + self.test - 1) > 1e-6:
+                  raise ValueError("доли выборок должны давать в сумме 1")
+              return self
+
+
+      class ExperimentConfig(BaseModel):
+          model_config = ConfigDict(extra="forbid")
+
+          name: str = Field(pattern=r"^[a-z0-9_-]{3,40}$")
+          seed: int = Field(default=42, ge=0)
+          model: ModelConfig
+          training: TrainingConfig
+          data: DataConfig
+          tags: list[str] = []
+
+          @field_validator("tags")
+          @classmethod
+          def normalize_tags(cls, value: list[str]) -> list[str]:
+              return list(dict.fromkeys(tag.lower() for tag in value))
+
+
+      def format_errors(error: ValidationError) -> list[str]:
+          """Ошибки валидации в виде «путь: сообщение»."""
+          lines = []
+          for item in error.errors():
+              path = ".".join(str(part) for part in item["loc"]) or "<config>"
+              lines.append(f"{path}: {item['msg']}")
+          return lines
+
+
+      def load_config(text: str) -> ExperimentConfig:
+          """Разобрать и проверить конфигурацию из JSON."""
+          try:
+              return ExperimentConfig.model_validate_json(text)
+          except ValidationError as error:
+              raise ConfigError(format_errors(error)) from None
+
+
+      def apply_overrides(config: ExperimentConfig, overrides: dict[str, object]) -> ExperimentConfig:
+          """Применить переопределения вида {"training.epochs": 5} с повторной проверкой."""
+          data = config.model_dump()
+          for path, value in overrides.items():
+              *parents, last = path.split(".")
+              target = data
+              for key in parents:
+                  if not isinstance(target, dict) or key not in target:
+                      raise ConfigError([f"{path}: неизвестный параметр"])
+                  target = target[key]
+              if not isinstance(target, dict) or last not in target:
+                  raise ConfigError([f"{path}: неизвестный параметр"])
+              target[last] = value
+          try:
+              return ExperimentConfig.model_validate(data)
+          except ValidationError as error:
+              raise ConfigError(format_errors(error)) from None
+
+
+      def run_name(config: ExperimentConfig) -> str:
+          """Имя запуска для логов и чекпоинтов."""
+          training = config.training
+          return f"{config.name}-{config.model.architecture}-lr{training.learning_rate}-bs{training.batch_size}"
+    solution_explanation: |
+      Конфигурация описана иерархией моделей — так же, как она выглядит в JSON. Каждый уровень проверяет своё:
+
+      - **типы и диапазоны** — аннотации, `Literal` и `Field(gt=..., le=...)`;
+      - **правила для одного поля** — `@field_validator` (степень двойки, формат файла, положительные размеры, нормализация тегов);
+      - **правила для нескольких полей** — `@model_validator(mode="after")` (warmup меньше числа эпох, совместимость оптимизатора и weight decay, сумма долей);
+      - **опечатки** — `extra="forbid"` на каждом уровне.
+
+      `apply_overrides` не меняет конфигурацию «в обход» проверок: изменения применяются к словарю, и модель создаётся заново — значит, переопределение `training.learning_rate=-1` из командной строки будет поймано так же, как ошибка в файле. Пути ошибок вида `training.batch_size` точно указывают, что исправить.
+
+      Так устроены конфигурации во многих ML-инструментах: Hydra и pydantic-settings, конфиги обучения в Lightning, параметры в FastAPI-сервисах инференса.
+    tests:
+      - name: "Корректная конфигурация"
+        code: |
+          config = load_config(VALID)
+          assert run_name(config) == "baseline-mlp-lr0.001-bs32", run_name(config)
+          assert config.tags == ["nlp", "baseline"] and config.seed == 42 and config.model.dropout == 0.1
+          assert isinstance(config.training, TrainingConfig) and config.training.optimizer == "adam"
+      - name: "Ошибки типов и диапазонов с путями"
+        code: |
+          try:
+              load_config(make(training__learning_rate=0, model__architecture="rnn"))
+          except ConfigError as error:
+              paths = sorted(line.split(":")[0] for line in error.errors)
+              assert paths == ["model.architecture", "training.learning_rate"], error.errors
+          else:
+              raise AssertionError("Ожидался ConfigError")
+      - name: "Свои проверки полей"
+        code: |
+          cases = {
+              "batch_size должен быть степенью двойки": make(training__batch_size=48),
+              "поддерживаются только .jsonl и .csv": make(data__path="data/reviews.xlsx"),
+              "размеры слоёв должны быть положительными": make(model__hidden_sizes=[64, 0]),
+          }
+          for message, text in cases.items():
+              try:
+                  load_config(text)
+              except ConfigError as error:
+                  assert any(message in line for line in error.errors), error.errors
+              else:
+                  raise AssertionError(f"Ожидалась ошибка «{message}»")
+      - name: "Проверки моделей"
+        code: |
+          cases = {
+              "warmup_epochs должен быть меньше epochs": make(training__warmup_epochs=10),
+              "для weight_decay используйте adamw или sgd": make(training__weight_decay=0.01),
+              "доли выборок должны давать в сумме 1": make(data__val=0.2),
+          }
+          for message, text in cases.items():
+              try:
+                  load_config(text)
+              except ConfigError as error:
+                  assert any(message in line for line in error.errors), error.errors
+              else:
+                  raise AssertionError(f"Ожидалась ошибка «{message}»")
+          assert load_config(make(training__weight_decay=0.01, training__optimizer="adamw")).training.weight_decay == 0.01
+      - name: "Опечатки и имя"
+        code: |
+          for text, path in ((make(training__lerning_rate=0.1), "training.lerning_rate"), (make(name="Baseline!"), "name")):
+              try:
+                  load_config(text)
+              except ConfigError as error:
+                  assert any(line.startswith(path + ":") for line in error.errors), error.errors
+              else:
+                  raise AssertionError(f"Ожидалась ошибка в {path}")
+      - name: "Битый JSON"
+        code: |
+          try:
+              load_config("{name: baseline")
+          except ConfigError as error:
+              assert error.errors[0].startswith("<config>:") and str(error) == "; ".join(error.errors)
+          else:
+              raise AssertionError("Ожидался ConfigError")
+      - name: "apply_overrides"
+        code: |
+          config = load_config(VALID)
+          tuned = apply_overrides(config, {"training.learning_rate": "0.01", "training.batch_size": 64, "seed": 7})
+          assert (tuned.training.learning_rate, tuned.training.batch_size, tuned.seed) == (0.01, 64, 7)
+          assert config.training.learning_rate == 0.001, "Исходная конфигурация не должна меняться"
+          for overrides in ({"training.learning_rate": -1}, {"training.momentum": 0.9}, {"optim.lr": 1}):
+              try:
+                  apply_overrides(config, overrides)
+              except ConfigError:
+                  pass
+              else:
+                  raise AssertionError(f"{overrides} должен вызывать ConfigError")
+      - name: "max_samples и ConfigError"
+        code: |
+          assert load_config(make(data__max_samples=500)).data.max_samples == 500
+          try:
+              load_config(make(data__max_samples=0))
+          except ConfigError as error:
+              assert error.errors[0].startswith("data.max_samples:")
+          assert issubclass(ConfigError, Exception)

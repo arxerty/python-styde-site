@@ -1,0 +1,352 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import bisect
+
+      a = [1, 3, 3, 3, 7]
+      print(bisect.bisect_left(a, 3), bisect.bisect_right(a, 3), bisect.bisect_left(a, 5))
+    options:
+      - text: "`1 4 4`"
+        correct: true
+        why: "Первая тройка на позиции 1, после последней — 4; 5 вставилось бы перед 7."
+      - text: "`1 3 4`"
+        why: "bisect_right возвращает позицию после последнего равного — 4."
+      - text: "`0 4 5`"
+        why: "bisect_left(a, 3) — индекс первого элемента ≥ 3, это 1."
+    explanation: "bisect_right − bisect_left — число вхождений элемента."
+
+  - id: q2
+    type: single
+    prompt: "Какое условие обязательно для бинарного поиска?"
+    options:
+      - text: "Данные отсортированы по тому же порядку, по которому ищем"
+        correct: true
+        why: "Иначе отбрасывание половины неправомерно."
+      - text: "Длина списка — степень двойки"
+        why: "Работает с любой длиной."
+      - text: "Элементы — числа"
+        why: "Подходят любые сравнимые значения, например строки."
+      - text: "Элементы не повторяются"
+        why: "Повторы допустимы — bisect находит границы их серии."
+    explanation: "Бинарный поиск по неотсортированным данным даёт неверный ответ без ошибки."
+
+  - id: q3
+    type: find_bug
+    prompt: "Этот бинарный поиск иногда зацикливается. Почему?"
+    code: |
+      def search(items, target):
+          low, high = 0, len(items) - 1
+          while low <= high:
+              middle = (low + high) // 2
+              if items[middle] == target:
+                  return middle
+              if items[middle] < target:
+                  low = middle + 1
+              else:
+                  high = middle
+          return -1
+    options:
+      - text: "`high = middle` не сужает диапазон, когда low == high; нужно high = middle - 1"
+        correct: true
+        why: "При low == high == middle цикл повторяется бесконечно."
+      - text: "middle нужно округлять вверх"
+        why: "Проблема в обновлении high, а не в округлении."
+      - text: "Условие должно быть `while low < high`"
+        why: "С таким условием пропустится последний кандидат."
+    explanation: "Ошибки «на единицу» — главный риск ручного бинарного поиска; используйте bisect."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      people = [("Ада", 36), ("Алан", 41), ("Грейс", 36), ("Линус", 41)]
+      by_age = sorted(people, key=lambda p: p[1])
+      print([name for name, _ in by_age])
+    options:
+      - text: "`['Ада', 'Грейс', 'Алан', 'Линус']`"
+        correct: true
+        why: "Сортировка стабильна: при равном возрасте сохраняется исходный порядок."
+      - text: "`['Грейс', 'Ада', 'Линус', 'Алан']`"
+        why: "Timsort стабилен — порядок равных не меняется."
+      - text: "`['Ада', 'Алан', 'Грейс', 'Линус']`"
+        why: "Сортировка идёт по возрасту, а не по имени."
+    explanation: "Стабильность позволяет сортировать по нескольким ключам в несколько проходов."
+
+  - id: q5
+    type: single
+    prompt: "Почему сортировка слиянием работает за O(n log n)?"
+    options:
+      - text: "Список делится пополам log n раз, а слияние на каждом уровне обрабатывает n элементов"
+        correct: true
+        why: "log n уровней × n работы на уровне."
+      - text: "Каждый элемент сравнивается со всеми остальными"
+        why: "Это O(n²)."
+      - text: "Используется хеш-таблица"
+        why: "Сортировка слиянием основана на сравнениях."
+      - text: "Она не рекурсивна"
+        why: "Классическая версия рекурсивна."
+    explanation: "Разделяй и властвуй: глубина log n, работа на уровне — n."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно? Выберите все."
+    options:
+      - text: "Бинарный поиск по миллиарду элементов — около 30 шагов"
+        correct: true
+        why: "2³⁰ ≈ 10⁹."
+      - text: "Сортировка вставками почти линейна на почти отсортированных данных"
+        correct: true
+        why: "Элементы сдвигаются недалеко."
+      - text: "sorted и list.sort в Python стабильны"
+        correct: true
+        why: "Timsort — стабильный алгоритм."
+      - text: "Сортировать список ради одного поиска выгодно"
+        why: "Сортировка O(n log n) дороже одного линейного поиска."
+    explanation: "Выбор алгоритма зависит от данных и числа запросов."
+
+tasks:
+  - id: t1
+    title: "Бинарный поиск первого вхождения"
+    difficulty: 1
+    statement: |
+      Напишите `find_first(sorted_items, target)` **без** модуля `bisect`: индекс **первого** вхождения `target` в отсортированный список или `-1`. Сложность — O(log n): 10 000 запросов к списку из миллиона элементов должны выполняться быстро.
+    examples:
+      - input: "find_first([1, 2, 2, 2, 5], 2)"
+        output: "1"
+    starter: |
+      def find_first(sorted_items, target):
+          for i, item in enumerate(sorted_items):
+              if item == target:
+                  return i
+          return -1
+    hints:
+      - "Ищите левую границу: `low, high = 0, len(items)`; пока `low < high`: если `items[middle] < target` — `low = middle + 1`, иначе `high = middle`."
+      - "В конце проверьте: `low < len(items) and items[low] == target`."
+    solution: |
+      def find_first(sorted_items, target):
+          """Индекс первого вхождения target или -1."""
+          low, high = 0, len(sorted_items)
+          while low < high:
+              middle = (low + high) // 2
+              if sorted_items[middle] < target:
+                  low = middle + 1
+              else:
+                  high = middle
+          if low < len(sorted_items) and sorted_items[low] == target:
+              return low
+          return -1
+    solution_explanation: "Это поиск левой границы — так устроен bisect_left: диапазон [low, high) сужается, пока не останется позиция первого элемента ≥ target. Затем проверяется, равен ли он target."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        call: "find_first([1, 2, 2, 2, 5], 2)"
+        expected: "1"
+      - name: "Нет элемента"
+        call: "[find_first([1, 3, 5], 4), find_first([], 1), find_first([1, 3], 9)]"
+        expected: "[-1, -1, -1]"
+      - name: "Границы"
+        call: "[find_first([7, 7, 7], 7), find_first([1, 2, 3], 3)]"
+        expected: "[0, 2]"
+      - name: "Производительность"
+        code: |
+          data = [i // 3 for i in range(1_000_000)]
+          for q in range(0, 300_000, 30):
+              assert find_first(data, q) == q * 3
+      - name: "Без bisect"
+        code: |
+          assert "bisect" not in __source__ and ".index(" not in __source__
+
+  - id: t2
+    title: "Оценки и диапазоны через bisect"
+    difficulty: 1
+    statement: |
+      С помощью модуля `bisect`:
+
+      - `grade(score, breakpoints=(60, 70, 80, 90), grades="FDCBA")` — буква оценки: меньше 60 — F, 60–69 — D, …, 90 и выше — A;
+      - `count_in_range(sorted_values, low, high)` — сколько значений в отсортированном списке лежат в `[low, high]`.
+    examples:
+      - input: "[grade(s) for s in (33, 60, 77, 89, 90, 100)]"
+        output: "['F', 'D', 'C', 'B', 'A', 'A']"
+    starter: |
+      def grade(score, breakpoints=(60, 70, 80, 90), grades="FDCBA"):
+          return "F"
+    hints:
+      - "`grades[bisect.bisect_right(breakpoints, score)]` — индекс интервала, куда попал score."
+      - "`bisect_right(values, high) - bisect_left(values, low)`."
+    solution: |
+      import bisect
+
+
+      def grade(score, breakpoints=(60, 70, 80, 90), grades="FDCBA"):
+          """Буквенная оценка по границам."""
+          return grades[bisect.bisect_right(breakpoints, score)]
+
+
+      def count_in_range(sorted_values, low, high):
+          """Число значений в отрезке [low, high]."""
+          return bisect.bisect_right(sorted_values, high) - bisect.bisect_left(sorted_values, low)
+    solution_explanation: "bisect_right по границам интервалов возвращает номер интервала — классический приём из документации Python. Подсчёт в диапазоне — разность двух границ."
+    tests:
+      - name: "Пример"
+        call: "[grade(s) for s in (33, 60, 77, 89, 90, 100)]"
+        expected: "['F', 'D', 'C', 'B', 'A', 'A']"
+      - name: "Свои границы"
+        call: "[grade(0.4, (0.5,), \"нп\"), grade(0.5, (0.5,), \"нп\")]"
+        expected: "['н', 'п']"
+      - name: "count_in_range"
+        call: "count_in_range([1, 2, 2, 3, 5, 8], 2, 5)"
+        expected: "4"
+      - name: "Пустой диапазон"
+        call: "[count_in_range([1, 2, 3], 4, 9), count_in_range([], 0, 1)]"
+        expected: "[0, 0]"
+      - name: "Используется bisect"
+        code: |
+          assert "bisect" in __source__
+
+  - id: t3
+    title: "Сортировка слиянием"
+    difficulty: 2
+    statement: |
+      Реализуйте `merge_sort(items, key=None)` **без** `sorted` и `.sort()`: возвращает новый отсортированный список; `key` — функция ключа (как у `sorted`). Сортировка должна быть **стабильной** и работать за O(n log n): 50 000 элементов — быстро.
+    examples:
+      - input: "merge_sort([\"ccc\", \"a\", \"bb\", \"d\"], key=len)"
+        output: "['a', 'd', 'bb', 'ccc']"
+    starter: |
+      def merge_sort(items, key=None):
+          return sorted(items, key=key)
+    hints:
+      - "Если `key` не задан, используйте `lambda x: x`. Разбейте список пополам, рекурсивно отсортируйте половины и слейте."
+      - "Для стабильности при слиянии берите элемент из левой половины, если `key(left[i]) <= key(right[j])`."
+    solution: |
+      def merge_sort(items, key=None):
+          """Стабильная сортировка слиянием."""
+          if key is None:
+              key = lambda x: x
+          items = list(items)
+          if len(items) <= 1:
+              return items
+          middle = len(items) // 2
+          left = merge_sort(items[:middle], key)
+          right = merge_sort(items[middle:], key)
+          result = []
+          i = j = 0
+          while i < len(left) and j < len(right):
+              if key(left[i]) <= key(right[j]):
+                  result.append(left[i])
+                  i += 1
+              else:
+                  result.append(right[j])
+                  j += 1
+          result.extend(left[i:])
+          result.extend(right[j:])
+          return result
+    solution_explanation: "Знак <= при слиянии гарантирует стабильность: из равных элементов первым берётся тот, что стоял левее. Глубина рекурсии — log n, работа на уровне — n."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        call: "merge_sort([\"ccc\", \"a\", \"bb\", \"d\"], key=len)"
+        expected: "['a', 'd', 'bb', 'ccc']"
+      - name: "Числа"
+        call: "merge_sort([5, -1, 3, 3, 0])"
+        expected: "[-1, 0, 3, 3, 5]"
+      - name: "Стабильность"
+        call: "merge_sort([(\"b\", 1), (\"a\", 2), (\"c\", 1), (\"d\", 2)], key=lambda p: p[1])"
+        expected: "[('b', 1), ('c', 1), ('a', 2), ('d', 2)]"
+      - name: "Производительность и исходный список"
+        code: |
+          import random
+          rng = random.Random(1)
+          data = [rng.randint(0, 10**6) for _ in range(50_000)]
+          copy_before = list(data)
+          result = merge_sort(data)
+          assert data == copy_before, "Исходный список не должен меняться"
+          assert all(result[i] <= result[i + 1] for i in range(len(result) - 1))
+      - name: "Без sorted"
+        code: |
+          assert "sorted(" not in __source__ and ".sort(" not in __source__
+
+  - id: t4
+    title: "Минимальная вместимость"
+    difficulty: 3
+    statement: |
+      Грузы (`weights`) нужно отправить **по порядку** за `days` дней: каждый день отправляется несколько подряд идущих грузов, суммарный вес которых не больше вместимости. Найдите минимальную вместимость `min_capacity(weights, days)`.
+
+      Используйте бинарный поиск по ответу: вместимость не меньше максимального груза и не больше суммы всех; проверка «уложимся ли за days дней» монотонна. Для 100 000 грузов — быстро. `days < 1` или пустой список → `ValueError`.
+    examples:
+      - input: "min_capacity([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 5)"
+        output: "15"
+    starter: |
+      def min_capacity(weights, days):
+          capacity = max(weights)
+          while True:
+              used, load = 1, 0
+              for w in weights:
+                  if load + w > capacity:
+                      used, load = used + 1, 0
+                  load += w
+              if used <= days:
+                  return capacity
+              capacity += 1
+    hints:
+      - "Вспомогательная `days_needed(weights, capacity)`: жадно грузите, пока помещается, и считайте дни."
+      - "`low, high = max(weights), sum(weights)`; пока `low < high`: `middle = (low + high) // 2`; если `days_needed(middle) <= days` — `high = middle`, иначе `low = middle + 1`."
+    solution: |
+      def days_needed(weights, capacity):
+          """Сколько дней нужно при данной вместимости (жадно)."""
+          days, load = 1, 0
+          for weight in weights:
+              if load + weight > capacity:
+                  days += 1
+                  load = 0
+              load += weight
+          return days
+
+
+      def min_capacity(weights, days):
+          """Минимальная вместимость, чтобы уложиться в days дней."""
+          if days < 1 or not weights:
+              raise ValueError("нужны грузы и хотя бы один день")
+          low, high = max(weights), sum(weights)
+          while low < high:
+              middle = (low + high) // 2
+              if days_needed(weights, middle) <= days:
+                  high = middle
+              else:
+                  low = middle + 1
+          return low
+    solution_explanation: "Чем больше вместимость, тем меньше нужно дней — проверка монотонна. Поэтому вместо перебора всех вместимостей (до суммы весов) хватает log₂(сумма) проверок, каждая за O(n)."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        call: "min_capacity([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 5)"
+        expected: "15"
+      - name: "Один день и много дней"
+        call: "[min_capacity([3, 2, 2, 4, 1, 4], 1), min_capacity([3, 2, 2, 4, 1, 4], 6)]"
+        expected: "[16, 4]"
+      - name: "Классический пример"
+        call: "min_capacity([3, 2, 2, 4, 1, 4], 3)"
+        expected: "6"
+      - name: "Ошибки"
+        code: |
+          for args in (([], 3), ([1, 2], 0)):
+              try:
+                  min_capacity(*args)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"{args} должен вызывать ValueError")
+      - name: "Производительность"
+        code: |
+          def need(ws, cap):
+              days, load = 1, 0
+              for w in ws:
+                  if load + w > cap:
+                      days += 1
+                      load = 0
+                  load += w
+              return days
+          weights = [(i * 7919) % 500 + 1 for i in range(100_000)]
+          capacity = min_capacity(weights, 10)
+          assert need(weights, capacity) <= 10 < need(weights, capacity - 1), "Вместимость должна быть минимальной"

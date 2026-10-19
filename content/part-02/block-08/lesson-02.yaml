@@ -1,0 +1,805 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "Сколько раз вызывается фикстура без параметра `scope`, если её используют три теста?"
+    options:
+      - text: "Три раза — для каждого теста заново"
+        correct: true
+        why: "scope по умолчанию — function: каждый тест получает свежий объект."
+      - text: "Один раз на весь запуск"
+        why: "Так ведёт себя scope=\"session\"."
+      - text: "Один раз на файл"
+        why: "Так ведёт себя scope=\"module\"."
+      - text: "Ни разу, пока её не вызовут явно"
+        why: "Фикстуры не вызывают явно — pytest вызывает их сам по именам параметров."
+    explanation: "Свежая фикстура для каждого теста — основа независимости тестов."
+
+  - id: q2
+    type: output
+    prompt: "Здесь вручную повторено то, что pytest делает с двумя yield-фикстурами. Что выведет код?"
+    code: |
+      def database():
+          print("открыть БД")
+          yield "db"
+          print("закрыть БД")
+
+      def client():
+          print("создать клиент")
+          yield "client"
+          print("закрыть клиент")
+
+      first, second = database(), client()
+      next(first)
+      next(second)
+      print("тест")
+      for fixture in [second, first]:
+          next(fixture, None)
+    options:
+      - text: |
+          ```text
+          открыть БД
+          создать клиент
+          тест
+          закрыть клиент
+          закрыть БД
+          ```
+        correct: true
+        why: "Уборка идёт в обратном порядке: последним создан — первым убран."
+      - text: |
+          ```text
+          открыть БД
+          создать клиент
+          тест
+          закрыть БД
+          закрыть клиент
+          ```
+        why: "pytest убирает фикстуры в порядке, обратном созданию, — как вложенные with."
+      - text: |
+          ```text
+          открыть БД
+          закрыть БД
+          создать клиент
+          закрыть клиент
+          тест
+          ```
+        why: "Код после yield выполняется только после теста."
+    explanation: "Всё до yield — подготовка, после yield — уборка после теста."
+
+  - id: q3
+    type: find_bug
+    prompt: "Временный файл после тестов остаётся на диске. Почему?"
+    code: |
+      @pytest.fixture
+      def temp_config():
+          path = Path("test_config.json")
+          path.write_text('{"model": "mini"}')
+          return path
+          path.unlink()
+    options:
+      - text: "Код после return никогда не выполняется — для уборки нужен yield вместо return"
+        correct: true
+        why: "С yield path строка path.unlink() выполнится после теста, даже если он упал."
+      - text: "Path нельзя использовать в фикстурах"
+        why: "Можно; лучше ещё и брать встроенную фикстуру tmp_path."
+      - text: "Фикстура должна иметь scope=\"session\""
+        why: "scope не влияет на уборку; проблема в return."
+    explanation: "Ещё лучше — использовать tmp_path: pytest сам создаст и уберёт временную папку."
+
+  - id: q4
+    type: single
+    prompt: "Сколько отдельных тестов создаст pytest?"
+    code: |
+      @pytest.mark.parametrize("model", ["mini", "large"])
+      @pytest.mark.parametrize("temperature", [0.0, 0.7, 1.4])
+      def test_request(model, temperature):
+          ...
+
+      @pytest.mark.parametrize("text, expected", [("a", 1), ("b b", 2)])
+      def test_count(text, expected):
+          ...
+    options:
+      - text: "8"
+        correct: true
+        why: "2 × 3 = 6 комбинаций для test_request и 2 случая для test_count."
+      - text: "7"
+        why: "Несколько parametrize перемножаются: 2 × 3, а не 2 + 3."
+      - text: "4"
+        why: "Каждый набор значений — отдельный тест."
+      - text: "2"
+        why: "Параметризованный тест запускается для каждого случая."
+    explanation: "Стопка parametrize даёт декартово произведение значений."
+
+  - id: q5
+    type: multiple
+    prompt: "Что верно про встроенные фикстуры pytest? Выберите все."
+    options:
+      - text: "`tmp_path` — уникальная временная папка для каждого теста"
+        correct: true
+        why: "Тесты не мешают друг другу и не мусорят в проекте."
+      - text: "`monkeypatch.setenv` меняет переменную окружения только на время теста"
+        correct: true
+        why: "После теста monkeypatch возвращает всё как было."
+      - text: "`capsys.readouterr().out` возвращает то, что тест напечатал через print"
+        correct: true
+        why: "Так проверяют вывод CLI-программ."
+      - text: "Встроенные фикстуры нужно импортировать: `from pytest import tmp_path`"
+        why: "Их, как и любые фикстуры, получают через параметр теста."
+    explanation: "tmp_path, monkeypatch, capsys и caplog изолируют тест от файлов, окружения, вывода и логов."
+
+  - id: q6
+    type: find_bug
+    prompt: "Тесты проходят по одному, но падают при запуске всего файла. В чём причина?"
+    code: |
+      @pytest.fixture(scope="session")
+      def history():
+          return []
+
+      def test_add(history):
+          history.append("привет")
+          assert len(history) == 1
+
+      def test_empty(history):
+          assert history == []
+    options:
+      - text: "Изменяемый список живёт весь сеанс: test_add меняет его, и test_empty видит чужие данные"
+        correct: true
+        why: "Изменяемые данные держат в фикстурах со scope=\"function\" (по умолчанию)."
+      - text: "Фикстура должна называться test_history"
+        why: "Имя фикстуры может быть любым; test_ — префикс для тестов."
+      - text: "Нельзя использовать одну фикстуру в двух тестах"
+        why: "Можно — для этого фикстуры и нужны."
+    explanation: "Широкий scope — только для неизменяемых или дорогих ресурсов «только для чтения»."
+
+tasks:
+  - id: t1
+    title: "Параметризованные тесты для parse_size"
+    difficulty: 1
+    statement: |
+      Функция `parse_size(text)` **уже определена** — не переопределяйте её. Она переводит размер в байты:
+
+      - число (целое или дробное) и необязательная единица `B`, `KB`, `MB`, `GB` (основание 1024), регистр единицы не важен, пробелы по краям и между числом и единицей допустимы;
+      - без единицы — байты: `parse_size("512") == 512`;
+      - результат округляется вниз до целого: `int(число * множитель)`;
+      - всё остальное (пустая строка, отрицательное число, неизвестная единица) → `ValueError`.
+
+      Напишите тесты с `@pytest.mark.parametrize`: **всего не меньше 6 случаев** (во всех параметризованных тестах вместе). Тесты должны проходить на правильной функции и падать на версиях с типичными ошибками: основание 1000, учёт регистра, нет дробных чисел, неизвестная единица принимается, ошибка в множителе GB. Не используйте `xfail`.
+    examples:
+      - input: "parse_size('1.5MB')"
+        output: "1572864"
+    setup: |
+      import re
+
+      UNITS = {"B": 1, "KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3}
+
+
+      def parse_size(text):
+          match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*([A-Za-z]*)\s*", text)
+          if not match:
+              raise ValueError(f"не размер: {text!r}")
+          number, unit = match.groups()
+          unit = unit.upper() or "B"
+          if unit not in UNITS:
+              raise ValueError(f"неизвестная единица: {unit}")
+          return int(float(number) * UNITS[unit])
+
+
+      _REFERENCE = parse_size
+
+
+      def _make(units, upper=True, fraction=True, strict=True):
+          pattern = r"\s*(\d+(?:\.\d+)?)\s*([A-Za-z]*)\s*" if fraction else r"\s*(\d+)\s*([A-Za-z]*)\s*"
+
+          def parse_size(text):
+              match = re.fullmatch(pattern, text)
+              if not match:
+                  raise ValueError(f"не размер: {text!r}")
+              number, unit = match.groups()
+              unit = (unit.upper() if upper else unit) or "B"
+              if unit not in units:
+                  if strict:
+                      raise ValueError(f"неизвестная единица: {unit}")
+                  return int(float(number))
+              return int(float(number) * units[unit])
+
+          return parse_size
+
+
+      _MUTANTS = {
+          "decimal": _make({"B": 1, "KB": 1000, "MB": 1000 ** 2, "GB": 1000 ** 3}),
+          "case": _make(UNITS, upper=False),
+          "fraction": _make(UNITS, fraction=False),
+          "unknown": _make(UNITS, strict=False),
+          "gb": _make({"B": 1, "KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 2}),
+      }
+
+
+      def _student_tests():
+          return [value for name, value in list(globals().items()) if name.startswith("test_") and callable(value)]
+
+
+      def _cases(test):
+          """Развернуть @pytest.mark.parametrize так же, как это делает pytest."""
+          cases = [{}]
+          for mark in reversed(getattr(test, "pytestmark", [])):
+              if mark.name != "parametrize":
+                  continue
+              names = mark.args[0] if mark.args else mark.kwargs["argnames"]
+              values = mark.args[1] if len(mark.args) > 1 else mark.kwargs["argvalues"]
+              names = [n.strip() for n in names.split(",")] if isinstance(names, str) else list(names)
+              expanded = []
+              for row in values:
+                  if type(row).__name__ == "ParameterSet":
+                      row = row.values
+                  elif len(names) == 1:
+                      row = (row,)
+                  for case in cases:
+                      expanded.append({**case, **dict(zip(names, row))})
+              cases = expanded
+          return cases
+
+
+      def _is_parametrized(test):
+          return any(mark.name == "parametrize" for mark in getattr(test, "pytestmark", []))
+
+
+      def _failures(implementation):
+          namespace = globals()
+          saved = namespace["parse_size"]
+          namespace["parse_size"] = implementation
+          failed = 0
+          try:
+              for test in _student_tests():
+                  for case in _cases(test):
+                      try:
+                          test(**case)
+                      except BaseException:  # pytest.raises сообщает о провале через BaseException
+                          failed += 1
+          finally:
+              namespace["parse_size"] = saved
+          return failed
+    starter: |
+      import pytest
+
+
+      @pytest.mark.parametrize("text, expected", [
+          ("512", 512),
+      ])
+      def test_parse_size(text, expected):
+          assert parse_size(text) == expected
+    hints:
+      - "Подберите входы, на которых видна каждая ошибка: `\"10KB\"` (1000 или 1024?), `\"10kb\"` (регистр), `\"1.5MB\"` (дробь), `\"2GB\"` (множитель GB)."
+      - "Ошибки — отдельным тестом: `@pytest.mark.parametrize(\"bad\", [\"\", \"-5\", \"10XB\"])` и внутри `with pytest.raises(ValueError): parse_size(bad)`."
+    solution: |
+      import pytest
+
+
+      @pytest.mark.parametrize(
+          "text, expected",
+          [
+              ("512", 512),
+              ("10KB", 10 * 1024),
+              ("10kb", 10 * 1024),
+              ("1.5MB", 1572864),
+              ("2GB", 2 * 1024 ** 3),
+              (" 7 KB ", 7 * 1024),
+              ("3B", 3),
+          ],
+      )
+      def test_parse_size(text, expected):
+          assert parse_size(text) == expected
+
+
+      @pytest.mark.parametrize("bad", ["", "abc", "-5", "10XB", "1.5.5MB"])
+      def test_parse_size_rejects(bad):
+          with pytest.raises(ValueError):
+              parse_size(bad)
+    solution_explanation: "Каждый случай нацелен на свою ошибку: основание 1024, нижний регистр, дробное число, множитель GB, пробелы. Ошибочные входы вынесены в отдельный параметризованный тест — у каждого случая свой идентификатор в отчёте."
+    tests:
+      - name: "Есть параметризация"
+        code: |
+          assert any(_is_parametrized(test) for test in _student_tests()), "Используйте @pytest.mark.parametrize"
+      - name: "Не меньше 6 случаев"
+        code: |
+          total = sum(len(_cases(test)) for test in _student_tests() if _is_parametrized(test))
+          assert total >= 6, f"Параметризованных случаев: {total}"
+      - name: "Функция не переопределена"
+        code: |
+          assert parse_size is _REFERENCE, "Не переопределяйте parse_size — пишите только тесты"
+      - name: "Тесты проходят на правильной функции"
+        code: |
+          failed = _failures(_REFERENCE)
+          assert failed == 0, f"На правильной функции упало случаев: {failed}"
+      - name: "Ловят основание 1000"
+        code: |
+          assert _failures(_MUTANTS["decimal"]) > 0, "Ни один случай не заметил, что KB = 1000 байт"
+      - name: "Ловят учёт регистра"
+        code: |
+          assert _failures(_MUTANTS["case"]) > 0, "Ни один случай не проверяет единицы в нижнем регистре"
+      - name: "Ловят отсутствие дробей"
+        code: |
+          assert _failures(_MUTANTS["fraction"]) > 0, "Ни один случай не проверяет дробное число"
+      - name: "Ловят неизвестную единицу"
+        code: |
+          assert _failures(_MUTANTS["unknown"]) > 0, "Ни один случай не проверяет ValueError для неизвестной единицы"
+      - name: "Ловят ошибку в GB"
+        code: |
+          assert _failures(_MUTANTS["gb"]) > 0, "Ни один случай не проверяет гигабайты"
+
+  - id: t2
+    title: "Свой механизм фикстур"
+    difficulty: 2
+    statement: |
+      Напишите `run_with_fixtures(test, fixtures)` — упрощённое внедрение фикстур, как в pytest.
+
+      - `fixtures` — словарь `имя → функция-фикстура`. Аргументы теста и фикстур берутся **по именам параметров** из этого словаря (фикстуры могут зависеть от других фикстур).
+      - Обычная функция-фикстура возвращает значение. Функция-генератор отдаёт значение через `yield`, а код после `yield` — уборка.
+      - В рамках одного запуска каждая фикстура создаётся **не больше одного раза** (повторные запросы получают тот же объект) и только если она нужна.
+      - Уборка выполняется **всегда** (и при падении теста, и при ошибке в другой фикстуре) — в порядке, обратном созданию.
+      - Результат — строка:
+        - `"passed"` — тест прошёл;
+        - `"failed: <сообщение>"` — тест бросил `AssertionError`;
+        - `"error: <Тип>: <сообщение>"` — любое другое исключение в тесте или фикстуре;
+        - `"error: fixture '<имя>' not found"` — запрошена фикстура, которой нет в словаре.
+
+      Параметры функции получите через `inspect.signature(func).parameters`, генераторную функцию распознает `inspect.isgeneratorfunction(func)`.
+    examples:
+      - input: "run_with_fixtures(lambda number: None, {'number': lambda: 42})"
+        output: "'passed'"
+    starter: |
+      def run_with_fixtures(test, fixtures):
+          try:
+              test()
+          except AssertionError as error:
+              return f"failed: {error}"
+          return "passed"
+    hints:
+      - "Внутренняя рекурсивная `resolve(name)`: проверяет кэш, достаёт функцию, вычисляет её аргументы через `resolve` для каждого параметра, вызывает; для генератора — `value = next(gen)` и `gen` в список уборки."
+      - "Отсутствующую фикстуру сообщайте своим исключением (не KeyError — его может бросить и сам тест). Уборку — в `finally`: `for gen in reversed(teardowns): next(gen, None)`."
+    solution: |
+      import inspect
+
+
+      class FixtureNotFound(Exception):
+          pass
+
+
+      def run_with_fixtures(test, fixtures):
+          """Запустить тест, подготовив запрошенные фикстуры."""
+          cache = {}
+          teardowns = []
+
+          def resolve(name):
+              if name in cache:
+                  return cache[name]
+              if name not in fixtures:
+                  raise FixtureNotFound(f"fixture '{name}' not found")
+              func = fixtures[name]
+              kwargs = {param: resolve(param) for param in inspect.signature(func).parameters}
+              if inspect.isgeneratorfunction(func):
+                  generator = func(**kwargs)
+                  value = next(generator)
+                  teardowns.append(generator)
+              else:
+                  value = func(**kwargs)
+              cache[name] = value
+              return value
+
+          try:
+              kwargs = {name: resolve(name) for name in inspect.signature(test).parameters}
+              test(**kwargs)
+              return "passed"
+          except FixtureNotFound as error:
+              return f"error: {error}"
+          except AssertionError as error:
+              return f"failed: {error}"
+          except Exception as error:
+              return f"error: {type(error).__name__}: {error}"
+          finally:
+              for generator in reversed(teardowns):
+                  next(generator, None)
+    solution_explanation: "Рекурсивное разрешение по именам параметров с кэшем — именно так pytest строит граф фикстур. Генераторы после yield «замораживаются» до уборки, а finally гарантирует её при любом исходе; reversed даёт обратный порядок, как у вложенных with."
+    tests:
+      - name: "Пример"
+        call: "run_with_fixtures(lambda number: None, {'number': lambda: 42})"
+        expected: "'passed'"
+      - name: "Значения фикстур и провал"
+        code: |
+          def test_sum(a, b):
+              assert a + b == 5, f"сумма {a + b}"
+          fixtures = {"a": lambda: 2, "b": lambda: 2}
+          assert run_with_fixtures(test_sum, fixtures) == "failed: сумма 4"
+          fixtures["b"] = lambda: 3
+          assert run_with_fixtures(test_sum, fixtures) == "passed"
+      - name: "Зависимости и один объект на запуск"
+        code: |
+          created = []
+          def settings():
+              created.append("settings")
+              return {"model": "mini"}
+          def client(settings):
+              return ("client", settings)
+          seen = {}
+          def test_same(client, settings):
+              seen["same"] = client[1] is settings
+          assert run_with_fixtures(test_same, {"settings": settings, "client": client}) == "passed"
+          assert seen["same"] and created == ["settings"], (seen, created)
+      - name: "Ненужные фикстуры не создаются"
+        code: |
+          calls = []
+          fixtures = {"used": lambda: calls.append("used"), "unused": lambda: calls.append("unused")}
+          assert run_with_fixtures(lambda used: None, fixtures) == "passed"
+          assert calls == ["used"], calls
+      - name: "Уборка в обратном порядке даже при провале"
+        code: |
+          log = []
+          def db():
+              log.append("open db")
+              yield "db"
+              log.append("close db")
+          def client(db):
+              log.append("open client")
+              yield "client"
+              log.append("close client")
+          def test_bad(client):
+              log.append("test")
+              assert False, "упал"
+          assert run_with_fixtures(test_bad, {"db": db, "client": client}) == "failed: упал"
+          assert log == ["open db", "open client", "test", "close client", "close db"], log
+      - name: "Ошибка в фикстуре: уборка созданных"
+        code: |
+          log = []
+          def tmp():
+              yield "tmp"
+              log.append("cleanup tmp")
+          def broken(tmp):
+              raise RuntimeError("нет сети")
+          result = run_with_fixtures(lambda broken: None, {"tmp": tmp, "broken": broken})
+          assert result == "error: RuntimeError: нет сети", result
+          assert log == ["cleanup tmp"], log
+      - name: "Неизвестная фикстура и KeyError в тесте"
+        code: |
+          assert run_with_fixtures(lambda missing: None, {}) == "error: fixture 'missing' not found"
+          def test_key():
+              {}["x"]
+          assert run_with_fixtures(test_key, {}) == "error: KeyError: 'x'"
+
+  - id: t3
+    title: "Свой parametrize"
+    difficulty: 3
+    statement: |
+      Реализуйте декоратор `parametrize(names, values, ids=None)` и функцию `collect(test)` — упрощённую параметризацию pytest.
+
+      - `names` — строка имён через запятую (`"a, b"`), `values` — список наборов значений: кортежей, если имён несколько, или самих значений, если имя одно. Если длина набора не совпадает с числом имён → `ValueError`; если `ids` задан и его длина не равна числу наборов → `ValueError`.
+      - Декоратор запоминает случаи в функции и возвращает **ту же** функцию. Декораторы можно ставить стопкой.
+      - `collect(test)` возвращает список пар `(идентификатор, словарь_аргументов)`. Без декораторов — `[(имя_функции, {})]`.
+      - Идентификатор — `"имя[часть1-часть2-...]"`. Часть набора — `ids[i]`, если `ids` задан, иначе значения набора через `-`: `str(значение)` для `None`, `bool`, `int`, `float`, `str`, а для остальных — имя параметра и номер набора (`payload0`).
+      - Стопка декораторов даёт все комбинации, **как в pytest**: части идентификатора идут от нижнего декоратора к верхнему, а быстрее всего меняется верхний.
+
+      ```python
+      @parametrize("x", [0, 1])
+      @parametrize("y", [2, 3])
+      def test_foo(x, y): ...
+
+      [case_id for case_id, _ in collect(test_foo)]
+      # ['test_foo[2-0]', 'test_foo[2-1]', 'test_foo[3-0]', 'test_foo[3-1]']
+      ```
+    examples:
+      - input: "[i for i, _ in collect(parametrize('a, b', [(1, 2), (3, 4)])(check))]"
+        output: "['check[1-2]', 'check[3-4]']"
+    setup: |
+      def check(a, b):
+          pass
+    starter: |
+      def parametrize(names, values, ids=None):
+          def decorator(func):
+              return func
+          return decorator
+
+
+      def collect(test):
+          return [(test.__name__, {})]
+    hints:
+      - "Декоратор применяется снизу вверх, поэтому список «слоёв» в `func.__dict__.setdefault(\"param_layers\", [])` сам окажется в порядке «нижний первым». Каждый слой — список пар `(часть_идентификатора, словарь)`."
+      - "`itertools.product(*layers)` меняет быстрее всего последний слой — это верхний декоратор, как и нужно. Части идентификатора склейте через `-`, словари объедините."
+    solution: |
+      import itertools
+
+
+      def _value_id(value, name, index):
+          if value is None or isinstance(value, (bool, int, float, str)):
+              return str(value)
+          return f"{name}{index}"
+
+
+      def parametrize(names, values, ids=None):
+          """Декоратор: запомнить наборы аргументов для теста."""
+          names = [name.strip() for name in names.split(",")]
+          rows = []
+          for row in values:
+              row = tuple(row) if len(names) > 1 else (row,)
+              if len(row) != len(names):
+                  raise ValueError(f"ожидалось значений: {len(names)}, получено: {len(row)}")
+              rows.append(row)
+          if ids is not None and len(ids) != len(rows):
+              raise ValueError("длина ids не совпадает с числом наборов")
+          layer = []
+          for index, row in enumerate(rows):
+              if ids is not None:
+                  case_id = str(ids[index])
+              else:
+                  case_id = "-".join(_value_id(value, name, index) for name, value in zip(names, row))
+              layer.append((case_id, dict(zip(names, row))))
+
+          def decorator(func):
+              func.__dict__.setdefault("param_layers", []).append(layer)
+              return func
+
+          return decorator
+
+
+      def collect(test):
+          """Все случаи теста: [(идентификатор, аргументы), ...]."""
+          layers = test.__dict__.get("param_layers", [])
+          if not layers:
+              return [(test.__name__, {})]
+          cases = []
+          for combination in itertools.product(*layers):
+              case_id = "-".join(part for part, _ in combination)
+              kwargs = {}
+              for _, arguments in combination:
+                  kwargs.update(arguments)
+              cases.append((f"{test.__name__}[{case_id}]", kwargs))
+          return cases
+    solution_explanation: "Каждый декоратор добавляет «слой» случаев, а collect перемножает слои через itertools.product. Порядок применения декораторов (снизу вверх) совпадает с порядком слоёв, поэтому идентификаторы получаются такими же, как в pytest."
+    tests:
+      - name: "Пример"
+        call: "[i for i, _ in collect(parametrize('a, b', [(1, 2), (3, 4)])(check))]"
+        expected: "['check[1-2]', 'check[3-4]']"
+      - name: "Аргументы и та же функция"
+        code: |
+          decorated = parametrize("a, b", [(1, 2)])(check)
+          assert decorated is check, "Декоратор должен возвращать ту же функцию"
+          assert collect(check) == [("check[1-2]", {"a": 1, "b": 2})], collect(check)
+      - name: "Стопка декораторов как в pytest"
+        code: |
+          @parametrize("x", [0, 1])
+          @parametrize("y", [2, 3])
+          def test_foo(x, y):
+              pass
+          assert collect(test_foo) == [
+              ("test_foo[2-0]", {"y": 2, "x": 0}),
+              ("test_foo[2-1]", {"y": 2, "x": 1}),
+              ("test_foo[3-0]", {"y": 3, "x": 0}),
+              ("test_foo[3-1]", {"y": 3, "x": 1}),
+          ], collect(test_foo)
+      - name: "Одно имя и сложные значения"
+        code: |
+          @parametrize("payload", [{"role": "user"}, None, "hi", 1.5, True])
+          def test_payload(payload):
+              pass
+          ids = [case_id for case_id, _ in collect(test_payload)]
+          assert ids == ["test_payload[payload0]", "test_payload[None]", "test_payload[hi]", "test_payload[1.5]", "test_payload[True]"], ids
+          assert collect(test_payload)[0][1] == {"payload": {"role": "user"}}
+      - name: "Явные ids и кортеж как одно значение"
+        code: |
+          @parametrize("pair", [(1, 2), (3, 4)], ids=["first", "second"])
+          def test_pair(pair):
+              pass
+          assert collect(test_pair) == [("test_pair[first]", {"pair": (1, 2)}), ("test_pair[second]", {"pair": (3, 4)})], collect(test_pair)
+      - name: "Без декоратора"
+        call: "collect(check)"
+        expected: "[('check', {})]"
+      - name: "Ошибки"
+        code: |
+          for args in [("a, b", [(1, 2, 3)]), ("a", [1, 2], ["only-one"])]:
+              try:
+                  parametrize(*args)
+              except ValueError:
+                  continue
+              raise AssertionError(f"Ожидался ValueError для {args}")
+
+  - id: t4
+    title: "conftest.py и фикстуры для хранилища истории"
+    mode: local
+    difficulty: 2
+    statement: |
+      Скачайте архив. Модуль `history.py` (рабочий, не меняйте его) хранит историю чата в JSON-файле. Путь к файлу берётся из переменной окружения `CHAT_HISTORY`, а если её нет — `history.json` в текущей папке:
+
+      - `load()` — все сообщения (`[{"role": ..., "text": ...}, ...]`); нет файла → `[]`;
+      - `append(role, text)` — роль из `system`, `user`, `assistant`, текст обрезается по краям, пустой текст или неизвестная роль → `ValueError`; возвращает новое число сообщений;
+      - `last(n)` — последние `n` сообщений (`n = 0` → `[]`, `n < 0` → `ValueError`);
+      - `clear()` — удалить файл истории.
+
+      Задание:
+
+      1. В `conftest.py` напишите фикстуру `history_file`, которая с помощью `tmp_path` и `monkeypatch` направляет хранилище во временный файл и возвращает его путь.
+      2. В `test_history.py` напишите тесты, использующие эту фикстуру, — хотя бы один с `@pytest.mark.parametrize`.
+
+      `test_quality.py` проверит, что ваши тесты проходят на исходном модуле, **не создают** `history.json` в рабочей папке и падают на шести испорченных версиях модуля.
+
+      ```bash
+      pip install pytest
+      pytest -q
+      ```
+    files:
+      history.py: |
+        """Хранилище истории чата в JSON-файле."""
+        import json
+        import os
+        from pathlib import Path
+
+        ROLES = ("system", "user", "assistant")
+
+
+        def history_path():
+            """Путь к файлу истории: переменная CHAT_HISTORY или history.json."""
+            return Path(os.environ.get("CHAT_HISTORY", "history.json"))
+
+
+        def load():
+            """Все сообщения; если файла нет — пустой список."""
+            path = history_path()
+            if not path.exists():
+                return []
+            return json.loads(path.read_text(encoding="utf-8"))
+
+
+        def append(role, text):
+            """Добавить сообщение и вернуть новое число сообщений."""
+            if role not in ROLES:
+                raise ValueError(f"неизвестная роль: {role!r}")
+            text = text.strip()
+            if not text:
+                raise ValueError("пустое сообщение")
+            messages = load()
+            messages.append({"role": role, "text": text})
+            history_path().write_text(json.dumps(messages, ensure_ascii=False, indent=2), encoding="utf-8")
+            return len(messages)
+
+
+        def last(n):
+            """Последние n сообщений."""
+            if n < 0:
+                raise ValueError("n не может быть отрицательным")
+            messages = load()
+            return messages[-n:] if n else []
+
+
+        def clear():
+            """Удалить историю."""
+            history_path().unlink(missing_ok=True)
+      conftest.py: |
+        import pytest
+
+        # Напишите здесь фикстуру history_file (tmp_path + monkeypatch)
+      test_history.py: |
+        from history import load
+
+
+        def test_load_returns_list():
+            assert isinstance(load(), list)
+      test_quality.py: |
+        """Проверка качества ваших тестов (мутационное тестирование). Не меняйте этот файл."""
+        import os
+        import shutil
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        import pytest
+
+        HERE = Path(__file__).parent
+        MODULE = "history.py"
+        STUDENT_FILES = ["test_history.py", "conftest.py"]
+        MUTANTS = {
+            "нет проверки роли": ("if role not in ROLES:", "if False:"),
+            "текст не обрезается": ("text = text.strip()", "text = text"),
+            "load падает без файла": ("if not path.exists():", "if False:"),
+            "last(0) возвращает всё": ("messages[-n:] if n else []", "messages[-n:]"),
+            "last берёт первые сообщения": ("messages[-n:] if n else []", "messages[:n] if n else []"),
+            "clear не удаляет файл": ("history_path().unlink(missing_ok=True)", "history_path()"),
+        }
+
+
+        def run_student_tests(folder, source):
+            (folder / MODULE).write_text(source, encoding="utf-8")
+            for name in STUDENT_FILES:
+                shutil.copy(HERE / name, folder / name)
+            env = {key: value for key, value in os.environ.items() if key != "CHAT_HISTORY"}
+            completed = subprocess.run(
+                [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_history.py"],
+                cwd=folder, capture_output=True, text=True, env=env,
+            )
+            return completed.returncode
+
+
+        def original_source():
+            return (HERE / MODULE).read_text(encoding="utf-8")
+
+
+        def test_fixture_in_conftest():
+            text = (HERE / "conftest.py").read_text(encoding="utf-8")
+            assert "@pytest.fixture" in text and "def history_file" in text, "В conftest.py нужна фикстура history_file"
+
+
+        def test_uses_parametrize():
+            assert "parametrize" in (HERE / "test_history.py").read_text(encoding="utf-8"), "Нужен хотя бы один параметризованный тест"
+
+
+        def test_tests_pass_and_keep_folder_clean(tmp_path):
+            assert run_student_tests(tmp_path, original_source()) == 0, "Ваши тесты падают на исправном модуле"
+            assert not (tmp_path / "history.json").exists(), "Тесты создали history.json в рабочей папке — используйте фикстуру"
+
+
+        @pytest.mark.parametrize("name", list(MUTANTS))
+        def test_mutant_is_caught(tmp_path, name):
+            old, new = MUTANTS[name]
+            source = original_source()
+            assert old in source, "Не меняйте history.py"
+            assert run_student_tests(tmp_path, source.replace(old, new, 1)) != 0, f"Тесты не заметили ошибку: {name}"
+    run: "pytest -q"
+    hints:
+      - "Фикстура: `path = tmp_path / \"history.json\"`, `monkeypatch.setenv(\"CHAT_HISTORY\", str(path))`, `return path`. Каждый тест получает свою папку."
+      - "Под каждую ошибку — свой тест: `load()` без файла, `append(\"user\", \"  hi  \")` и проверка `\"hi\"`, параметризованный `last(n)` с `n=0`, `clear()` и `history_file.exists()`, неверная роль через `pytest.raises`."
+    solution_files:
+      conftest.py: |
+        import pytest
+
+
+        @pytest.fixture
+        def history_file(tmp_path, monkeypatch):
+            """Временный файл истории вместо настоящего."""
+            path = tmp_path / "history.json"
+            monkeypatch.setenv("CHAT_HISTORY", str(path))
+            return path
+      test_history.py: |
+        import pytest
+
+        from history import append, clear, last, load
+
+
+        def test_empty_history(history_file):
+            assert load() == []
+            assert not history_file.exists()
+
+
+        def test_append_returns_count_and_saves(history_file):
+            assert append("user", "Привет") == 1
+            assert append("assistant", "Здравствуйте") == 2
+            assert history_file.exists()
+            assert load() == [
+                {"role": "user", "text": "Привет"},
+                {"role": "assistant", "text": "Здравствуйте"},
+            ]
+
+
+        def test_text_is_stripped(history_file):
+            append("user", "  hi  ")
+            assert load()[0]["text"] == "hi"
+
+
+        @pytest.mark.parametrize("role, text", [("robot", "x"), ("", "x"), ("USER", "x"), ("user", "   ")])
+        def test_invalid_message(history_file, role, text):
+            with pytest.raises(ValueError):
+                append(role, text)
+
+
+        @pytest.mark.parametrize("n, expected", [(0, []), (1, ["c"]), (2, ["b", "c"]), (10, ["a", "b", "c"])])
+        def test_last(history_file, n, expected):
+            for text in ["a", "b", "c"]:
+                append("user", text)
+            assert [message["text"] for message in last(n)] == expected
+
+
+        def test_last_negative(history_file):
+            with pytest.raises(ValueError):
+                last(-1)
+
+
+        def test_clear(history_file):
+            append("user", "x")
+            clear()
+            assert not history_file.exists()
+            assert load() == []
+            clear()  # повторная очистка не падает
+    solution_explanation: "Фикстура из conftest.py изолирует каждый тест во временной папке и через monkeypatch направляет туда хранилище. Параметризация last(n) покрывает границы, включая n = 0, где срез messages[-0:] вернул бы весь список, а отдельные тесты ловят остальные испорченные версии."

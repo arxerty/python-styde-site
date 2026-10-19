@@ -1,0 +1,362 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      original = {"name": "run1", "metrics": [0.8]}
+      clone = original.copy()
+      clone["name"] = "run2"
+      clone["metrics"].append(0.9)
+      print(original)
+    options:
+      - text: "`{'name': 'run1', 'metrics': [0.8, 0.9]}`"
+        correct: true
+        why: "Поверхностная копия: замена name — только в копии, а список metrics общий."
+      - text: "`{'name': 'run1', 'metrics': [0.8]}`"
+        why: "Вложенный список не копируется — он общий."
+      - text: "`{'name': 'run2', 'metrics': [0.8, 0.9]}`"
+        why: "Присваивание по ключу меняет только копию."
+    explanation: "copy() копирует только внешний контейнер."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      board = [["."] * 2] * 2
+      board[1][0] = "X"
+      print(board)
+    options:
+      - text: "`[['X', '.'], ['X', '.']]`"
+        correct: true
+        why: "Обе строки — один и тот же список."
+      - text: "`[['.', '.'], ['X', '.']]`"
+        why: "Так было бы с [[\".\"] * 2 for _ in range(2)]."
+      - text: "TypeError"
+        why: "Изменение элемента списка допустимо."
+    explanation: "Умножение списка копирует ссылки, а не вложенные объекты."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import copy
+
+      data = {"layers": [64, 32]}
+      shallow = copy.copy(data)
+      deep = copy.deepcopy(data)
+      data["layers"].append(16)
+      print(len(shallow["layers"]), len(deep["layers"]))
+    options:
+      - text: "`3 2`"
+        correct: true
+        why: "Поверхностная копия разделяет список, глубокая — нет."
+      - text: "`2 2`"
+        why: "copy.copy не копирует вложенный список."
+      - text: "`3 3`"
+        why: "deepcopy создал собственную копию списка."
+    explanation: "deepcopy копирует рекурсивно."
+
+  - id: q4
+    type: find_bug
+    prompt: "После генерации вариантов базовый конфиг оказался изменён. Почему?"
+    code: |
+      BASE = {"training": {"lr": 0.001}}
+
+
+      def variant(lr):
+          config = dict(BASE)
+          config["training"]["lr"] = lr
+          return config
+
+
+      runs = [variant(0.1), variant(0.01)]
+    options:
+      - text: "dict(BASE) — поверхностная копия: вложенный словарь training общий; нужен copy.deepcopy"
+        correct: true
+        why: "Изменение config['training']['lr'] меняет BASE и все варианты."
+      - text: "Нельзя вызывать функцию в списке"
+        why: "Можно."
+      - text: "BASE нужно объявить внутри функции"
+        why: "Проблема в способе копирования."
+    explanation: "Для вложенных изменяемых структур — глубокая копия."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      pair = ("a", [1])
+      pair[1].append(2)
+      try:
+          print(pair, hash(pair))
+      except TypeError:
+          print(pair, "нехешируемый")
+    options:
+      - text: "`('a', [1, 2]) нехешируемый`"
+        correct: true
+        why: "Список внутри кортежа меняется, а сам кортеж с ним нельзя хешировать."
+      - text: "TypeError при append"
+        why: "Кортеж запрещает замену элементов, а не изменение их содержимого."
+      - text: "`('a', [1]) нехешируемый`"
+        why: "append изменил список внутри кортежа."
+    explanation: "Неизменяемость кортежа поверхностная."
+
+  - id: q6
+    type: multiple
+    prompt: "Какие выражения создают поверхностную копию списка `xs`? Выберите все."
+    options:
+      - text: "`xs[:]`"
+        correct: true
+        why: "Полный срез — новый список."
+      - text: "`list(xs)`"
+        correct: true
+        why: "Конструктор создаёт новый список."
+      - text: "`xs.copy()`"
+        correct: true
+        why: "Метод копирования."
+      - text: "`ys = xs`"
+        why: "Это ещё одна ссылка, не копия."
+    explanation: "Все способы поверхностного копирования копируют только внешний список."
+
+tasks:
+  - id: t1
+    title: "Независимые строки матрицы"
+    difficulty: 1
+    statement: |
+      - `make_grid(rows, cols, fill=0)` — матрица (список списков) с **независимыми** строками;
+      - `with_cell(grid, row, col, value)` — **новая** матрица с изменённой клеткой; исходная не меняется (копируйте строки);
+      - `transpose(grid)` — новая транспонированная матрица.
+    examples:
+      - input: "with_cell(make_grid(2, 2), 0, 1, 5)"
+        output: "[[0, 5], [0, 0]]"
+    starter: |
+      def make_grid(rows, cols, fill=0):
+          return [[fill] * cols] * rows
+
+
+      def with_cell(grid, row, col, value):
+          grid[row][col] = value
+          return grid
+    hints:
+      - "`[[fill] * cols for _ in range(rows)]` — новая строка на каждой итерации."
+      - "with_cell: `new = [list(r) for r in grid]` и изменение new; transpose: `[list(col) for col in zip(*grid)]`."
+    solution: |
+      def make_grid(rows, cols, fill=0):
+          """Матрица с независимыми строками."""
+          return [[fill] * cols for _ in range(rows)]
+
+
+      def with_cell(grid, row, col, value):
+          """Новая матрица с изменённой клеткой."""
+          new = [list(r) for r in grid]
+          new[row][col] = value
+          return new
+
+
+      def transpose(grid):
+          """Транспонированная матрица."""
+          return [list(column) for column in zip(*grid)]
+    solution_explanation: "Включение создаёт новый список строки на каждой итерации. Для копии матрицы чисел достаточно скопировать строки — элементы-числа неизменяемы."
+    tests:
+      - name: "Пример"
+        call: "with_cell(make_grid(2, 2), 0, 1, 5)"
+        expected: "[[0, 5], [0, 0]]"
+      - name: "Независимые строки"
+        code: |
+          grid = make_grid(3, 2)
+          grid[0][0] = 1
+          assert grid == [[1, 0], [0, 0], [0, 0]], grid
+      - name: "Исходная не меняется"
+        code: |
+          grid = make_grid(2, 2, fill=".")
+          new = with_cell(grid, 1, 1, "X")
+          assert grid == [[".", "."], [".", "."]] and new[1][1] == "X" and new[0] is not grid[0]
+      - name: "transpose"
+        call: "transpose([[1, 2, 3], [4, 5, 6]])"
+        expected: "[[1, 4], [2, 5], [3, 6]]"
+      - name: "Пустая"
+        call: "make_grid(0, 3)"
+        expected: "[]"
+
+  - id: t2
+    title: "Глубокая копия своими руками"
+    difficulty: 2
+    statement: |
+      Напишите `deep_copy(obj)` **без модуля `copy`**: рекурсивно копирует словари (ключи как есть, значения — копии), списки, множества и кортежи (кортеж пересобирается из копий элементов); остальные значения возвращаются как есть.
+    examples:
+      - input: "deep_copy({\"a\": [1, {\"b\": 2}]})"
+        output: "{'a': [1, {'b': 2}]}"
+    starter: |
+      def deep_copy(obj):
+          return obj
+    hints:
+      - "Ветвление по типу: `isinstance(obj, dict)` → `{key: deep_copy(value) for key, value in obj.items()}`; список — `[deep_copy(x) for x in obj]`."
+      - "Множество: `{deep_copy(x) for x in obj}`, кортеж: `tuple(deep_copy(x) for x in obj)`."
+    solution: |
+      def deep_copy(obj):
+          """Рекурсивная копия словарей, списков, множеств и кортежей."""
+          if isinstance(obj, dict):
+              return {key: deep_copy(value) for key, value in obj.items()}
+          if isinstance(obj, list):
+              return [deep_copy(item) for item in obj]
+          if isinstance(obj, set):
+              return {deep_copy(item) for item in obj}
+          if isinstance(obj, tuple):
+              return tuple(deep_copy(item) for item in obj)
+          return obj
+    solution_explanation: "Рекурсия спускается во все вложенные контейнеры и строит новые. Неизменяемые листья (числа, строки) копировать не нужно. Настоящий copy.deepcopy дополнительно обрабатывает циклические ссылки и объекты классов."
+    tests:
+      - name: "Пример"
+        call: "deep_copy({\"a\": [1, {\"b\": 2}]})"
+        expected: "{'a': [1, {'b': 2}]}"
+      - name: "Независимость"
+        code: |
+          original = {"layers": [[1, 2], [3]], "opt": {"lr": 0.1}}
+          clone = deep_copy(original)
+          clone["layers"][0].append(9)
+          clone["opt"]["lr"] = 1
+          assert original == {"layers": [[1, 2], [3]], "opt": {"lr": 0.1}}
+          assert clone["layers"] is not original["layers"] and clone["layers"][0] is not original["layers"][0]
+      - name: "Кортеж со списком"
+        code: |
+          original = ("x", [1])
+          clone = deep_copy(original)
+          clone[1].append(2)
+          assert original == ("x", [1]) and isinstance(clone, tuple)
+      - name: "Множество и скаляры"
+        code: |
+          s = {1, 2}
+          c = deep_copy(s)
+          c.add(3)
+          assert s == {1, 2} and deep_copy(5) == 5 and deep_copy("abc") == "abc"
+      - name: "Без модуля copy"
+        code: |
+          assert "import copy" not in __source__ and "deepcopy" not in __source__, "Реализуйте копирование сами"
+
+  - id: t3
+    title: "Сравнение конфигураций"
+    difficulty: 2
+    statement: |
+      Напишите `diff_configs(a, b)` — отсортированный список путей (через точку), по которым вложенные словари `a` и `b` различаются: изменившиеся значения, добавленные и удалённые ключи. Если по ключу в обоих словарях лежат словари — сравнение продолжается внутри; иначе значения сравниваются через `==`.
+    examples:
+      - input: "diff_configs({\"lr\": 0.1, \"opt\": {\"name\": \"adam\"}}, {\"lr\": 0.1, \"opt\": {\"name\": \"sgd\"}, \"seed\": 1})"
+        output: "['opt.name', 'seed']"
+    starter: |
+      def diff_configs(a, b):
+          return [key for key in a if a[key] != b.get(key)]
+    hints:
+      - "Рекурсивная вспомогательная функция с параметром `prefix`; ключи — объединение `set(a) | set(b)`."
+      - "Если ключ только в одном словаре — путь различается; если оба значения dict — рекурсия с новым префиксом."
+    solution: |
+      def diff_configs(a, b):
+          """Пути, по которым конфигурации различаются."""
+          paths = []
+
+          def walk(left, right, prefix):
+              for key in set(left) | set(right):
+                  path = f"{prefix}.{key}" if prefix else str(key)
+                  if key not in left or key not in right:
+                      paths.append(path)
+                  elif isinstance(left[key], dict) and isinstance(right[key], dict):
+                      walk(left[key], right[key], path)
+                  elif left[key] != right[key]:
+                      paths.append(path)
+
+          walk(a, b, "")
+          return sorted(paths)
+    solution_explanation: "Рекурсия обходит обе структуры одновременно. Такой «дифф» конфигураций показывают системы отслеживания экспериментов, когда сравнивают два запуска."
+    tests:
+      - name: "Пример"
+        call: "diff_configs({\"lr\": 0.1, \"opt\": {\"name\": \"adam\"}}, {\"lr\": 0.1, \"opt\": {\"name\": \"sgd\"}, \"seed\": 1})"
+        expected: "['opt.name', 'seed']"
+      - name: "Одинаковые"
+        call: "diff_configs({\"a\": {\"b\": [1, 2]}}, {\"a\": {\"b\": [1, 2]}})"
+        expected: "[]"
+      - name: "Удалённый ключ и глубокая вложенность"
+        call: "diff_configs({\"m\": {\"x\": {\"y\": 1, \"z\": 2}}}, {\"m\": {\"x\": {\"y\": 5}}})"
+        expected: "['m.x.y', 'm.x.z']"
+      - name: "Словарь заменён значением"
+        call: "diff_configs({\"opt\": {\"name\": \"adam\"}}, {\"opt\": \"adam\"})"
+        expected: "['opt']"
+      - name: "Аргументы не меняются"
+        code: |
+          a, b = {"x": {"y": 1}}, {"x": {"y": 2}}
+          diff_configs(a, b)
+          assert a == {"x": {"y": 1}} and b == {"x": {"y": 2}}
+
+  - id: t4
+    title: "Заморозка конфигурации"
+    difficulty: 3
+    statement: |
+      - `freeze(obj)` — рекурсивно превращает структуру в неизменяемую: `dict` → `types.MappingProxyType` над словарём с замороженными значениями, `list` и `tuple` → `tuple`, `set` → `frozenset`; остальное — как есть.
+      - `thaw(obj)` — обратное: `MappingProxyType` и `dict` → `dict`, `tuple` → `list`, `frozenset` → `set` (рекурсивно).
+    examples:
+      - input: "frozen = freeze({\"tags\": [\"a\"], \"opt\": {\"lr\": 0.1}}); (type(frozen[\"tags\"]).__name__, frozen[\"opt\"][\"lr\"])"
+        output: "('tuple', 0.1)"
+    starter: |
+      def freeze(obj):
+          return obj
+
+
+      def thaw(obj):
+          return obj
+    hints:
+      - "`from types import MappingProxyType`; `MappingProxyType({k: freeze(v) for k, v in obj.items()})`."
+      - "В thaw проверяйте `isinstance(obj, (dict, MappingProxyType))`."
+    solution: |
+      from types import MappingProxyType
+
+
+      def freeze(obj):
+          """Рекурсивно сделать структуру неизменяемой."""
+          if isinstance(obj, dict):
+              return MappingProxyType({key: freeze(value) for key, value in obj.items()})
+          if isinstance(obj, (list, tuple)):
+              return tuple(freeze(item) for item in obj)
+          if isinstance(obj, set):
+              return frozenset(freeze(item) for item in obj)
+          return obj
+
+
+      def thaw(obj):
+          """Обратно в изменяемые словари, списки и множества."""
+          if isinstance(obj, (dict, MappingProxyType)):
+              return {key: thaw(value) for key, value in obj.items()}
+          if isinstance(obj, tuple):
+              return [thaw(item) for item in obj]
+          if isinstance(obj, frozenset):
+              return {thaw(item) for item in obj}
+          return obj
+    solution_explanation: "Замороженную конфигурацию можно без опаски передавать в любые функции: ни одна не сможет её изменить, и копировать её не нужно. Для изменений — thaw, правка и снова freeze."
+    tests:
+      - name: "Пример"
+        code: |
+          frozen = freeze({"tags": ["a"], "opt": {"lr": 0.1}})
+          assert (type(frozen["tags"]).__name__, frozen["opt"]["lr"]) == ("tuple", 0.1)
+      - name: "Нельзя изменить"
+        code: |
+          import operator
+          frozen = freeze({"opt": {"lr": 0.1}, "s": {1}})
+          for action in (lambda: operator.setitem(frozen, "x", 1), lambda: operator.setitem(frozen["opt"], "lr", 2)):
+              try:
+                  action()
+              except TypeError:
+                  pass
+              else:
+                  raise AssertionError("Замороженную структуру нельзя менять")
+          assert isinstance(frozen["s"], frozenset)
+      - name: "Исходный словарь отделён"
+        code: |
+          original = {"a": [1]}
+          frozen = freeze(original)
+          original["a"].append(2)
+          original["b"] = 3
+          assert frozen["a"] == (1,) and "b" not in frozen
+      - name: "thaw"
+        call: "thaw(freeze({\"a\": [1, (2, 3)], \"b\": {\"c\": None}}))"
+        expected: "{'a': [1, [2, 3]], 'b': {'c': None}}"
+      - name: "thaw даёт изменяемые объекты"
+        code: |
+          data = thaw(freeze({"x": [1]}))
+          data["x"].append(2)
+          data["y"] = 0
+          assert data == {"x": [1, 2], "y": 0}

@@ -1,0 +1,354 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "Почему CSV не стоит разбирать через `line.split(\",\")`?"
+    options:
+      - text: "Значения могут содержать запятые и кавычки внутри — в CSV они берутся в кавычки, и split их неправильно разрежет"
+        correct: true
+        why: "Модуль csv знает правила экранирования."
+      - text: "split не работает с кириллицей"
+        why: "Работает."
+      - text: "split медленный"
+        why: "Проблема в корректности, а не в скорости."
+      - text: "CSV всегда разделён табуляцией"
+        why: "Обычно запятой, иногда точкой с запятой или табуляцией."
+    explanation: "Для CSV используйте модуль csv."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import csv
+      import io
+      data = io.StringIO('a,b\n1,"x, y"\n')
+      rows = list(csv.reader(data))
+      print(len(rows[1]), rows[1][1])
+    options:
+      - text: "`2 x, y`"
+        correct: true
+        why: "Значение в кавычках — одно поле, несмотря на запятую."
+      - text: "`3  y`"
+        why: "csv.reader не режет значение в кавычках."
+      - text: "`2 \"x, y\"`"
+        why: "Кавычки — часть формата, а не значения."
+    explanation: "io.StringIO позволяет читать строку как файл — удобно для экспериментов."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему код падает с TypeError?"
+    code: |
+      import csv
+      with open("people.csv", encoding="utf-8", newline="") as f:
+          for row in csv.DictReader(f):
+              if row["age"] > 30:
+                  print(row["name"])
+    options:
+      - text: "Все значения в CSV — строки; нужно `int(row[\"age\"]) > 30`"
+        correct: true
+        why: "Сравнение строки с числом — TypeError."
+      - text: "DictReader не поддерживает доступ по имени столбца"
+        why: "Поддерживает — ключи берутся из заголовка."
+      - text: "Нельзя использовать newline=\"\""
+        why: "Это рекомендуемый параметр для модуля csv."
+    explanation: "CSV не хранит типы — приводите их явно."
+
+  - id: q4
+    type: multiple
+    prompt: "Какие утверждения о модуле csv верны? Выберите все."
+    options:
+      - text: "DictReader использует первую строку как ключи словарей"
+        correct: true
+        why: "Заголовок становится ключами."
+      - text: "csv.writer сам расставляет кавычки, где нужно"
+        correct: true
+        why: "Например, вокруг значений с запятыми."
+      - text: "Разделитель можно изменить параметром delimiter"
+        correct: true
+        why: "Например, delimiter=\";\"."
+      - text: "csv.reader автоматически превращает числа в int"
+        why: "Все значения остаются строками."
+    explanation: "Модуль csv — правильный разбор и запись, но типы — ваша забота."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import csv
+      import io
+      out = io.StringIO()
+      writer = csv.writer(out)
+      writer.writerow(["кот", 'сказал "мяу"', 3])
+      print(out.getvalue().strip())
+    options:
+      - text: "`кот,\"сказал \"\"мяу\"\"\",3`"
+        correct: true
+        why: "Значение с кавычками берётся в кавычки, а внутренние кавычки удваиваются."
+      - text: "`кот,сказал \"мяу\",3`"
+        why: "Кавычки внутри значения требуют экранирования."
+      - text: "`\"кот\",\"сказал \"мяу\"\",\"3\"`"
+        why: "Простые значения в кавычки не берутся."
+    explanation: "csv.writer экранирует по правилам формата."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import csv
+      import io
+      data = io.StringIO("товар;цена\nКофе;199,90\n")
+      row = next(csv.DictReader(data, delimiter=";"))
+      print(float(row["цена"].replace(",", ".")) * 2)
+    answer: "399.8"
+    explanation: "delimiter=\";\" для столбцов и замена десятичной запятой на точку для числа."
+
+tasks:
+  - id: t1
+    title: "Средний балл из CSV"
+    difficulty: 1
+    statement: |
+      Напишите `average_score(path)`: прочитать CSV со столбцами `name,score` (через `csv.DictReader`) и вернуть средний балл, округлённый до 2 знаков, или `None`, если строк с данными нет.
+    examples:
+      - input: "average_score(\"scores.csv\")"
+        output: "4.33"
+    files:
+      scores.csv: "name,score\nАда,5\nАлан,4\nГрейс,4\n"
+      empty.csv: "name,score\n"
+    starter: |
+      def average_score(path):
+          with open(path, encoding="utf-8") as f:
+              lines = f.readlines()
+          return sum(int(line.split(",")[1]) for line in lines) / len(lines)
+    hints:
+      - "`import csv`, затем `scores = [int(row[\"score\"]) for row in csv.DictReader(f)]`."
+      - "Пустой список — `return None`, иначе `round(sum(scores) / len(scores), 2)`."
+    solution: |
+      import csv
+
+
+      def average_score(path):
+          """Вернуть средний балл из CSV со столбцом score или None."""
+          with open(path, encoding="utf-8", newline="") as file:
+              scores = [int(row["score"]) for row in csv.DictReader(file)]
+          if not scores:
+              return None
+          return round(sum(scores) / len(scores), 2)
+    solution_explanation: "DictReader пропускает заголовок и даёт доступ по имени столбца. Значения — строки, поэтому int()."
+    tests:
+      - name: "Средний балл"
+        call: "average_score(\"scores.csv\")"
+        expected: "4.33"
+      - name: "Только заголовок"
+        call: "average_score(\"empty.csv\")"
+        expected: "None"
+      - name: "Столбцы в другом порядке"
+        code: |
+          with open("other.csv", "w", encoding="utf-8") as f:
+              f.write("score,name\n3,А\n5,Б\n")
+          assert average_score("other.csv") == 4.0
+      - name: "Имя с запятой"
+        code: |
+          with open("q.csv", "w", encoding="utf-8") as f:
+              f.write('name,score\n"Лавлейс, Ада",5\n')
+          assert average_score("q.csv") == 5.0
+      - name: "Один студент"
+        code: |
+          with open("one.csv", "w", encoding="utf-8") as f:
+              f.write("name,score\nX,2\n")
+          assert average_score("one.csv") == 2.0
+
+  - id: t2
+    title: "Запись результатов"
+    difficulty: 2
+    statement: |
+      Напишите `write_results(path, results)`: `results` — список словарей с ключами `model`, `accuracy`, `latency_ms`. Запишите CSV с заголовком `model,accuracy,latency_ms` через `csv.DictWriter`. Лишние ключи в словарях игнорируются. Вернуть количество записанных строк данных.
+    examples:
+      - input: "write_results(\"r.csv\", [{\"model\": \"small\", \"accuracy\": 0.81, \"latency_ms\": 12}])"
+        output: "1"
+    starter: |
+      def write_results(path, results):
+          with open(path, "w") as f:
+              for r in results:
+                  f.write(f"{r['model']},{r['accuracy']},{r['latency_ms']}\n")
+    hints:
+      - "`csv.DictWriter(file, fieldnames=[...], extrasaction=\"ignore\")`, затем `writeheader()` и `writerows(results)`."
+      - "Открывайте файл с `newline=\"\"` и `encoding=\"utf-8\"`."
+    solution: |
+      import csv
+
+      FIELDS = ["model", "accuracy", "latency_ms"]
+
+
+      def write_results(path, results):
+          """Записать результаты экспериментов в CSV и вернуть число строк."""
+          with open(path, "w", encoding="utf-8", newline="") as file:
+              writer = csv.DictWriter(file, fieldnames=FIELDS, extrasaction="ignore")
+              writer.writeheader()
+              writer.writerows(results)
+          return len(results)
+    solution_explanation: "DictWriter сам пишет заголовок, расставляет кавычки и порядок столбцов; extrasaction=\"ignore\" отбрасывает лишние ключи."
+    tests:
+      - name: "Одна строка"
+        code: |
+          n = write_results("r.csv", [{"model": "small", "accuracy": 0.81, "latency_ms": 12}])
+          with open("r.csv", encoding="utf-8") as f:
+              assert f.read().splitlines() == ["model,accuracy,latency_ms", "small,0.81,12"]
+          assert n == 1
+      - name: "Лишние ключи"
+        code: |
+          write_results("x.csv", [{"model": "m", "accuracy": 1, "latency_ms": 2, "notes": "ok"}])
+          with open("x.csv", encoding="utf-8") as f:
+              assert f.read().splitlines()[1] == "m,1,2"
+      - name: "Пустой список"
+        code: |
+          assert write_results("e.csv", []) == 0
+          with open("e.csv", encoding="utf-8") as f:
+              assert f.read().splitlines() == ["model,accuracy,latency_ms"]
+      - name: "Запятая в названии"
+        code: |
+          write_results("q.csv", [{"model": "a,b", "accuracy": 0.5, "latency_ms": 1}])
+          with open("q.csv", encoding="utf-8") as f:
+              assert f.read().splitlines()[1] == '"a,b",0.5,1'
+      - name: "Читается обратно"
+        code: |
+          import csv
+          write_results("rt.csv", [{"model": "big", "accuracy": 0.9, "latency_ms": 80}])
+          with open("rt.csv", encoding="utf-8", newline="") as f:
+              assert list(csv.DictReader(f)) == [{"model": "big", "accuracy": "0.9", "latency_ms": "80"}]
+
+  - id: t3
+    title: "Чтение «русского» CSV"
+    difficulty: 2
+    statement: |
+      Напишите `load_prices(path)`: файл с разделителем `;` и столбцами `товар;цена`, цены — с десятичной запятой. Вернуть словарь `товар → float`. Строки с пустой или некорректной ценой пропустить.
+    examples:
+      - input: "load_prices(\"prices.csv\")"
+        output: "{'Кофе': 199.9, 'Чай': 89.5}"
+    files:
+      prices.csv: "товар;цена\nКофе;199,90\nЧай;89,50\nСок;\nХлеб;нет\n"
+    starter: |
+      import csv
+
+
+      def load_prices(path):
+          with open(path, encoding="utf-8", newline="") as f:
+              return {row["товар"]: float(row["цена"]) for row in csv.DictReader(f)}
+    hints:
+      - "Укажите `delimiter=\";\"` в DictReader."
+      - "Преобразование: `float(row[\"цена\"].replace(\",\", \".\"))` в try/except ValueError."
+    solution: |
+      import csv
+
+
+      def load_prices(path):
+          """Загрузить цены из CSV с разделителем ; и десятичной запятой."""
+          prices = {}
+          with open(path, encoding="utf-8", newline="") as file:
+              for row in csv.DictReader(file, delimiter=";"):
+                  try:
+                      prices[row["товар"]] = float(row["цена"].replace(",", "."))
+                  except ValueError:
+                      continue
+          return prices
+    solution_explanation: "Две особенности «русского» CSV — разделитель столбцов и десятичная запятая — обрабатываются явно. Пустая строка и «нет» дают ValueError и пропускаются."
+    tests:
+      - name: "Пример"
+        call: "load_prices(\"prices.csv\")"
+        expected: "{'Кофе': 199.9, 'Чай': 89.5}"
+      - name: "Целая цена"
+        code: |
+          with open("i.csv", "w", encoding="utf-8") as f:
+              f.write("товар;цена\nА;100\n")
+          assert load_prices("i.csv") == {"А": 100.0}
+      - name: "Только заголовок"
+        code: |
+          with open("h.csv", "w", encoding="utf-8") as f:
+              f.write("товар;цена\n")
+          assert load_prices("h.csv") == {}
+      - name: "Запятая в названии не мешает"
+        code: |
+          with open("n.csv", "w", encoding="utf-8") as f:
+              f.write("товар;цена\nЧай, зелёный;50,5\n")
+          assert load_prices("n.csv") == {"Чай, зелёный": 50.5}
+      - name: "Все некорректные"
+        code: |
+          with open("b.csv", "w", encoding="utf-8") as f:
+              f.write("товар;цена\nА;x\nБ;\n")
+          assert load_prices("b.csv") == {}
+
+  - id: t4
+    title: "Агрегация по группам"
+    difficulty: 3
+    statement: |
+      Напишите `group_stats(input_path, output_path, group_by, value)`: прочитать CSV, сгруппировать строки по столбцу `group_by` и для каждой группы посчитать количество строк и среднее значение столбца `value` (округлённое до 1 знака). Строки с нечисловым или пустым `value` пропускаются. Записать CSV с заголовком `<group_by>,count,average`, группы по алфавиту. Вернуть количество групп.
+    examples:
+      - input: "group_stats(\"students.csv\", \"out.csv\", \"city\", \"score\")"
+        output: "3  (out.csv: city,count,average / Лондон,2,88.0 / ...)"
+    files:
+      students.csv: "name,city,score\nАда,Лондон,95\nАлан,Манчестер,88\nТим,Лондон,81\nГрейс,Нью-Йорк,91\nБилл,Лондон,\n"
+    starter: |
+      import csv
+
+
+      def group_stats(input_path, output_path, group_by, value):
+          return 0
+    hints:
+      - "Два словаря-накопителя: суммы и количества по группам; пропускайте строки через try/except ValueError вокруг float()."
+      - "Запись: csv.writer, заголовок `[group_by, \"count\", \"average\"]`, затем `for group in sorted(totals)`."
+    solution: |
+      import csv
+
+
+      def group_stats(input_path, output_path, group_by, value):
+          """Посчитать количество и среднее value по группам и записать в CSV."""
+          totals = {}
+          counts = {}
+          with open(input_path, encoding="utf-8", newline="") as file:
+              for row in csv.DictReader(file):
+                  try:
+                      number = float(row[value])
+                  except ValueError:
+                      continue
+                  key = row[group_by]
+                  totals[key] = totals.get(key, 0) + number
+                  counts[key] = counts.get(key, 0) + 1
+          with open(output_path, "w", encoding="utf-8", newline="") as file:
+              writer = csv.writer(file)
+              writer.writerow([group_by, "count", "average"])
+              for key in sorted(totals):
+                  writer.writerow([key, counts[key], round(totals[key] / counts[key], 1)])
+          return len(totals)
+    solution_explanation: "Это groupby + agg из pandas, написанный вручную: потоковое чтение, накопители в словарях, запись результата. Имена столбцов — параметры, поэтому функция универсальна."
+    tests:
+      - name: "Пример"
+        code: |
+          n = group_stats("students.csv", "out.csv", "city", "score")
+          with open("out.csv", encoding="utf-8") as f:
+              lines = f.read().splitlines()
+          assert n == 3, f"Групп должно быть 3, получено {n}"
+          assert lines == ["city,count,average", "Лондон,2,88.0", "Манчестер,1,88.0", "Нью-Йорк,1,91.0"], lines
+      - name: "Другие столбцы"
+        code: |
+          with open("sales.csv", "w", encoding="utf-8") as f:
+              f.write("product,region,amount\na,N,10\nb,S,20\nc,N,30\n")
+          group_stats("sales.csv", "o2.csv", "region", "amount")
+          with open("o2.csv", encoding="utf-8") as f:
+              assert f.read().splitlines() == ["region,count,average", "N,2,20.0", "S,1,20.0"]
+      - name: "Все значения некорректны"
+        code: |
+          with open("bad.csv", "w", encoding="utf-8") as f:
+              f.write("g,v\nx,\ny,abc\n")
+          assert group_stats("bad.csv", "o3.csv", "g", "v") == 0
+          with open("o3.csv", encoding="utf-8") as f:
+              assert f.read().splitlines() == ["g,count,average"]
+      - name: "Дробные значения"
+        code: |
+          with open("f.csv", "w", encoding="utf-8") as f:
+              f.write("g,v\na,1.5\na,2.0\n")
+          group_stats("f.csv", "o4.csv", "g", "v")
+          with open("o4.csv", encoding="utf-8") as f:
+              assert f.read().splitlines()[1] == "a,2,1.8"
+      - name: "Возвращает число групп"
+        code: |
+          with open("g.csv", "w", encoding="utf-8") as f:
+              f.write("g,v\na,1\nb,2\nc,3\na,4\n")
+          assert group_stats("g.csv", "o5.csv", "g", "v") == 3

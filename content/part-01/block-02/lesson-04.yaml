@@ -1,0 +1,309 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print(True and False, True or False, not True)
+    options:
+      - text: "`False True False`"
+        correct: true
+        why: "and требует обоих True; or — хотя бы одного; not переворачивает."
+      - text: "`True True False`"
+        why: "True and False — ложь: второй операнд ложен."
+      - text: "`False False True`"
+        why: "True or False — истина; not True — ложь."
+    explanation: "Таблицы истинности: and — «оба», or — «хотя бы один», not — «наоборот»."
+
+  - id: q2
+    type: find_bug
+    prompt: "Почему для любого цвета программа печатает «Основной цвет»?"
+    code: |
+      color = input()
+      if color == "красный" or "синий" or "жёлтый":
+          print("Основной цвет")
+    options:
+      - text: "Условие читается как `(color == \"красный\") or \"синий\" or ...`, а непустая строка всегда истинна"
+        correct: true
+        why: "Каждое сравнение нужно писать полностью: `color == \"красный\" or color == \"синий\" or ...`."
+      - text: "Строки нельзя сравнивать через `==`"
+        why: "Можно; проблема в том, как соединены сравнения."
+      - text: "`or` нельзя использовать больше одного раза"
+        why: "Можно составлять цепочки из любого числа or."
+      - text: "Нужно `and` вместо `or`"
+        why: "Цвет не может одновременно равняться трём разным строкам — условие стало бы всегда ложным."
+    explanation: "Классическая ошибка `x == a or b`. У каждого сравнения должны быть обе части."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      count = 0
+      print(count != 0 and 10 / count > 1)
+    options:
+      - text: "`False`"
+        correct: true
+        why: "count != 0 — ложь, and останавливается, деление не выполняется."
+      - text: "Ошибку ZeroDivisionError"
+        why: "Благодаря короткому замыканию деление на ноль не вычисляется."
+      - text: "`True`"
+        why: "Первый операнд уже ложный — результат and не может быть True."
+    explanation: "Короткое замыкание: если первый операнд and ложен, второй не вычисляется. Это защищает от ошибок."
+
+  - id: q4
+    type: multiple
+    prompt: "Какие выражения эквивалентны `not (a and b)` при любых логических a и b? Выберите все."
+    options:
+      - text: "`not a or not b`"
+        correct: true
+        why: "Закон де Моргана: «неверно, что оба» = «хотя бы один нет»."
+      - text: "`(not a) or (not b)`"
+        correct: true
+        why: "То же самое со скобками — not и так старше or."
+      - text: "`not a and not b`"
+        why: "Это `not (a or b)` — «оба нет», другое условие."
+      - text: "`a or b`"
+        why: "При a = b = True: `not (a and b)` — False, а `a or b` — True."
+    explanation: "Вносить not внутрь скобок можно, меняя and ↔ or и отрицая каждый операнд."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print(True or False and False)
+      print((True or False) and False)
+    options:
+      - text: |
+          ```
+          True
+          False
+          ```
+        correct: true
+        why: "and старше or: первое — True or (False and False) = True; второе — True and False = False."
+      - text: |
+          ```
+          False
+          False
+          ```
+        why: "В первой строке and выполняется раньше or."
+      - text: |
+          ```
+          True
+          True
+          ```
+        why: "Скобки во второй строке меняют порядок: (True) and False = False."
+    explanation: "Приоритет: not → and → or. Скобки делают намерение явным."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print("" or "гость", 0 or 0.0, 3 and 7)
+    answer: "гость 0.0 7"
+    explanation: "or возвращает первый истинный операнд или последний: «» ложна → «гость»; 0 ложен → 0.0 (последний). and возвращает первый ложный или последний: 3 истинно → 7."
+
+tasks:
+  - id: t1
+    title: "Високосный год"
+    difficulty: 2
+    statement: |
+      Год високосный, если он делится на 4, но не делится на 100, **или** если он делится на 400.
+      Программа читает год и выводит `високосный` или `обычный`.
+    examples:
+      - input: "2024"
+        output: "високосный"
+      - input: "1900"
+        output: "обычный"
+      - input: "2000"
+        output: "високосный"
+    starter: |
+      year = int(input())
+      if year % 4 == 0:
+          print("високосный")
+      else:
+          print("обычный")
+    hints:
+      - "Условие состоит из двух частей, соединённых `or`; первая часть сама содержит `and`."
+      - "`(year % 4 == 0 and year % 100 != 0) or year % 400 == 0`."
+    solution: |
+      year = int(input())
+      if (year % 4 == 0 and year % 100 != 0) or year % 400 == 0:
+          print("високосный")
+      else:
+          print("обычный")
+    solution_explanation: "Скобки не обязательны (and и так старше or), но делают правило явным. Проверяйте граничные случаи: 1900 (делится на 100, но не на 400) и 2000 (делится на 400)."
+    tests:
+      - name: "2024"
+        stdin: "2024\n"
+        stdout: "високосный"
+      - name: "2023"
+        stdin: "2023\n"
+        stdout: "обычный"
+      - name: "1900 — делится на 100"
+        stdin: "1900\n"
+        stdout: "обычный"
+      - name: "2000 — делится на 400"
+        stdin: "2000\n"
+        stdout: "високосный"
+      - name: "2100"
+        stdin: "2100\n"
+        stdout: "обычный"
+      - name: "1600"
+        stdin: "1600\n"
+        stdout: "високосный"
+
+  - id: t2
+    title: "Вход в систему"
+    difficulty: 1
+    statement: |
+      Программа читает логин и пароль (на отдельных строках).
+
+      - Если логин `admin` и пароль `qwerty123` → `Добро пожаловать`
+      - Если логин `admin`, а пароль другой → `Неверный пароль`
+      - Иначе → `Пользователь не найден`
+    examples:
+      - input: "admin\nqwerty123"
+        output: "Добро пожаловать"
+      - input: "admin\n123"
+        output: "Неверный пароль"
+    starter: |
+      login = input()
+      password = input()
+    hints:
+      - "Первая ветка: `login == \"admin\" and password == \"qwerty123\"`."
+      - "Во второй ветке достаточно проверить логин: пароль точно неверный, иначе сработала бы первая."
+    solution: |
+      login = input()
+      password = input()
+      if login == "admin" and password == "qwerty123":
+          print("Добро пожаловать")
+      elif login == "admin":
+          print("Неверный пароль")
+      else:
+          print("Пользователь не найден")
+    solution_explanation: "and объединяет две проверки. В elif не нужно повторять проверку пароля — до неё доходим, только если первое условие ложно."
+    tests:
+      - name: "Верные данные"
+        stdin: "admin\nqwerty123\n"
+        stdout: "Добро пожаловать"
+      - name: "Неверный пароль"
+        stdin: "admin\n123\n"
+        stdout: "Неверный пароль"
+      - name: "Чужой логин с верным паролем"
+        stdin: "user\nqwerty123\n"
+        stdout: "Пользователь не найден"
+      - name: "Всё неверно"
+        stdin: "guest\nguest\n"
+        stdout: "Пользователь не найден"
+      - name: "Регистр логина"
+        stdin: "Admin\nqwerty123\n"
+        stdout: "Пользователь не найден"
+
+  - id: t3
+    title: "Повторить запрос?"
+    difficulty: 2
+    statement: |
+      Программа читает код ответа API (целое) и номер сделанной попытки (целое, от 1). Максимум попыток — 3.
+
+      - Код от 200 до 299 → `успех`
+      - Код 429 или код 500 и больше, **и** попытка меньше 3 → `повторить`
+      - Иначе → `сдаться`
+    examples:
+      - input: "503\n1"
+        output: "повторить"
+      - input: "503\n3"
+        output: "сдаться"
+      - input: "404\n1"
+        output: "сдаться"
+    starter: |
+      status = int(input())
+      attempt = int(input())
+    hints:
+      - "Временная ошибка: `status == 429 or status >= 500`."
+      - "Не забудьте скобки: `(status == 429 or status >= 500) and attempt < 3`."
+    solution: |
+      status = int(input())
+      attempt = int(input())
+      if 200 <= status < 300:
+          print("успех")
+      elif (status == 429 or status >= 500) and attempt < 3:
+          print("повторить")
+      else:
+          print("сдаться")
+    solution_explanation: "Без скобок условие прочиталось бы как `status == 429 or (status >= 500 and attempt < 3)` — и код 429 повторялся бы бесконечно. Скобки обязательны, когда смешаны and и or."
+    tests:
+      - name: "Успех"
+        stdin: "200\n1\n"
+        stdout: "успех"
+      - name: "503, первая попытка"
+        stdin: "503\n1\n"
+        stdout: "повторить"
+      - name: "429, вторая попытка"
+        stdin: "429\n2\n"
+        stdout: "повторить"
+      - name: "429, попытки кончились"
+        stdin: "429\n3\n"
+        stdout: "сдаться"
+      - name: "500, попытки кончились"
+        stdin: "500\n3\n"
+        stdout: "сдаться"
+      - name: "404 — не временная ошибка"
+        stdin: "404\n1\n"
+        stdout: "сдаться"
+      - name: "204 — тоже успех"
+        stdin: "204\n2\n"
+        stdout: "успех"
+
+  - id: t4
+    title: "Вид треугольника"
+    difficulty: 3
+    statement: |
+      Программа читает три длины сторон (целые положительные числа) и выводит:
+
+      - `не треугольник` — если какая-то сторона не меньше суммы двух других;
+      - `равносторонний` — все стороны равны;
+      - `равнобедренный` — равны ровно две стороны;
+      - `разносторонний` — все стороны разные.
+    examples:
+      - input: "3\n4\n5"
+        output: "разносторонний"
+      - input: "1\n2\n3"
+        output: "не треугольник"
+    starter: |
+      a = int(input())
+      b = int(input())
+      c = int(input())
+    hints:
+      - "Треугольник существует, если `a + b > c and a + c > b and b + c > a`. Для проверки «не существует» используйте not или закон де Моргана."
+      - "Равнобедренный: `a == b or b == c or a == c` — проверяйте после равностороннего."
+    solution: |
+      a = int(input())
+      b = int(input())
+      c = int(input())
+      if not (a + b > c and a + c > b and b + c > a):
+          print("не треугольник")
+      elif a == b == c:
+          print("равносторонний")
+      elif a == b or b == c or a == c:
+          print("равнобедренный")
+      else:
+          print("разносторонний")
+    solution_explanation: "Сначала отсекаем невозможный случай. Порядок проверок важен: равносторонний треугольник формально тоже удовлетворяет условию «две стороны равны», поэтому его проверяем раньше."
+    tests:
+      - name: "3, 4, 5"
+        stdin: "3\n4\n5\n"
+        stdout: "разносторонний"
+      - name: "Вырожденный"
+        stdin: "1\n2\n3\n"
+        stdout: "не треугольник"
+      - name: "Равносторонний"
+        stdin: "7\n7\n7\n"
+        stdout: "равносторонний"
+      - name: "Равнобедренный (a = c)"
+        stdin: "5\n8\n5\n"
+        stdout: "равнобедренный"
+      - name: "Равнобедренный (b = c)"
+        stdin: "3\n6\n6\n"
+        stdout: "равнобедренный"
+      - name: "Длинная сторона"
+        stdin: "1\n1\n10\n"
+        stdout: "не треугольник"

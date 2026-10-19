@@ -1,0 +1,489 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import asyncio
+
+      state = {"now": 0, "peak": 0}
+
+
+      async def job(sem):
+          async with sem:
+              state["now"] += 1
+              state["peak"] = max(state["peak"], state["now"])
+              await asyncio.sleep(0.01)
+              state["now"] -= 1
+
+
+      async def main():
+          sem = asyncio.Semaphore(2)
+          await asyncio.gather(*(job(sem) for _ in range(7)))
+
+
+      asyncio.run(main())
+      print(state["peak"])
+    options:
+      - text: "`2`"
+        correct: true
+        why: "Семафор пропускает внутрь не больше двух задач одновременно."
+      - text: "`7`"
+        why: "Так было бы без семафора."
+      - text: "`1`"
+        why: "Семафор на 2 допускает две задачи одновременно."
+    explanation: "Semaphore(k) ограничивает число одновременно выполняющихся блоков."
+
+  - id: q2
+    type: find_bug
+    prompt: "Ограничение «не больше 5 запросов одновременно» не работает. Почему?"
+    code: |
+      import asyncio
+
+
+      async def fetch(url):
+          semaphore = asyncio.Semaphore(5)
+          async with semaphore:
+              return await download(url)
+
+
+      async def main(urls):
+          return await asyncio.gather(*(fetch(u) for u in urls))
+    options:
+      - text: "Семафор создаётся заново в каждом вызове — у каждой задачи свой счётчик; нужен один общий семафор"
+        correct: true
+        why: "Создайте семафор в main и передайте в fetch."
+      - text: "Semaphore нельзя использовать с async with"
+        why: "Это правильный способ."
+      - text: "gather игнорирует семафоры"
+        why: "gather просто запускает задачи; семафор работает, если он общий."
+    explanation: "Один семафор — на всю группу ограничиваемых задач."
+
+  - id: q3
+    type: single
+    prompt: "API разрешает 60 запросов в минуту, каждый запрос длится 0.2 с. Достаточно ли `Semaphore(5)`?"
+    options:
+      - text: "Нет: 5 одновременных запросов по 0.2 с — это до 1500 запросов в минуту; нужен ограничитель частоты"
+        correct: true
+        why: "Семафор ограничивает одновременность, а не частоту."
+      - text: "Да, семафор ограничивает число запросов в минуту"
+        why: "Семафор не знает о времени."
+      - text: "Да, если запросы короткие"
+        why: "Чем короче запросы, тем выше частота."
+      - text: "Нет, нужно Semaphore(60)"
+        why: "Больший семафор только увеличит частоту."
+    explanation: "Одновременность и частота — разные лимиты."
+
+  - id: q4
+    type: find_bug
+    prompt: "Повтор падает с `RuntimeError: cannot reuse already awaited coroutine`. Почему?"
+    code: |
+      async def retry(coro, attempts=3):
+          for attempt in range(attempts):
+              try:
+                  return await coro
+              except ConnectionError:
+                  await asyncio.sleep(2 ** attempt)
+    options:
+      - text: "Корутину можно ждать только один раз; для повтора нужно передавать функцию и вызывать её на каждой попытке"
+        correct: true
+        why: "retry(lambda: call_api(x)) и await make_call()."
+      - text: "Нельзя использовать asyncio.sleep в цикле"
+        why: "Можно."
+      - text: "Нужно ловить RuntimeError"
+        why: "Это скроет ошибку, повтор всё равно не сработает."
+    explanation: "Повторяется вызов, а не объект корутины."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import asyncio
+
+
+      async def main():
+          queue = asyncio.Queue()
+          for x in [3, 1, 2]:
+              queue.put_nowait(x)
+          seen = []
+          while not queue.empty():
+              seen.append(await queue.get())
+              queue.task_done()
+          await queue.join()
+          return seen
+
+
+      print(asyncio.run(main()))
+    options:
+      - text: "`[3, 1, 2]`"
+        correct: true
+        why: "asyncio.Queue — очередь FIFO: элементы выходят в порядке добавления."
+      - text: "`[1, 2, 3]`"
+        why: "Queue не сортирует; приоритетная очередь — asyncio.PriorityQueue."
+      - text: "Программа зависнет на join"
+        why: "task_done вызван для каждого элемента — join сразу завершится."
+    explanation: "join ждёт, пока для каждого элемента вызовут task_done."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно? Выберите все."
+    options:
+      - text: "При ошибке 429 нужно повторить запрос с увеличивающейся задержкой"
+        correct: true
+        why: "Экспоненциальная задержка снижает нагрузку."
+      - text: "Число воркеров, читающих из очереди, ограничивает одновременность"
+        correct: true
+        why: "Каждый воркер обрабатывает одну задачу за раз."
+      - text: "Семафор и ограничитель частоты можно использовать вместе"
+        correct: true
+        why: "Они ограничивают разное."
+      - text: "Ограничитель частоты должен использовать time.sleep"
+        why: "time.sleep заблокирует цикл событий."
+    explanation: "Вежливый клиент API ограничивает и одновременность, и частоту."
+
+tasks:
+  - id: t1
+    title: "Ограниченный gather"
+    difficulty: 1
+    statement: |
+      Напишите `async def gather_limited(coros, limit)`: выполнить корутины из списка `coros` так, чтобы одновременно выполнялось не больше `limit`, и вернуть результаты в исходном порядке. `limit < 1` → `ValueError`.
+    examples:
+      - input: "asyncio.run(gather_limited([square(i) for i in range(5)], 2))"
+        output: "[0, 1, 4, 9, 16]"
+    setup: |
+      import asyncio
+
+
+      async def square(x):
+          await asyncio.sleep(0.01)
+          return x * x
+    starter: |
+      async def gather_limited(coros, limit):
+          return await asyncio.gather(*coros)
+    hints:
+      - "Один семафор на всё: `semaphore = asyncio.Semaphore(limit)` и обёртка `async def guarded(coro): async with semaphore: return await coro`."
+      - "`return list(await asyncio.gather(*(guarded(c) for c in coros)))`."
+    solution: |
+      import asyncio
+
+
+      async def gather_limited(coros, limit):
+          """gather с ограничением одновременности."""
+          if limit < 1:
+              raise ValueError("limit должен быть не меньше 1")
+          semaphore = asyncio.Semaphore(limit)
+
+          async def guarded(coro):
+              async with semaphore:
+                  return await coro
+
+          return list(await asyncio.gather(*(guarded(coro) for coro in coros)))
+    solution_explanation: "Корутина начинает работу только внутри guarded, после получения разрешения семафора, поэтому одновременно выполняется не больше limit корутин."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(gather_limited([square(i) for i in range(5)], 2))"
+        expected: "[0, 1, 4, 9, 16]"
+      - name: "Лимит соблюдается"
+        code: |
+          state = {"now": 0, "peak": 0}
+          async def tracked(i):
+              state["now"] += 1
+              state["peak"] = max(state["peak"], state["now"])
+              await asyncio.sleep(0.01)
+              state["now"] -= 1
+              return i
+          result = asyncio.run(gather_limited([tracked(i) for i in range(10)], 3))
+          assert result == list(range(10)) and state["peak"] == 3, state
+      - name: "Время по волнам"
+        code: |
+          import time
+          start = time.perf_counter()
+          asyncio.run(gather_limited([asyncio.sleep(0.1) for _ in range(4)], 2))
+          elapsed = time.perf_counter() - start
+          assert 0.18 < elapsed < 0.5, f"{elapsed:.2f} с: ожидалось около 0.2 с (две волны)"
+      - name: "Неверный лимит"
+        code: |
+          try:
+              asyncio.run(gather_limited([], 0))
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Пусто"
+        call: "asyncio.run(gather_limited([], 3))"
+        expected: "[]"
+
+  - id: t2
+    title: "Ограничитель частоты"
+    difficulty: 2
+    statement: |
+      Создайте класс `RateLimiter(per_second)`: асинхронный метод `wait()` пропускает вызовы не чаще чем `per_second` раз в секунду — каждый следующий старт не раньше чем через `1 / per_second` с после предыдущего (первый — сразу). Используйте `time.monotonic()` и `asyncio.sleep`. `per_second <= 0` → `ValueError`.
+    examples:
+      - input: "limiter = RateLimiter(20)  # интервал 0.05 с"
+        output: "старты: 0.0, 0.05, 0.1, ..."
+    setup: |
+      import asyncio
+      import time
+    starter: |
+      class RateLimiter:
+          def __init__(self, per_second):
+              self.per_second = per_second
+
+          async def wait(self):
+              pass
+    hints:
+      - "Храните `self.interval = 1 / per_second` и `self.next_slot = 0.0`."
+      - "В wait: `now = time.monotonic()`, `slot = max(self.next_slot, now)`, `self.next_slot = slot + self.interval` (до await!), затем `await asyncio.sleep(slot - now)`."
+    solution: |
+      import asyncio
+      import time
+
+
+      class RateLimiter:
+          """Не больше per_second стартов в секунду."""
+
+          def __init__(self, per_second):
+              if per_second <= 0:
+                  raise ValueError("per_second должен быть положительным")
+              self.interval = 1 / per_second
+              self.next_slot = 0.0
+
+          async def wait(self):
+              now = time.monotonic()
+              slot = max(self.next_slot, now)
+              self.next_slot = slot + self.interval
+              await asyncio.sleep(slot - now)
+    solution_explanation: "Каждый вызов бронирует ближайший свободный слот до await — поэтому даже одновременные задачи получают разные слоты. Затем задача спит до своего слота, не блокируя цикл событий."
+    tests:
+      - name: "Интервалы между стартами"
+        code: |
+          async def main():
+              limiter = RateLimiter(20)
+              starts = []
+              async def job():
+                  await limiter.wait()
+                  starts.append(time.monotonic())
+              await asyncio.gather(*(job() for _ in range(5)))
+              return starts
+          starts = sorted(asyncio.run(main()))
+          gaps = [b - a for a, b in zip(starts, starts[1:])]
+          # 5 стартов при 20/с: 4 интервала по 0.05 с; отдельные интервалы «дрожат» из-за точности таймера
+          assert starts[-1] - starts[0] > 0.17, gaps
+          assert all(g > 0.02 for g in gaps), gaps
+          assert starts[-1] - starts[0] < 0.4
+      - name: "Первый вызов сразу"
+        code: |
+          async def main():
+              limiter = RateLimiter(1)
+              start = time.monotonic()
+              await limiter.wait()
+              return time.monotonic() - start
+          assert asyncio.run(main()) < 0.05
+      - name: "После паузы не копит задолженность"
+        code: |
+          async def main():
+              limiter = RateLimiter(10)
+              await limiter.wait()
+              await asyncio.sleep(0.3)
+              start = time.monotonic()
+              await limiter.wait()
+              return time.monotonic() - start
+          assert asyncio.run(main()) < 0.05
+      - name: "Неверный лимит"
+        code: |
+          try:
+              RateLimiter(0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "wait — корутина"
+        code: |
+          import inspect
+          assert inspect.iscoroutinefunction(RateLimiter.wait)
+
+  - id: t3
+    title: "Асинхронный повтор"
+    difficulty: 2
+    statement: |
+      Напишите `async def retry_async(make_call, attempts=3, base_delay=0.1, retry_on=(Exception,), sleep=asyncio.sleep)`:
+
+      - `make_call` — функция без аргументов, возвращающая **новую** корутину;
+      - при исключении из `retry_on` ждёт `base_delay * 2 ** (номер_попытки - 1)` через переданную функцию `sleep` и повторяет; после последней попытки пробрасывает исключение;
+      - другие исключения пробрасываются сразу.
+
+      Параметр `sleep` позволяет тестам не ждать реальные секунды.
+    examples:
+      - input: "asyncio.run(retry_async(flaky(2), sleep=fake_sleep)), delays"
+        output: "('ok', [0.1, 0.2])"
+    setup: |
+      import asyncio
+
+      delays = []
+
+
+      async def fake_sleep(seconds):
+          delays.append(seconds)
+
+
+      def flaky(failures, error=ConnectionError):
+          state = {"left": failures}
+
+          async def call():
+              if state["left"] > 0:
+                  state["left"] -= 1
+                  raise error("сбой")
+              return "ok"
+
+          return call
+    starter: |
+      async def retry_async(make_call, attempts=3, base_delay=0.1, retry_on=(Exception,), sleep=asyncio.sleep):
+          coro = make_call()
+          for _ in range(attempts):
+              try:
+                  return await coro
+              except retry_on:
+                  pass
+    hints:
+      - "На каждой попытке вызывайте `await make_call()` — новая корутина."
+      - "`for attempt in range(1, attempts + 1):` — в `except retry_on:` на последней попытке `raise`, иначе `await sleep(base_delay * 2 ** (attempt - 1))`."
+    solution: |
+      import asyncio
+
+
+      async def retry_async(make_call, attempts=3, base_delay=0.1, retry_on=(Exception,), sleep=asyncio.sleep):
+          """Повтор асинхронного вызова с экспоненциальной задержкой."""
+          for attempt in range(1, attempts + 1):
+              try:
+                  return await make_call()
+              except retry_on:
+                  if attempt == attempts:
+                      raise
+                  await sleep(base_delay * 2 ** (attempt - 1))
+    solution_explanation: "Асинхронная версия декоратора retry из блока 2.4: ожидание через await, а повторяется вызов функции, создающей корутину, — ту же корутину нельзя ждать дважды."
+    tests:
+      - name: "Пример"
+        code: |
+          delays.clear()
+          assert asyncio.run(retry_async(flaky(2), sleep=fake_sleep)) == "ok"
+          assert delays == [0.1, 0.2], delays
+      - name: "Все попытки неудачны"
+        code: |
+          delays.clear()
+          try:
+              asyncio.run(retry_async(flaky(5), attempts=3, base_delay=1, sleep=fake_sleep))
+          except ConnectionError:
+              pass
+          else:
+              raise AssertionError("Ожидался ConnectionError")
+          assert delays == [1, 2], delays
+      - name: "Другие ошибки без повтора"
+        code: |
+          delays.clear()
+          try:
+              asyncio.run(retry_async(flaky(1, error=KeyError), retry_on=(ConnectionError,), sleep=fake_sleep))
+          except KeyError:
+              pass
+          else:
+              raise AssertionError("Ожидался KeyError")
+          assert delays == []
+      - name: "Успех с первой попытки"
+        code: |
+          delays.clear()
+          assert asyncio.run(retry_async(flaky(0), sleep=fake_sleep)) == "ok" and delays == []
+      - name: "Реальный sleep по умолчанию"
+        code: |
+          import time
+          start = time.perf_counter()
+          assert asyncio.run(retry_async(flaky(1), base_delay=0.05)) == "ok"
+          assert time.perf_counter() - start >= 0.04
+
+  - id: t4
+    title: "Пул воркеров с очередью"
+    difficulty: 3
+    statement: |
+      Напишите `async def process_queue(items, handler, workers)`:
+
+      - кладёт все элементы в `asyncio.Queue` вместе с их индексами;
+      - запускает `workers` задач-воркеров; каждый в цикле берёт элемент, вызывает `await handler(item)` и сохраняет результат;
+      - ошибка обработчика не останавливает воркер: на месте результата сохраняется строка `"ошибка: <сообщение>"`;
+      - когда очередь обработана, воркеры отменяются;
+      - возвращает список результатов **в исходном порядке**.
+
+      Одновременно должно обрабатываться не больше `workers` элементов.
+    examples:
+      - input: "asyncio.run(process_queue([\"a\", \"b\"], shout, 2))"
+        output: "['A!', 'B!']"
+    setup: |
+      import asyncio
+
+
+      async def shout(text):
+          await asyncio.sleep(0.01)
+          if not text:
+              raise ValueError("пусто")
+          return text.upper() + "!"
+    starter: |
+      async def process_queue(items, handler, workers):
+          return [await handler(item) for item in items]
+    hints:
+      - "`results = [None] * len(items)`; в очередь кладите пары `(index, item)`; воркер: `index, item = await queue.get()`, обработка в `try/except`, `queue.task_done()` в `finally`."
+      - "`await queue.join()`, затем `task.cancel()` для всех воркеров и `await asyncio.gather(*tasks, return_exceptions=True)`."
+    solution: |
+      import asyncio
+
+
+      async def process_queue(items, handler, workers):
+          """Обработать элементы пулом воркеров."""
+          queue = asyncio.Queue()
+          for pair in enumerate(items):
+              queue.put_nowait(pair)
+          results = [None] * len(items)
+
+          async def worker():
+              while True:
+                  index, item = await queue.get()
+                  try:
+                      results[index] = await handler(item)
+                  except Exception as error:
+                      results[index] = f"ошибка: {error}"
+                  finally:
+                      queue.task_done()
+
+          tasks = [asyncio.create_task(worker()) for _ in range(workers)]
+          await queue.join()
+          for task in tasks:
+              task.cancel()
+          await asyncio.gather(*tasks, return_exceptions=True)
+          return results
+    solution_explanation: "Индексы в очереди позволяют вернуть результаты в исходном порядке, хотя воркеры заканчивают в произвольном. task_done в finally гарантирует, что join не зависнет даже при ошибке обработчика."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(process_queue([\"a\", \"b\"], shout, 2))"
+        expected: "['A!', 'B!']"
+      - name: "Ошибки"
+        call: "asyncio.run(process_queue([\"x\", \"\", \"y\"], shout, 2))"
+        expected: "['X!', 'ошибка: пусто', 'Y!']"
+      - name: "Ограничение и порядок"
+        code: |
+          state = {"now": 0, "peak": 0}
+          async def handler(x):
+              state["now"] += 1
+              state["peak"] = max(state["peak"], state["now"])
+              await asyncio.sleep(0.01 * (5 - x % 5))
+              state["now"] -= 1
+              return x * 10
+          result = asyncio.run(process_queue(list(range(12)), handler, 3))
+          assert result == [x * 10 for x in range(12)] and state["peak"] == 3, (result, state)
+      - name: "Время"
+        code: |
+          import time
+          async def wait(x):
+              await asyncio.sleep(0.1)
+              return x
+          start = time.perf_counter()
+          asyncio.run(process_queue(list(range(8)), wait, 4))
+          elapsed = time.perf_counter() - start
+          assert 0.18 < elapsed < 0.6, f"{elapsed:.2f} с"
+      - name: "Пусто"
+        call: "asyncio.run(process_queue([], shout, 3))"
+        expected: "[]"

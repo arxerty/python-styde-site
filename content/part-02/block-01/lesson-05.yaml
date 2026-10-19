@@ -1,0 +1,505 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Cat:
+          def speak(self):
+              return "мяу"
+
+
+      class Cow:
+          def speak(self):
+              return "му"
+
+
+      class Fish:
+          pass
+
+
+      for animal in [Cat(), Cow(), Fish()]:
+          try:
+              print(animal.speak())
+          except AttributeError:
+              print("...")
+    options:
+      - text: |
+          ```
+          мяу
+          му
+          ...
+          ```
+        correct: true
+        why: "У Fish нет speak — AttributeError перехватывается."
+      - text: |
+          ```
+          мяу
+          му
+          ```
+        why: "Для Fish срабатывает except и печатается «...»."
+      - text: "Ошибка: у классов нет общего родителя"
+        why: "Общий родитель не нужен — достаточно метода speak (утиная типизация)."
+    explanation: "Утиная типизация + EAFP: вызываем метод и обрабатываем его отсутствие."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Queue:
+          def __init__(self):
+              self.items = []
+
+          def __len__(self):
+              return len(self.items)
+
+
+      q = Queue()
+      print(len(q), bool(q))
+      q.items.append("задача")
+      print(len(q), bool(q))
+    options:
+      - text: |
+          ```
+          0 False
+          1 True
+          ```
+        correct: true
+        why: "len вызывает __len__, а при отсутствии __bool__ истинность определяется по __len__."
+      - text: |
+          ```
+          0 True
+          1 True
+          ```
+        why: "Любой объект истинен по умолчанию, но если есть __len__, пустой объект ложен."
+      - text: "TypeError: object of type 'Queue' has no len()"
+        why: "Метод __len__ определён — len работает."
+    explanation: "Специальные методы подключают ваши объекты к встроенным функциям."
+
+  - id: q3
+    type: single
+    prompt: "Что такое утиная типизация?"
+    options:
+      - text: "Код работает с любым объектом, у которого есть нужные методы, независимо от его класса"
+        correct: true
+        why: "Важно поведение, а не тип."
+      - text: "Все классы должны наследовать общий базовый класс"
+        why: "Наоборот — наследование не требуется."
+      - text: "Проверка типа через isinstance перед каждым вызовом"
+        why: "Это противоположный подход."
+      - text: "Автоматическое преобразование типов при сложении"
+        why: "Это не связано с утиной типизацией."
+    explanation: "«Если крякает как утка — это утка»: Python смотрит на методы, а не на класс."
+
+  - id: q4
+    type: find_bug
+    prompt: "Функция `notify_all(channels, text)` вызывает `channel.send(text)` для каждого канала. Какой класс сломает её?"
+    code: |
+      class Email:
+          def send(self, text):
+              return f"email: {text}"
+
+
+      class Sms:
+          def send_sms(self, text):
+              return f"sms: {text}"
+
+
+      class Push:
+          def send(self, text):
+              return f"push: {text}"
+    options:
+      - text: "Sms — метод называется send_sms, интерфейс не совпадает"
+        correct: true
+        why: "У Sms нет send — будет AttributeError."
+      - text: "Email — у него нет общего родителя с Push"
+        why: "Общий родитель не нужен."
+      - text: "Push — он возвращает строку другого формата"
+        why: "Формат результата — дело реализации; интерфейс совпадает."
+    explanation: "Полиморфизм работает, только если интерфейс (имя и параметры метода) одинаков."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def size(obj):
+          try:
+              return len(obj)
+          except TypeError:
+              return -1
+
+
+      print(size("abc"), size([1, 2]), size(10))
+    options:
+      - text: "`3 2 -1`"
+        correct: true
+        why: "У int нет длины — len бросает TypeError."
+      - text: "`3 2 2`"
+        why: "len(10) не считает цифры — это ошибка."
+      - text: "`3 2 0`"
+        why: "Функция возвращает -1 в except."
+    explanation: "EAFP: пробуем операцию и обрабатываем отказ."
+
+  - id: q6
+    type: multiple
+    prompt: "Что из этого — признаки, что стоит применить полиморфизм? Выберите все."
+    options:
+      - text: "Повторяющиеся цепочки `if kind == \"a\": ... elif kind == \"b\": ...` в разных функциях"
+        correct: true
+        why: "Поведение по типу лучше перенести в методы классов."
+      - text: "`if isinstance(x, A): ... elif isinstance(x, B): ...` для выбора действия"
+        correct: true
+        why: "Тот же запах — выбор поведения по типу."
+      - text: "Новый вариант требует правок в нескольких местах программы"
+        correct: true
+        why: "С полиморфизмом новый вариант — это новый класс."
+      - text: "Проверка `isinstance(age, int)` при валидации входных данных"
+        why: "Валидация типа входных данных — законное применение isinstance."
+    explanation: "Полиморфизм заменяет ветвление по типу на вызов метода."
+
+tasks:
+  - id: t1
+    title: "Фонд оплаты труда"
+    difficulty: 1
+    statement: |
+      Создайте классы сотрудников с методом `salary()`:
+
+      - `Employee(name, base)` — зарплата `base`;
+      - `Manager(name, base, team_size)` — `base * 1.5 + 1000 * team_size`;
+      - `Intern(name, base)` — `base * 0.5`.
+
+      `Manager` и `Intern` — потомки `Employee`. Функция `payroll(staff)` возвращает сумму зарплат всех сотрудников. **Без проверок типа** — только вызов `salary()`.
+    examples:
+      - input: "payroll([Employee(\"Ада\", 100000), Intern(\"Алан\", 60000)])"
+        output: "130000.0"
+    starter: |
+      class Employee:
+          def __init__(self, name, base):
+              self.name = name
+              self.base = base
+
+
+      def payroll(staff):
+          total = 0
+          for person in staff:
+              total += person.base
+          return total
+    hints:
+      - "У каждого класса свой `salary()`; Manager вызывает `super().__init__(name, base)` и сохраняет team_size."
+      - "`payroll`: `sum(person.salary() for person in staff)`."
+    solution: |
+      class Employee:
+          """Сотрудник с базовым окладом."""
+
+          def __init__(self, name, base):
+              self.name = name
+              self.base = base
+
+          def salary(self):
+              return self.base
+
+
+      class Manager(Employee):
+          def __init__(self, name, base, team_size):
+              super().__init__(name, base)
+              self.team_size = team_size
+
+          def salary(self):
+              return self.base * 1.5 + 1000 * self.team_size
+
+
+      class Intern(Employee):
+          def salary(self):
+              return self.base * 0.5
+
+
+      def payroll(staff):
+          """Сумма зарплат всех сотрудников."""
+          return sum(person.salary() for person in staff)
+    solution_explanation: "payroll не знает о видах сотрудников: каждый объект сам считает свою зарплату. Новый вид сотрудника — новый класс с salary(), без правок payroll."
+    constraints:
+      forbid: ["isinstance", "type("]
+      message: "Решите через полиморфизм: без проверок типа"
+    tests:
+      - name: "Пример"
+        call: "payroll([Employee(\"Ада\", 100000), Intern(\"Алан\", 60000)])"
+        expected: "130000.0"
+      - name: "Менеджер"
+        call: "Manager(\"Грейс\", 200000, 4).salary()"
+        expected: "304000.0"
+      - name: "Все вместе"
+        call: "payroll([Employee(\"a\", 50000), Manager(\"b\", 100000, 2), Intern(\"c\", 40000)])"
+        expected: "222000.0"
+      - name: "Пустой штат"
+        call: "payroll([])"
+        expected: "0"
+      - name: "Иерархия"
+        code: |
+          assert issubclass(Manager, Employee) and issubclass(Intern, Employee)
+      - name: "Утиная типизация"
+        code: |
+          class Contractor:
+              def salary(self):
+                  return 7000
+          assert payroll([Contractor(), Employee("x", 3000)]) == 10000, "payroll должен работать с любым объектом, у которого есть salary()"
+
+  - id: t2
+    title: "Длина всего подряд"
+    difficulty: 2
+    statement: |
+      1. Создайте класс `Sentence(text)`: `len(sentence)` — число слов, `str(sentence)` — исходный текст без пробелов по краям.
+      2. Напишите функцию `total_length(items)`: сумма `len(item)` для всех элементов, у которых есть длина; элементы без длины (числа, `None`…) пропускаются. Используйте подход EAFP: `try` / `except TypeError`.
+    examples:
+      - input: "total_length([\"abc\", [1, 2], 5, Sentence(\"раз два три\")])"
+        output: "8"
+    starter: |
+      class Sentence:
+          def __init__(self, text):
+              self.text = text
+
+
+      def total_length(items):
+          return sum(len(item) for item in items)
+    hints:
+      - "`__len__` возвращает `len(self.text.split())`, `__str__` — `self.text.strip()`."
+      - "В цикле: `try: total += len(item)` / `except TypeError: continue`."
+    solution: |
+      class Sentence:
+          """Предложение, длина которого — число слов."""
+
+          def __init__(self, text):
+              self.text = text
+
+          def __len__(self):
+              return len(self.text.split())
+
+          def __str__(self):
+              return self.text.strip()
+
+
+      def total_length(items):
+          """Сумма длин элементов, у которых есть длина."""
+          total = 0
+          for item in items:
+              try:
+                  total += len(item)
+              except TypeError:
+                  continue
+          return total
+    solution_explanation: "total_length не знает, какие типы поддерживают len, — она просто пробует. Sentence становится «длинным» объектом благодаря __len__ и работает с функцией без каких-либо изменений в ней."
+    constraints:
+      require: ["try", "except TypeError"]
+      message: "Используйте подход EAFP: try / except TypeError"
+    tests:
+      - name: "Пример"
+        call: "total_length([\"abc\", [1, 2], 5, Sentence(\"раз два три\")])"
+        expected: "8"
+      - name: "len(Sentence)"
+        call: "len(Sentence(\"  Python —  это   просто \"))"
+        expected: "4"
+      - name: "str(Sentence)"
+        call: "str(Sentence(\"  Привет, мир!  \"))"
+        expected: "'Привет, мир!'"
+      - name: "Только элементы без длины"
+        call: "total_length([1, None, 2.5])"
+        expected: "0"
+      - name: "Словари и кортежи"
+        call: "total_length([{\"a\": 1, \"b\": 2}, (1,), \"\"])"
+        expected: "3"
+      - name: "Пустое предложение ложно"
+        code: |
+          assert not Sentence("   "), "Предложение без слов должно быть ложным"
+          assert Sentence("слово")
+
+  - id: t3
+    title: "Экспорт в разные форматы"
+    difficulty: 2
+    statement: |
+      Строки отчёта — список словарей с одинаковыми ключами. Создайте три экспортёра с атрибутом класса `extension` и методом `export(rows) -> str`:
+
+      - `CsvExporter` (`"csv"`): строка заголовков через запятую, затем строки значений через запятую; строки разделены `\n`;
+      - `JsonExporter` (`"json"`): `json.dumps(rows, ensure_ascii=False)`;
+      - `MarkdownExporter` (`"md"`): `| a | b |`, затем `| --- | --- |`, затем строки `| 1 | 2 |`.
+
+      Функция `export_all(exporters, rows)` возвращает словарь `{extension: результат export}`. Для пустого `rows` CSV и Markdown возвращают пустую строку.
+    examples:
+      - input: "CsvExporter().export([{\"model\": \"a\", \"score\": 0.9}])"
+        output: "'model,score\\na,0.9'"
+    starter: |
+      import json
+
+
+      class CsvExporter:
+          extension = "csv"
+
+          def export(self, rows):
+              return ""
+
+
+      def export_all(exporters, rows):
+          return {}
+    hints:
+      - "Заголовки — `list(rows[0])`; значения строки — `[str(row[key]) for key in headers]`."
+      - "Markdown-строка: `\"| \" + \" | \".join(cells) + \" |\"`. export_all: `{e.extension: e.export(rows) for e in exporters}`."
+    solution: |
+      import json
+
+
+      class CsvExporter:
+          extension = "csv"
+
+          def export(self, rows):
+              if not rows:
+                  return ""
+              headers = list(rows[0])
+              lines = [",".join(headers)]
+              for row in rows:
+                  lines.append(",".join(str(row[key]) for key in headers))
+              return "\n".join(lines)
+
+
+      class JsonExporter:
+          extension = "json"
+
+          def export(self, rows):
+              return json.dumps(rows, ensure_ascii=False)
+
+
+      class MarkdownExporter:
+          extension = "md"
+
+          def export(self, rows):
+              if not rows:
+                  return ""
+              headers = list(rows[0])
+              lines = [self._line(headers), self._line(["---"] * len(headers))]
+              for row in rows:
+                  lines.append(self._line(str(row[key]) for key in headers))
+              return "\n".join(lines)
+
+          def _line(self, cells):
+              return "| " + " | ".join(cells) + " |"
+
+
+      def export_all(exporters, rows):
+          """Экспортировать строки всеми экспортёрами."""
+          return {exporter.extension: exporter.export(rows) for exporter in exporters}
+    solution_explanation: "У экспортёров нет общего родителя — их объединяет протокол: атрибут extension и метод export(rows). export_all работает с любым набором экспортёров, в том числе с теми, что напишут позже."
+    tests:
+      - name: "CSV"
+        call: "CsvExporter().export([{\"model\": \"a\", \"score\": 0.9}, {\"model\": \"b\", \"score\": 0.7}])"
+        expected: "'model,score\\na,0.9\\nb,0.7'"
+      - name: "JSON с кириллицей"
+        call: "JsonExporter().export([{\"имя\": \"Ада\"}])"
+        expected: "'[{\"имя\": \"Ада\"}]'"
+      - name: "Markdown"
+        call: "MarkdownExporter().export([{\"a\": 1, \"b\": 2}])"
+        expected: "'| a | b |\\n| --- | --- |\\n| 1 | 2 |'"
+      - name: "export_all"
+        call: "sorted(export_all([CsvExporter(), JsonExporter(), MarkdownExporter()], [{\"x\": 1}]).items())"
+        expected: "[('csv', 'x\\n1'), ('json', '[{\"x\": 1}]'), ('md', '| x |\\n| --- |\\n| 1 |')]"
+      - name: "Пустые строки"
+        code: |
+          assert CsvExporter().export([]) == "" and MarkdownExporter().export([]) == ""
+          assert JsonExporter().export([]) == "[]"
+      - name: "Любой экспортёр"
+        code: |
+          class Upper:
+              extension = "up"
+              def export(self, rows):
+                  return str(len(rows))
+          assert export_all([Upper()], [{}, {}]) == {"up": "2"}
+
+  - id: t4
+    title: "Классификатор с подменяемой моделью"
+    difficulty: 3
+    statement: |
+      Модель — любой объект с методом `generate(prompt) -> str`.
+
+      1. `FakeModel(answers)` — отдаёт ответы из списка по очереди (когда закончились — `""`) и запоминает полученные промпты в атрибуте `prompts`.
+      2. `Classifier(model, labels)`, метод `classify(text)`:
+         - промпт: `"Классифицируй текст: <text>\nВарианты: <labels через ', '>"`;
+         - ответ модели нормализуется: пробелы по краям, нижний регистр, точка в конце убирается;
+         - если результат есть среди `labels` — вернуть его, иначе `"unknown"`.
+      3. Метод `classify_many(texts)` — список результатов `classify`.
+    examples:
+      - input: "Classifier(FakeModel([\" Positive.\"]), [\"positive\", \"negative\"]).classify(\"Отлично!\")"
+        output: "'positive'"
+    starter: |
+      class FakeModel:
+          def __init__(self, answers):
+              self.answers = answers
+
+          def generate(self, prompt):
+              return self.answers[0]
+
+
+      class Classifier:
+          def __init__(self, model, labels):
+              self.model = model
+              self.labels = labels
+
+          def classify(self, text):
+              return self.model.generate(text)
+    hints:
+      - "FakeModel: копия списка в `__init__` (`list(answers)`), в generate — `self.prompts.append(prompt)` и `pop(0)`, если список не пуст."
+      - "Нормализация: `answer.strip().lower().rstrip(\".\")`."
+    solution: |
+      class FakeModel:
+          """Фейковая модель с заранее заданными ответами."""
+
+          def __init__(self, answers):
+              self._answers = list(answers)
+              self.prompts = []
+
+          def generate(self, prompt):
+              self.prompts.append(prompt)
+              if not self._answers:
+                  return ""
+              return self._answers.pop(0)
+
+
+      class Classifier:
+          """Классификация текста с помощью языковой модели."""
+
+          def __init__(self, model, labels):
+              self.model = model
+              self.labels = list(labels)
+
+          def _prompt(self, text):
+              return f"Классифицируй текст: {text}\nВарианты: {', '.join(self.labels)}"
+
+          def classify(self, text):
+              answer = self.model.generate(self._prompt(text))
+              label = answer.strip().lower().rstrip(".")
+              return label if label in self.labels else "unknown"
+
+          def classify_many(self, texts):
+              return [self.classify(text) for text in texts]
+    solution_explanation: "Classifier получает модель снаружи и пользуется только её методом generate — поэтому в тестах вместо платного API подставляется FakeModel или любой другой объект. Нормализация ответа обязательна: LLM часто добавляют пробелы, заглавные буквы и точку."
+    tests:
+      - name: "Пример"
+        call: "Classifier(FakeModel([\" Positive.\"]), [\"positive\", \"negative\"]).classify(\"Отлично!\")"
+        expected: "'positive'"
+      - name: "Промпт"
+        code: |
+          model = FakeModel(["spam"])
+          Classifier(model, ["spam", "ham"]).classify("Выиграйте приз")
+          assert model.prompts == ["Классифицируй текст: Выиграйте приз\nВарианты: spam, ham"], f"prompts = {model.prompts}"
+      - name: "Неизвестный ответ"
+        call: "Classifier(FakeModel([\"не знаю\"]), [\"a\", \"b\"]).classify(\"x\")"
+        expected: "'unknown'"
+      - name: "classify_many и конец ответов"
+        call: "Classifier(FakeModel([\"A\", \"b.\"]), [\"a\", \"b\"]).classify_many([\"1\", \"2\", \"3\"])"
+        expected: "['a', 'b', 'unknown']"
+      - name: "Любая модель"
+        code: |
+          class Always:
+              def generate(self, prompt):
+                  return "NEGATIVE"
+          assert Classifier(Always(), ["positive", "negative"]).classify("x") == "negative"
+      - name: "Список ответов не портится снаружи"
+        code: |
+          answers = ["a"]
+          model = FakeModel(answers)
+          model.generate("p")
+          assert answers == ["a"], "FakeModel должна работать с копией списка"

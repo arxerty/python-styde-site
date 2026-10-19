@@ -1,0 +1,421 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "mypy выдал `app.py:14: error: Item \"None\" of \"str | None\" has no attribute \"upper\"  [union-attr]`. Что это значит?"
+    options:
+      - text: "На строке 14 у значения, которое может быть None, вызывается .upper() без проверки"
+        correct: true
+        why: "Нужна проверка if value is None перед использованием."
+      - text: "У строк нет метода upper"
+        why: "Есть; проблема в возможном None."
+      - text: "Программа упала на строке 14 при запуске"
+        why: "mypy не запускает программу — это предупреждение о возможной ошибке."
+      - text: "Нужно удалить аннотацию str | None"
+        why: "Аннотация честная; исправлять нужно код вызова."
+    explanation: "union-attr — атрибут у значения объединённого типа, не у всех вариантов которого он есть."
+
+  - id: q2
+    type: single
+    prompt: "Почему mypy по умолчанию молчит об ошибке в этой функции?"
+    code: |
+      def merge(a, b):
+          return a + 1 + "b"
+    options:
+      - text: "Функция без аннотаций не проверяется (постепенная типизация); помогает --strict"
+        correct: true
+        why: "Неаннотированные функции считаются принимающими и возвращающими Any."
+      - text: "mypy не умеет проверять сложение"
+        why: "Умеет — в аннотированных функциях."
+      - text: "Ошибки здесь нет"
+        why: "1 + \"b\" упадёт при выполнении."
+      - text: "mypy проверяет только классы"
+        why: "Проверяет функции, классы и модули."
+    explanation: "Функция без единой аннотации выпадает из проверки — аннотируйте хотя бы -> None."
+
+  - id: q3
+    type: output
+    prompt: "Что напечатает программа при обычном запуске (mypy тут не участвует)?"
+    code: |
+      from typing import cast
+
+      value = cast(int, "42")
+      print(type(value).__name__, value + "!")
+    options:
+      - text: "`str 42!`"
+        correct: true
+        why: "cast ничего не делает во время выполнения — значение остаётся строкой."
+      - text: "`int 42!`"
+        why: "cast не преобразует значение."
+      - text: "TypeError: cast не удался"
+        why: "cast не проверяет тип."
+    explanation: "cast — обещание анализатору, а не проверка и не преобразование."
+
+  - id: q4
+    type: find_bug
+    prompt: "mypy сообщает `Incompatible return value type (got \"None\", expected \"float\")  [return-value]`. Как исправить правильно?"
+    code: |
+      def ratio(a: float, b: float) -> float:
+          if b == 0:
+              return None
+          return a / b
+    options:
+      - text: "Изменить аннотацию на `-> float | None` и обработать None у вызывающего кода"
+        correct: true
+        why: "Аннотация должна честно описывать все результаты."
+      - text: "Добавить `# type: ignore` в конец строки return None"
+        why: "Это спрячет проблему, а вызывающий код упадёт на None."
+      - text: "Заменить `return None` на `return cast(float, None)`"
+        why: "cast обманывает анализатор, ошибка останется."
+    explanation: "Исправляйте причину, а не сообщение."
+
+  - id: q5
+    type: multiple
+    prompt: "Что верно про mypy? Выберите все."
+    options:
+      - text: "Проверяет код без запуска программы"
+        correct: true
+        why: "Это статический анализ."
+      - text: "Настройки можно хранить в pyproject.toml в разделе [tool.mypy]"
+        correct: true
+        why: "Тогда достаточно запускать mypy без флагов."
+      - text: "`# type: ignore[arg-type]` отключает только ошибку arg-type на этой строке"
+        correct: true
+        why: "Точечное исключение."
+      - text: "mypy замедляет выполнение программы"
+        why: "Он не участвует в выполнении."
+    explanation: "mypy — инструмент разработки, а не часть программы."
+
+  - id: q6
+    type: single
+    prompt: "Что делает `reveal_type(x)` при проверке mypy?"
+    options:
+      - text: "Выводит примечание с типом, который mypy вывел для x"
+        correct: true
+        why: "Например: note: Revealed type is \"list[int]\"."
+      - text: "Преобразует x к его типу"
+        why: "Ничего не преобразует."
+      - text: "Проверяет тип x во время выполнения"
+        why: "Это инструмент статического анализа."
+      - text: "Добавляет аннотацию в исходный код"
+        why: "Код не меняется."
+    explanation: "reveal_type — отладочный инструмент анализатора."
+
+tasks:
+  - id: t1
+    title: "Честные аннотации"
+    difficulty: 1
+    statement: |
+      В заготовке функции с «лживыми» аннотациями: mypy нашёл бы в них ошибки `return-value` и `union-attr`. Исправьте аннотации и код:
+
+      - `find_price(prices: dict[str, float], name: str)` — цена или `None`, если товара нет (аннотация результата должна это отражать);
+      - `total_cost(prices: dict[str, float], names: list[str]) -> float` — сумма цен найденных товаров (отсутствующие пропускаются; используйте `find_price` и проверку на `None`);
+      - `label(name: str | None) -> str` — имя в верхнем регистре или `"АНОНИМ"` для `None`.
+    examples:
+      - input: "total_cost({\"чай\": 100.0, \"хлеб\": 50.0}, [\"чай\", \"кофе\", \"хлеб\"])"
+        output: "150.0"
+    starter: |
+      def find_price(prices: dict[str, float], name: str) -> float:
+          return prices.get(name)
+
+
+      def total_cost(prices: dict[str, float], names: list[str]) -> float:
+          return sum(find_price(prices, name) for name in names)
+
+
+      def label(name: str | None) -> str:
+          return name.upper()
+    hints:
+      - "`def find_price(...) -> float | None:` — `dict.get` и так возвращает None для отсутствующего ключа."
+      - "total_cost: соберите только не-None цены: `price = find_price(...)`, `if price is not None: total += price`. label: `if name is None: return \"АНОНИМ\"`."
+    solution: |
+      def find_price(prices: dict[str, float], name: str) -> float | None:
+          """Цена товара или None."""
+          return prices.get(name)
+
+
+      def total_cost(prices: dict[str, float], names: list[str]) -> float:
+          """Сумма цен найденных товаров."""
+          total = 0.0
+          for name in names:
+              price = find_price(prices, name)
+              if price is not None:
+                  total += price
+          return total
+
+
+      def label(name: str | None) -> str:
+          """Подпись пользователя."""
+          if name is None:
+              return "АНОНИМ"
+          return name.upper()
+    solution_explanation: "Аннотация float | None честно сообщает о возможном отсутствии цены, а проверки is not None / is None — ровно то, что mypy требует для сужения типа."
+    tests:
+      - name: "Пример"
+        call: "total_cost({\"чай\": 100.0, \"хлеб\": 50.0}, [\"чай\", \"кофе\", \"хлеб\"])"
+        expected: "150.0"
+      - name: "find_price"
+        call: "[find_price({\"a\": 1.5}, \"a\"), find_price({}, \"a\")]"
+        expected: "[1.5, None]"
+      - name: "label"
+        call: "[label(\"ада\"), label(None)]"
+        expected: "['АДА', 'АНОНИМ']"
+      - name: "Честная аннотация"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(find_price)["return"] == float | None, "find_price может вернуть None — отразите это в аннотации"
+          assert get_type_hints(total_cost)["return"] is float
+      - name: "Пустой список"
+        call: "total_cost({\"a\": 1.0}, [])"
+        expected: "0.0"
+
+  - id: t2
+    title: "Сужение типов"
+    difficulty: 2
+    statement: |
+      Напишите аннотированные функции, корректно обрабатывающие все варианты объединённых типов:
+
+      - `safe_ratio(a: float, b: float | None) -> float | None` — `a / b`; если `b` — `None` или 0, вернуть `None`;
+      - `describe(value: int | str | list[str]) -> str` — для `int`: `"число N"`, для `str`: `"строка длины N"`, для списка: `"список из N строк"`;
+      - `first_word(text: str | None) -> str` — первое слово в нижнем регистре; для `None`, пустой строки и строки из пробелов — `""`.
+    examples:
+      - input: "[describe(5), describe(\"abc\"), describe([\"a\", \"b\"])]"
+        output: "['число 5', 'строка длины 3', 'список из 2 строк']"
+    starter: |
+      def safe_ratio(a, b):
+          return a / b
+    hints:
+      - "safe_ratio: `if b is None or b == 0: return None`."
+      - "describe: цепочка `isinstance(value, int)`, `isinstance(value, str)`, иначе — список. first_word: `if not text: return \"\"`, затем `words = text.split()`."
+    solution: |
+      def safe_ratio(a: float, b: float | None) -> float | None:
+          """a / b или None, если делитель отсутствует или равен нулю."""
+          if b is None or b == 0:
+              return None
+          return a / b
+
+
+      def describe(value: int | str | list[str]) -> str:
+          """Описание значения в зависимости от его типа."""
+          if isinstance(value, int):
+              return f"число {value}"
+          if isinstance(value, str):
+              return f"строка длины {len(value)}"
+          return f"список из {len(value)} строк"
+
+
+      def first_word(text: str | None) -> str:
+          """Первое слово в нижнем регистре или пустая строка."""
+          if not text:
+              return ""
+          words = text.split()
+          return words[0].lower() if words else ""
+    solution_explanation: "После каждой проверки isinstance или is None анализатор знает точный тип переменной. В describe последняя ветка без условия: к этому моменту остаётся только list[str]."
+    tests:
+      - name: "Пример"
+        call: "[describe(5), describe(\"abc\"), describe([\"a\", \"b\"])]"
+        expected: "['число 5', 'строка длины 3', 'список из 2 строк']"
+      - name: "safe_ratio"
+        call: "[safe_ratio(1, 4), safe_ratio(1, 0), safe_ratio(1, None)]"
+        expected: "[0.25, None, None]"
+      - name: "first_word"
+        call: "[first_word(\"  Привет мир \"), first_word(None), first_word(\"   \"), first_word(\"\")]"
+        expected: "['привет', '', '', '']"
+      - name: "Аннотации"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(safe_ratio) == {"a": float, "b": float | None, "return": float | None}
+          assert get_type_hints(describe)["value"] == int | str | list[str]
+          assert get_type_hints(first_word) == {"text": str | None, "return": str}
+      - name: "Пустой список"
+        call: "describe([])"
+        expected: "'список из 0 строк'"
+
+  - id: t3
+    title: "isinstance вместо cast"
+    difficulty: 2
+    statement: |
+      Данные из JSON имеют тип `object` — mypy не позволит использовать их как словарь без проверки. Напишите `load_config(raw: object) -> dict[str, float]`, которая **проверяет** данные (не через `cast`!):
+
+      - `raw` должен быть словарём, иначе `TypeError("ожидался объект")`;
+      - каждый ключ — строка, каждое значение — `int` или `float` (не `bool`), иначе `TypeError` с именем ключа в сообщении;
+      - возвращается новый словарь, где все значения приведены к `float`.
+    examples:
+      - input: "load_config({\"lr\": 0.1, \"epochs\": 10})"
+        output: "{'lr': 0.1, 'epochs': 10.0}"
+    starter: |
+      from typing import cast
+
+
+      def load_config(raw: object) -> dict[str, float]:
+          return cast(dict[str, float], raw)
+    hints:
+      - "`if not isinstance(raw, dict): raise TypeError(...)` — после этого mypy знает, что raw — словарь."
+      - "В цикле по `raw.items()` проверьте `isinstance(key, str)` и `isinstance(value, (int, float)) and not isinstance(value, bool)`."
+    solution: |
+      def load_config(raw: object) -> dict[str, float]:
+          """Проверить и нормализовать конфигурацию из JSON."""
+          if not isinstance(raw, dict):
+              raise TypeError("ожидался объект")
+          config: dict[str, float] = {}
+          for key, value in raw.items():
+              if not isinstance(key, str):
+                  raise TypeError(f"ключ {key!r} должен быть строкой")
+              if isinstance(value, bool) or not isinstance(value, (int, float)):
+                  raise TypeError(f"значение {key!r} должно быть числом")
+              config[key] = float(value)
+          return config
+    solution_explanation: "cast только обещает анализатору тип и пропускает мусор дальше. isinstance-проверки и проверяют данные во время выполнения, и сужают тип для mypy — так код корректен с обеих сторон."
+    tests:
+      - name: "Пример"
+        call: "load_config({\"lr\": 0.1, \"epochs\": 10})"
+        expected: "{'lr': 0.1, 'epochs': 10.0}"
+      - name: "Не словарь"
+        code: |
+          for bad in ([1, 2], "lr=0.1", None):
+              try:
+                  load_config(bad)
+              except TypeError:
+                  pass
+              else:
+                  raise AssertionError(f"{bad!r} должен вызывать TypeError")
+      - name: "Неверное значение"
+        code: |
+          for bad in ({"lr": "0.1"}, {"debug": True}, {"x": None}):
+              try:
+                  load_config(bad)
+              except TypeError as error:
+                  key = next(iter(bad))
+                  assert key in str(error), f"В сообщении должен быть ключ {key}"
+              else:
+                  raise AssertionError(f"{bad!r} должен вызывать TypeError")
+      - name: "Нестроковый ключ"
+        code: |
+          try:
+              load_config({1: 2.0})
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("Ожидался TypeError")
+      - name: "Без cast и новый словарь"
+        code: |
+          raw = {"a": 1}
+          result = load_config(raw)
+          assert result is not raw and type(result["a"]) is float
+          assert "cast(" not in __source__, "Не используйте cast — проверяйте данные"
+
+  - id: t4
+    title: "Модуль проходит mypy --strict"
+    mode: local
+    difficulty: 3
+    statement: |
+      Скачайте архив. В нём модуль `textstats.py` без аннотаций и с ошибкой: `average_score` падает, если модель ответила что-то, не похожее на число. Тесты `test_textstats.py` проверяют поведение **и** запускают `mypy --strict` на модуле.
+
+      Задача:
+
+      1. Аннотируйте все функции модуля так, чтобы `mypy --strict textstats.py` не находил ошибок.
+      2. Исправьте `average_score`: непонятные ответы пропускаются; если ни одного числа нет — результат `None` (отразите это в аннотации).
+
+      Установка и запуск:
+
+      ```bash
+      pip install mypy pytest
+      pytest -q
+      ```
+    files:
+      textstats.py: |
+        """Статистика по ответам модели."""
+
+
+        def parse_score(text):
+            """Число из ответа вида «90%» или «0.9»; None, если не число."""
+            cleaned = text.strip()
+            try:
+                if cleaned.endswith("%"):
+                    return float(cleaned[:-1]) / 100
+                return float(cleaned)
+            except ValueError:
+                return None
+
+
+        def average_score(texts):
+            """Среднее по ответам."""
+            scores = [parse_score(text) for text in texts]
+            return sum(scores) / len(scores)
+
+
+        def top_word(text):
+            """Самое частое слово (в нижнем регистре) или None для пустого текста."""
+            counts = {}
+            for word in text.lower().split():
+                counts[word] = counts.get(word, 0) + 1
+            if not counts:
+                return None
+            return max(counts, key=lambda word: counts[word])
+      test_textstats.py: |
+        from mypy import api
+
+        from textstats import average_score, parse_score, top_word
+
+
+        def test_parse_score():
+            assert parse_score("90%") == 0.9
+            assert parse_score(" 0.5 ") == 0.5
+            assert parse_score("не знаю") is None
+
+
+        def test_average_skips_garbage():
+            result = average_score(["90%", "0.8", "не знаю"])
+            assert result is not None and abs(result - 0.85) < 1e-9
+
+
+        def test_average_none():
+            assert average_score(["???"]) is None
+            assert average_score([]) is None
+
+
+        def test_top_word():
+            assert top_word("Кот кот пёс") == "кот"
+            assert top_word("   ") is None
+
+
+        def test_mypy_strict():
+            stdout, stderr, status = api.run(["--strict", "textstats.py"])
+            assert status == 0, stdout + stderr
+    run: "pytest -q"
+    hints:
+      - "Аннотации: `parse_score(text: str) -> float | None`, `average_score(texts: Iterable[str]) -> float | None` (импорт из `collections.abc`), `top_word(text: str) -> str | None`. Пустому словарю нужна аннотация: `counts: dict[str, int] = {}`."
+      - "В average_score отфильтруйте None: `scores = [s for s in (parse_score(t) for t in texts) if s is not None]`, затем `if not scores: return None`."
+    solution_files:
+      textstats.py: |
+        """Статистика по ответам модели."""
+        from collections.abc import Iterable
+
+
+        def parse_score(text: str) -> float | None:
+            """Число из ответа вида «90%» или «0.9»; None, если не число."""
+            cleaned = text.strip()
+            try:
+                if cleaned.endswith("%"):
+                    return float(cleaned[:-1]) / 100
+                return float(cleaned)
+            except ValueError:
+                return None
+
+
+        def average_score(texts: Iterable[str]) -> float | None:
+            """Среднее по ответам, которые удалось разобрать; None, если таких нет."""
+            scores = [score for score in (parse_score(text) for text in texts) if score is not None]
+            if not scores:
+                return None
+            return sum(scores) / len(scores)
+
+
+        def top_word(text: str) -> str | None:
+            """Самое частое слово (в нижнем регистре) или None для пустого текста."""
+            counts: dict[str, int] = {}
+            for word in text.lower().split():
+                counts[word] = counts.get(word, 0) + 1
+            if not counts:
+                return None
+            return max(counts, key=lambda word: counts[word])
+    solution_explanation: "Аннотации включили проверку: без них mypy не видел, что в sum попадает None. Фильтр `if score is not None` сужает тип элементов до float, а результат функции стал честным `float | None`. Пустому словарю counts нужна явная аннотация — по `{}` mypy не может вывести типы ключей и значений."

@@ -1,0 +1,138 @@
+title: "Практикум: знакомство"
+description: |
+  Практикум проверяет весь блок. У вопросов одна попытка, порог прохождения — 70%.
+  Последняя задача — мини-проект.
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: single
+    prompt: "Когда открывается эталонное решение задачи?"
+    options:
+      - text: "После решения задачи или трёх попыток"
+        correct: true
+        why: "Так вы сначала пробуете сами, а разбор не теряется, если застряли."
+      - text: "Сразу"
+        why: "Сразу доступны только подсказки."
+      - text: "Никогда"
+        why: "Эталон с разбором доступен всегда, но не сразу."
+    explanation: "Сначала попытка и подсказки, потом эталон — так материал запоминается лучше."
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print("ab" * 2)
+    options:
+      - text: "`abab`"
+        correct: true
+        why: "Умножение строки на число повторяет её."
+      - text: "`ab2`"
+        why: "Число не приклеивается к строке."
+      - text: "Ошибку TypeError"
+        why: "Строку можно умножать на целое число."
+    explanation: "`str * int` повторяет строку указанное число раз."
+tasks:
+  - id: t1
+    title: "Удвоение"
+    statement: "Напишите функцию `double(x)`, возвращающую `x * 2`."
+    starter: |
+      def double(x):
+          pass
+    hints:
+      - "Одна строка: `return x * 2`."
+      - "Функция без `return` возвращает `None`."
+    solution: |
+      def double(x):
+          return x * 2
+    solution_explanation: "Умножаем и возвращаем результат."
+    tests:
+      - name: "Число"
+        call: "double(4)"
+        expected: "8"
+      - name: "Ноль"
+        call: "double(0)"
+        expected: "0"
+      - name: "Строка тоже удваивается"
+        call: "double('ab')"
+        expected: "'abab'"
+  - id: t2
+    title: "Локальное задание (пример)"
+    mode: local
+    difficulty: 1
+    statement: |
+      Так выглядят задания из частей 6–8: скачайте архив, допишите функцию `is_even(n)` в `solution.py`
+      и запустите тесты командой `pytest -q`. Затем вставьте вывод сюда.
+    files:
+      solution.py: |
+        def is_even(n: int) -> bool:
+            """Вернуть True, если n чётное."""
+            raise NotImplementedError
+      test_solution.py: |
+        from solution import is_even
+
+
+        def test_even():
+            assert is_even(4) is True
+
+
+        def test_odd():
+            assert is_even(7) is False
+
+
+        def test_zero():
+            assert is_even(0) is True
+
+
+        def test_negative():
+            assert is_even(-2) is True
+    hints:
+      - "Чётное число делится на 2 без остатка: `n % 2 == 0`."
+      - "Установите pytest командой `pip install pytest`, если его нет."
+    solution_files:
+      solution.py: |
+        def is_even(n: int) -> bool:
+            """Вернуть True, если n чётное."""
+            return n % 2 == 0
+    solution_explanation: "Остаток от деления на 2 равен нулю только у чётных чисел (в том числе отрицательных и нуля)."
+  - id: t3
+    title: "Мини-счётчик слов"
+    mini_project: true
+    difficulty: 2
+    statement: |
+      **Мини-проект.** Программа читает строку текста и печатает:
+
+      ```
+      Слов: <число слов>
+      Самое длинное: <самое длинное слово>
+      ```
+
+      Если длинных слов несколько — первое из них. Для пустой строки: `Слов: 0` и `Самое длинное: -`.
+    examples:
+      - input: "я учу python"
+        output: "Слов: 3\nСамое длинное: python"
+    starter: |
+      text = input()
+    hints:
+      - "`text.split()` разобьёт строку на слова по пробелам."
+      - "`max(words, key=len)` вернёт первое самое длинное слово."
+    solution: |
+      text = input()
+      words = text.split()
+      print(f"Слов: {len(words)}")
+      if words:
+          print(f"Самое длинное: {max(words, key=len)}")
+      else:
+          print("Самое длинное: -")
+    solution_explanation: "`split()` без аргументов делит по любым пробельным символам и отбрасывает пустые куски, а `max` с `key=len` сравнивает слова по длине."
+    tests:
+      - name: "Обычная фраза"
+        stdin: "я учу python\n"
+        stdout: "Слов: 3\nСамое длинное: python"
+      - name: "Пустая строка"
+        stdin: "\n"
+        stdout: "Слов: 0\nСамое длинное: -"
+      - name: "Одинаковая длина"
+        stdin: "кот пёс\n"
+        stdout: "Слов: 2\nСамое длинное: кот"
+      - name: "Лишние пробелы"
+        stdin: "  много   пробелов  \n"
+        stdout: "Слов: 2\nСамое длинное: пробелов"

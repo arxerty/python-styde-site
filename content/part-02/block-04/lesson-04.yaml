@@ -1,0 +1,543 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def times(n):
+          def decorator(func):
+              def wrapper(x):
+                  return func(x) * n
+              return wrapper
+          return decorator
+
+
+      @times(3)
+      def plus_one(x):
+          return x + 1
+
+
+      print(plus_one(4))
+    options:
+      - text: "`15`"
+        correct: true
+        why: "(4 + 1) * 3: фабрика запомнила n = 3, обёртка умножает результат."
+      - text: "`13`"
+        why: "Умножается результат функции, а не аргумент."
+      - text: "TypeError"
+        why: "times(3) возвращает декоратор, который корректно применяется к функции."
+    explanation: "@times(3) = plus_one = times(3)(plus_one)."
+
+  - id: q2
+    type: find_bug
+    prompt: "После декорирования `fetch()` падает с TypeError. Почему?"
+    code: |
+      def retry(attempts=3):
+          def decorator(func):
+              def wrapper(*args, **kwargs):
+                  for _ in range(attempts):
+                      try:
+                          return func(*args, **kwargs)
+                      except ConnectionError:
+                          pass
+                  raise ConnectionError("не удалось")
+              return wrapper
+          return decorator
+
+
+      @retry
+      def fetch():
+          return "ok"
+    options:
+      - text: "Нет скобок: @retry передаёт функцию в attempts, и fetch становится decorator; нужно @retry()"
+        correct: true
+        why: "Фабрику нужно вызвать, чтобы получить декоратор."
+      - text: "Нельзя ловить ConnectionError в цикле"
+        why: "Можно; проблема в применении декоратора."
+      - text: "Обёртка не возвращает результат"
+        why: "return func(...) есть."
+    explanation: "Декоратор с аргументами применяется со скобками, даже если аргументы по умолчанию."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def retry(attempts, exceptions):
+          def decorator(func):
+              def wrapper():
+                  for attempt in range(1, attempts + 1):
+                      try:
+                          return func()
+                      except exceptions:
+                          if attempt == attempts:
+                              raise
+              return wrapper
+          return decorator
+
+
+      calls = 0
+
+
+      @retry(attempts=5, exceptions=(TimeoutError,))
+      def broken():
+          global calls
+          calls += 1
+          raise KeyError("нет ключа")
+
+
+      try:
+          broken()
+      except KeyError:
+          print(calls)
+    options:
+      - text: "`1`"
+        correct: true
+        why: "KeyError не входит в exceptions — пролетает сразу, без повторов."
+      - text: "`5`"
+        why: "Повторяются только исключения из кортежа exceptions."
+      - text: "`0`"
+        why: "Функция вызывается один раз и падает."
+    explanation: "Retry повторяет только перечисленные (временные) ошибки."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def memoize(func):
+          cache = {}
+
+          def wrapper(x):
+              if x not in cache:
+                  cache[x] = func(x)
+              return cache[x]
+          return wrapper
+
+
+      computed = []
+
+
+      @memoize
+      def square(x):
+          computed.append(x)
+          return x * x
+
+
+      print([square(n) for n in (2, 3, 2, 2)], computed)
+    options:
+      - text: "`[4, 9, 4, 4] [2, 3]`"
+        correct: true
+        why: "Повторные вызовы с тем же аргументом берутся из кэша."
+      - text: "`[4, 9, 4, 4] [2, 3, 2, 2]`"
+        why: "Функция вычисляется только при промахе кэша."
+      - text: "`[4, 9] [2, 3]`"
+        why: "Результат возвращается для каждого вызова."
+    explanation: "Мемоизация: каждый уникальный аргумент вычисляется один раз."
+
+  - id: q5
+    type: single
+    prompt: "Зачем в декораторе-таймере запись времени помещают в `finally`?"
+    options:
+      - text: "Чтобы время записывалось и тогда, когда функция бросила исключение"
+        correct: true
+        why: "finally выполняется в любом случае, а исключение уходит дальше."
+      - text: "Чтобы перехватить и скрыть исключение функции"
+        why: "finally без except не перехватывает исключение."
+      - text: "Так время измеряется точнее"
+        why: "Точность определяют часы perf_counter."
+      - text: "Иначе декоратор не вернёт результат"
+        why: "Результат возвращает return в try."
+    explanation: "try/finally — способ выполнить действие после вызова при любом исходе."
+
+  - id: q6
+    type: multiple
+    prompt: "Для каких функций мемоизация безопасна? Выберите все."
+    options:
+      - text: "Вычисление числа Фибоначчи по номеру"
+        correct: true
+        why: "Чистая функция: результат зависит только от аргумента."
+      - text: "Эмбеддинг текста фиксированной моделью"
+        correct: true
+        why: "Один и тот же текст — один и тот же вектор."
+      - text: "Текущий курс валюты без аргументов"
+        why: "Результат меняется со временем — кэш вернёт устаревшее значение."
+      - text: "Случайный выбор примера из датасета"
+        why: "Кэш сломает случайность."
+    explanation: "Кэшируйте чистые функции: одинаковые аргументы — одинаковый результат."
+
+tasks:
+  - id: t1
+    title: "HTML-тег"
+    difficulty: 1
+    statement: |
+      Напишите декоратор с аргументами `tag(name, upper=False)`: оборачивает строковый результат функции в `<name>...</name>`; при `upper=True` перед этим переводит результат в верхний регистр. Сохраните метаданные функции.
+    examples:
+      - input: "@tag(\"b\", upper=True)\ndef title(): return \"важно\"\n\ntitle()"
+        output: "'<b>ВАЖНО</b>'"
+    starter: |
+      def tag(func):
+          def wrapper(*args, **kwargs):
+              return "<b>" + func(*args, **kwargs) + "</b>"
+          return wrapper
+    hints:
+      - "Три уровня: `def tag(name, upper=False):` → `def decorator(func):` → `def wrapper(*args, **kwargs):`."
+      - "В обёртке: `result = func(...)`, при upper — `result.upper()`, `return f\"<{name}>{result}</{name}>\"`."
+    solution: |
+      from functools import wraps
+
+
+      def tag(name, upper=False):
+          """Обернуть результат функции в HTML-тег."""
+          def decorator(func):
+              @wraps(func)
+              def wrapper(*args, **kwargs):
+                  result = func(*args, **kwargs)
+                  if upper:
+                      result = result.upper()
+                  return f"<{name}>{result}</{name}>"
+              return wrapper
+          return decorator
+    solution_explanation: "Фабрика tag запоминает name и upper, декоратор — функцию, а обёртка выполняется при каждом вызове."
+    tests:
+      - name: "Пример"
+        code: |
+          @tag("b", upper=True)
+          def title():
+              return "важно"
+          assert title() == "<b>ВАЖНО</b>"
+      - name: "Аргументы функции"
+        code: |
+          @tag("i")
+          def greet(name, punct="!"):
+              return f"привет, {name}{punct}"
+          assert greet("Ада", punct="?") == "<i>привет, Ада?</i>"
+      - name: "Вложение тегов"
+        code: |
+          @tag("p")
+          @tag("em")
+          def text():
+              return "x"
+          assert text() == "<p><em>x</em></p>"
+      - name: "Метаданные"
+        code: |
+          @tag("div")
+          def block():
+              """Блок."""
+              return ""
+          assert block.__name__ == "block" and block.__doc__ == "Блок."
+      - name: "Разные настройки"
+        code: |
+          @tag("h1")
+          def a():
+              return "a"
+          @tag("h2", upper=True)
+          def b():
+              return "b"
+          assert (a(), b()) == ("<h1>a</h1>", "<h2>B</h2>")
+
+  - id: t2
+    title: "Таймер с внедряемыми часами"
+    difficulty: 2
+    statement: |
+      Напишите `timed(store, label=None, clock=time.perf_counter)`: декоратор, который замеряет время каждого вызова через `clock()` (до и после) и добавляет его в `store[метка]` (список). Метка — `label` или имя функции. Время записывается и при исключении (исключение пробрасывается). Параметр `clock` позволяет подставить в тестах «фальшивые часы».
+    examples:
+      - input: "store = {}; ticks = iter([0.0, 1.5]); f = timed(store, clock=lambda: next(ticks))(lambda: 42); f(), store"
+        output: "(42, {'<lambda>': [1.5]})"
+    starter: |
+      import time
+
+
+      def timed(store, label=None, clock=time.perf_counter):
+          def decorator(func):
+              return func
+          return decorator
+    hints:
+      - "В обёртке: `start = clock()`, затем `try: return func(...)` / `finally: store.setdefault(name, []).append(clock() - start)`."
+      - "Имя метки вычислите в декораторе один раз: `name = label or func.__name__`."
+    solution: |
+      import time
+      from functools import wraps
+
+
+      def timed(store, label=None, clock=time.perf_counter):
+          """Записывать длительность вызовов в store[метка]."""
+          def decorator(func):
+              name = label or func.__name__
+
+              @wraps(func)
+              def wrapper(*args, **kwargs):
+                  start = clock()
+                  try:
+                      return func(*args, **kwargs)
+                  finally:
+                      store.setdefault(name, []).append(clock() - start)
+              return wrapper
+          return decorator
+    solution_explanation: "Часы передаются параметром — это внедрение зависимости: в продакшене perf_counter, в тестах — предсказуемая последовательность чисел. try/finally гарантирует запись времени при любом исходе."
+    tests:
+      - name: "Пример"
+        code: |
+          store = {}
+          ticks = iter([0.0, 1.5])
+          f = timed(store, clock=lambda: next(ticks))(lambda: 42)
+          assert f() == 42 and store == {"<lambda>": [1.5]}, store
+      - name: "Метка и несколько вызовов"
+        code: |
+          store = {}
+          ticks = iter([0, 2, 10, 13])
+          @timed(store, label="llm", clock=lambda: next(ticks))
+          def ask(q):
+              return q
+          ask("a")
+          ask("b")
+          assert store == {"llm": [2, 3]}, store
+      - name: "Исключение"
+        code: |
+          store = {}
+          ticks = iter([5, 9])
+          @timed(store, clock=lambda: next(ticks))
+          def fail():
+              raise ValueError("x")
+          try:
+              fail()
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Исключение должно пробрасываться")
+          assert store == {"fail": [4]}, store
+      - name: "Настоящие часы"
+        code: |
+          store = {}
+          @timed(store)
+          def work():
+              return sum(range(1000))
+          work()
+          assert len(store["work"]) == 1 and store["work"][0] >= 0
+      - name: "Метаданные"
+        code: |
+          @timed({})
+          def named():
+              """Док."""
+          assert named.__name__ == "named" and named.__doc__ == "Док."
+
+  - id: t3
+    title: "Retry с внедряемым sleep"
+    difficulty: 2
+    statement: |
+      Напишите `retry(attempts=3, delay=0.0, exceptions=(Exception,), sleep=time.sleep)`:
+
+      - вызывает функцию до `attempts` раз; повторяет только при исключениях из `exceptions`;
+      - между попытками вызывает `sleep(delay)` (после последней — нет);
+      - если все попытки неудачны — пробрасывает последнее исключение;
+      - у обёртки атрибут `last_attempts` — сколько попыток понадобилось в последнем вызове;
+      - `attempts < 1` → `ValueError` **при декорировании**.
+    examples:
+      - input: "sleeps = []; f = retry(3, delay=2, sleep=sleeps.append)(flaky); f(), sleeps"
+        output: "('ok', [2])"
+    setup: |
+      import time
+
+      def make_flaky(failures, error=ConnectionError):
+          state = {"left": failures}
+          def flaky():
+              if state["left"] > 0:
+                  state["left"] -= 1
+                  raise error("сбой")
+              return "ok"
+          return flaky
+
+      flaky = make_flaky(1)
+    starter: |
+      import time
+
+
+      def retry(attempts=3, delay=0.0, exceptions=(Exception,), sleep=time.sleep):
+          def decorator(func):
+              def wrapper(*args, **kwargs):
+                  return func(*args, **kwargs)
+              return wrapper
+          return decorator
+    hints:
+      - "Проверку `attempts < 1` сделайте в самом начале фабрики `retry` — до определения декоратора."
+      - "Цикл `for attempt in range(1, attempts + 1):` — в `try` присвойте `wrapper.last_attempts = attempt` и верните результат; в `except exceptions:` на последней попытке `raise`, иначе `sleep(delay)`."
+    solution: |
+      import time
+      from functools import wraps
+
+
+      def retry(attempts=3, delay=0.0, exceptions=(Exception,), sleep=time.sleep):
+          """Повторять вызов при временных ошибках."""
+          if attempts < 1:
+              raise ValueError("attempts должно быть не меньше 1")
+
+          def decorator(func):
+              @wraps(func)
+              def wrapper(*args, **kwargs):
+                  for attempt in range(1, attempts + 1):
+                      wrapper.last_attempts = attempt
+                      try:
+                          return func(*args, **kwargs)
+                      except exceptions:
+                          if attempt == attempts:
+                              raise
+                          sleep(delay)
+
+              wrapper.last_attempts = 0
+              return wrapper
+          return decorator
+    solution_explanation: "sleep передаётся параметром, поэтому тесты не ждут реальных секунд, а проверяют, какие паузы были бы сделаны. Неверная настройка обнаруживается сразу при декорировании, а не при первом вызове."
+    tests:
+      - name: "Пример"
+        code: |
+          sleeps = []
+          f = retry(3, delay=2, sleep=sleeps.append)(make_flaky(1))
+          assert f() == "ok" and sleeps == [2] and f.last_attempts == 2
+      - name: "Все попытки неудачны"
+        code: |
+          sleeps = []
+          f = retry(3, delay=1, exceptions=(ConnectionError,), sleep=sleeps.append)(make_flaky(10))
+          try:
+              f()
+          except ConnectionError:
+              pass
+          else:
+              raise AssertionError("Ожидался ConnectionError")
+          assert sleeps == [1, 1] and f.last_attempts == 3, (sleeps, f.last_attempts)
+      - name: "Неперечисленные ошибки не повторяются"
+        code: |
+          sleeps = []
+          f = retry(5, exceptions=(TimeoutError,), sleep=sleeps.append)(make_flaky(3, error=KeyError))
+          try:
+              f()
+          except KeyError:
+              pass
+          assert sleeps == [] and f.last_attempts == 1
+      - name: "Неверное число попыток"
+        code: |
+          try:
+              retry(attempts=0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError при создании декоратора")
+      - name: "Аргументы и метаданные"
+        code: |
+          @retry(sleep=lambda s: None)
+          def add(a, b=0):
+              """Сумма."""
+              return a + b
+          assert add(1, b=2) == 3 and add.__name__ == "add" and add.last_attempts == 1
+
+  - id: t4
+    title: "LRU-кэш со статистикой"
+    difficulty: 3
+    statement: |
+      Напишите декоратор с аргументом `lru(maxsize=128)`:
+
+      - ключ кэша — позиционные **и** именованные аргументы: `(args, tuple(sorted(kwargs.items())))`;
+      - при попадании элемент становится «самым свежим»; когда кэш полон, вытесняется **давно не использовавшийся** элемент;
+      - атрибуты обёртки: `hits`, `misses`, функция `cache_clear()` (очищает кэш и обнуляет статистику) и `cache_size()`;
+      - `maxsize < 1` → `ValueError` при создании декоратора.
+    examples:
+      - input: "@lru(2)\ndef sq(x): return x * x\n\n[sq(1), sq(2), sq(1), sq(3), sq(2)]; (sq.hits, sq.misses)"
+        output: "(1, 4)"
+    starter: |
+      def lru(maxsize=128):
+          def decorator(func):
+              cache = {}
+              def wrapper(*args):
+                  if args not in cache:
+                      cache[args] = func(*args)
+                  return cache[args]
+              return wrapper
+          return decorator
+    hints:
+      - "Словарь хранит порядок вставки. При попадании: `value = cache.pop(key)` и `cache[key] = value` — элемент переезжает в конец (самый свежий)."
+      - "При промахе и полном кэше удалите первый ключ: `del cache[next(iter(cache))]`. Счётчики и функции-атрибуты повесьте на wrapper."
+    solution: |
+      from functools import wraps
+
+
+      def lru(maxsize=128):
+          """Кэш с вытеснением давно не использовавшихся значений."""
+          if maxsize < 1:
+              raise ValueError("maxsize должен быть положительным")
+
+          def decorator(func):
+              cache = {}
+
+              @wraps(func)
+              def wrapper(*args, **kwargs):
+                  key = (args, tuple(sorted(kwargs.items())))
+                  if key in cache:
+                      wrapper.hits += 1
+                      value = cache.pop(key)
+                      cache[key] = value
+                      return value
+                  wrapper.misses += 1
+                  value = func(*args, **kwargs)
+                  if len(cache) >= maxsize:
+                      del cache[next(iter(cache))]
+                  cache[key] = value
+                  return value
+
+              def cache_clear():
+                  cache.clear()
+                  wrapper.hits = 0
+                  wrapper.misses = 0
+
+              def cache_size():
+                  return len(cache)
+
+              wrapper.hits = 0
+              wrapper.misses = 0
+              wrapper.cache_clear = cache_clear
+              wrapper.cache_size = cache_size
+              return wrapper
+          return decorator
+    solution_explanation: "Порядок вставки в словаре используется как очередь «от давнего к свежему»: попадание переставляет ключ в конец, а вытесняется первый. Кэш свой у каждой функции, потому что словарь создаётся внутри decorator. Это упрощённая версия functools.lru_cache из следующего урока."
+    tests:
+      - name: "Пример: LRU, а не FIFO"
+        code: |
+          @lru(2)
+          def sq(x):
+              return x * x
+          results = [sq(1), sq(2), sq(1), sq(3), sq(2)]
+          assert results == [1, 4, 1, 9, 4]
+          assert (sq.hits, sq.misses) == (1, 4), f"Ожидалось (1, 4) — при FIFO было бы (2, 3); получено {(sq.hits, sq.misses)}"
+      - name: "Именованные аргументы"
+        code: |
+          calls = []
+          @lru()
+          def power(base, exp=2):
+              calls.append((base, exp))
+              return base ** exp
+          power(3, exp=3)
+          power(3, exp=3)
+          power(3)
+          assert calls == [(3, 3), (3, 2)] and power.hits == 1
+      - name: "cache_clear и cache_size"
+        code: |
+          @lru(10)
+          def ident(x):
+              return x
+          for i in range(5):
+              ident(i)
+          assert ident.cache_size() == 5
+          ident.cache_clear()
+          assert ident.cache_size() == 0 and ident.hits == 0 and ident.misses == 0
+      - name: "Кэши разных функций независимы"
+        code: |
+          @lru(5)
+          def f(x):
+              return "f"
+          @lru(5)
+          def g(x):
+              return "g"
+          assert (f(1), g(1)) == ("f", "g")
+      - name: "Неверный maxsize"
+        code: |
+          try:
+              lru(0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")

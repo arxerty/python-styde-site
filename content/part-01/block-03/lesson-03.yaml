@@ -1,0 +1,302 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      for i in range(1, 10):
+          if i == 4:
+              break
+          print(i, end=" ")
+    options:
+      - text: "`1 2 3`"
+        correct: true
+        why: "На i = 4 срабатывает break до print."
+      - text: "`1 2 3 4`"
+        why: "break стоит перед print, поэтому 4 не печатается."
+      - text: "`1 2 3 5 6 7 8 9`"
+        why: "Это было бы поведение continue."
+    explanation: "break завершает весь цикл немедленно."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      for i in range(1, 6):
+          if i % 2 == 0:
+              continue
+          print(i, end=" ")
+    options:
+      - text: "`1 3 5`"
+        correct: true
+        why: "Для чётных i continue пропускает print."
+      - text: "`2 4`"
+        why: "Пропускаются как раз чётные."
+      - text: "`1`"
+        why: "continue не завершает цикл — это сделал бы break."
+    explanation: "continue пропускает остаток текущей итерации."
+
+  - id: q3
+    type: single
+    prompt: "Когда выполняется ветка `else` у цикла `for`?"
+    options:
+      - text: "Когда цикл перебрал все элементы и не был прерван через break"
+        correct: true
+        why: "else — это «nobreak»."
+      - text: "Когда цикл не выполнился ни разу"
+        why: "В этом случае else тоже выполнится, но не только в этом."
+      - text: "Только после break"
+        why: "Наоборот: break перепрыгивает else."
+      - text: "На каждой итерации, где условие if ложно"
+        why: "else цикла относится к циклу целиком, а не к итерациям."
+    explanation: "Шаблон поиска: break — нашли, else — не нашли."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      for n in range(2, 5):
+          if n == 10:
+              print("нашли")
+              break
+      else:
+          print("нет")
+    options:
+      - text: "`нет`"
+        correct: true
+        why: "10 не встретилось, цикл закончился без break — выполняется else."
+      - text: "`нашли`"
+        why: "В range(2, 5) нет числа 10."
+      - text: "Ничего"
+        why: "else выполнится, раз не было break."
+    explanation: "else у цикла срабатывает при нормальном завершении."
+
+  - id: q5
+    type: find_bug
+    prompt: "Программа должна вывести числа 0–9, кроме 5, но зависает. Почему?"
+    code: |
+      i = 0
+      while i < 10:
+          if i == 5:
+              continue
+          print(i)
+          i += 1
+    options:
+      - text: "При i == 5 continue пропускает `i += 1`, и i навсегда остаётся 5"
+        correct: true
+        why: "Нужно увеличить i до continue или использовать for."
+      - text: "continue нельзя использовать в while"
+        why: "Можно, но нужно следить за счётчиком."
+      - text: "Условие должно быть `i <= 10`"
+        why: "Это не решит проблему зависания."
+      - text: "print должен стоять до if"
+        why: "Тогда 5 напечаталась бы, и проблема с i осталась бы."
+    explanation: "В while continue перепрыгивает всё ниже — включая изменение переменной условия."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      count = 0
+      while True:
+          count += 3
+          if count > 10:
+              break
+      print(count)
+    answer: "12"
+    explanation: "count: 3, 6, 9, 12 — на 12 условие count > 10 истинно, break."
+
+tasks:
+  - id: t1
+    title: "Первое отрицательное"
+    difficulty: 1
+    statement: |
+      Программа читает целое `n`, а затем `n` целых чисел (по одному в строке). Выведите первое отрицательное число.
+      Если отрицательных нет — выведите `нет`. Используйте `for … else`.
+
+      Важно: после того как отрицательное найдено, остальные числа читать не нужно.
+    examples:
+      - input: "4\n5\n-2\n7\n-9"
+        output: "-2"
+      - input: "2\n1\n2"
+        output: "нет"
+    starter: |
+      n = int(input())
+      for _ in range(n):
+          value = int(input())
+    hints:
+      - "Внутри цикла: если `value < 0` — напечатать и `break`."
+      - "`else:` на уровне `for` напечатает «нет», если break не сработал."
+    solution: |
+      n = int(input())
+      for _ in range(n):
+          value = int(input())
+          if value < 0:
+              print(value)
+              break
+      else:
+          print("нет")
+    solution_explanation: "break прекращает чтение после находки, а else цикла выполняется, только если break не было — то есть отрицательных чисел не встретилось."
+    tests:
+      - name: "Пример"
+        stdin: "4\n5\n-2\n7\n-9\n"
+        stdout: "-2"
+      - name: "Нет отрицательных"
+        stdin: "2\n1\n2\n"
+        stdout: "нет"
+      - name: "Пустой набор"
+        stdin: "0\n"
+        stdout: "нет"
+      - name: "Первое же"
+        stdin: "3\n-1\n-2\n-3\n"
+        stdout: "-1"
+      - name: "Ноль не отрицательный"
+        stdin: "3\n0\n0\n-7\n"
+        stdout: "-7"
+
+  - id: t2
+    title: "Сумма до стоп-слова"
+    difficulty: 2
+    statement: |
+      Программа читает строки, пока не встретит `стоп`. Каждая строка (кроме `стоп`) — целое число.
+      Отрицательные числа пропускаются. Выведите сумму неотрицательных чисел.
+      Используйте `while True`, `break` и `continue`.
+    examples:
+      - input: "5\n-3\n10\nстоп"
+        output: "15"
+    starter: |
+      total = 0
+      while True:
+          text = input()
+    hints:
+      - "Сначала проверьте стоп-слово: `if text == \"стоп\": break`."
+      - "Затем преобразуйте в число и `continue`, если оно отрицательное; иначе прибавьте."
+    solution: |
+      total = 0
+      while True:
+          text = input()
+          if text == "стоп":
+              break
+          value = int(text)
+          if value < 0:
+              continue
+          total += value
+      print(total)
+    solution_explanation: "Проверки идут в начале тела: стоп-слово завершает цикл, отрицательные значения пропускаются. Основное действие — в конце, без вложенности."
+    constraints:
+      require: ["break", "continue"]
+    timeout: 5
+    tests:
+      - name: "Пример"
+        stdin: "5\n-3\n10\nстоп\n"
+        stdout: "15"
+      - name: "Сразу стоп"
+        stdin: "стоп\n"
+        stdout: "0"
+      - name: "Только отрицательные"
+        stdin: "-1\n-2\nстоп\n"
+        stdout: "0"
+      - name: "С нулями"
+        stdin: "0\n0\n4\nстоп\n"
+        stdout: "4"
+      - name: "Много чисел"
+        stdin: "1\n2\n3\n-100\n4\n5\nстоп\n"
+        stdout: "15"
+
+  - id: t3
+    title: "Простое ли число"
+    difficulty: 2
+    statement: |
+      Программа читает целое `n` (n ≥ 2) и выводит `простое` или `составное`.
+      Перебирайте делители только до квадратного корня из n и прерывайте поиск при первой находке.
+    examples:
+      - input: "97"
+        output: "простое"
+      - input: "91"
+        output: "составное"
+    starter: |
+      n = int(input())
+      for divisor in range(2, n):
+          if n % divisor == 0:
+              print("составное")
+    hints:
+      - "Заготовка печатает «составное» для каждого делителя. Нужен break и ветка для случая «делителей нет»."
+      - "`for divisor in range(2, int(n ** 0.5) + 1):` … `break` … `else: print(\"простое\")`."
+    solution: |
+      n = int(input())
+      for divisor in range(2, int(n ** 0.5) + 1):
+          if n % divisor == 0:
+              print("составное")
+              break
+      else:
+          print("простое")
+    solution_explanation: "Если у числа есть делитель больше корня, то парный ему меньше корня — его мы найдём раньше. Для n = 2 и 3 диапазон пуст, цикл не выполняется, и else правильно печатает «простое»."
+    timeout: 5
+    tests:
+      - name: "97"
+        stdin: "97\n"
+        stdout: "простое"
+      - name: "91 = 7 × 13"
+        stdin: "91\n"
+        stdout: "составное"
+      - name: "Два"
+        stdin: "2\n"
+        stdout: "простое"
+      - name: "Квадрат простого"
+        stdin: "49\n"
+        stdout: "составное"
+      - name: "Большое простое (быстро)"
+        stdin: "1000000007\n"
+        stdout: "простое"
+      - name: "Чётное"
+        stdin: "1000000\n"
+        stdout: "составное"
+
+  - id: t4
+    title: "Повтор запроса"
+    difficulty: 3
+    statement: |
+      Симуляция повторов запроса к API. Программа читает максимальное число попыток `max_attempts`, затем — коды ответа для каждой попытки (по одному в строке, их не больше max_attempts).
+
+      Для каждой попытки:
+
+      - код 200 → вывести `Успех с попытки <номер>` и прекратить;
+      - иначе → вывести `Попытка <номер>: ошибка <код>`.
+
+      Если ни одна попытка не была успешной — в конце вывести `Все попытки исчерпаны`.
+    examples:
+      - input: "3\n503\n200"
+        output: "Попытка 1: ошибка 503\nУспех с попытки 2"
+      - input: "2\n500\n429"
+        output: "Попытка 1: ошибка 500\nПопытка 2: ошибка 429\nВсе попытки исчерпаны"
+    starter: |
+      max_attempts = int(input())
+    hints:
+      - "`for attempt in range(1, max_attempts + 1):` — номера попыток с 1."
+      - "Успех — `break`; сообщение об исчерпании — в `else` цикла."
+    solution: |
+      max_attempts = int(input())
+      for attempt in range(1, max_attempts + 1):
+          status = int(input())
+          if status == 200:
+              print("Успех с попытки", attempt)
+              break
+          print("Попытка", str(attempt) + ":", "ошибка", status)
+      else:
+          print("Все попытки исчерпаны")
+    solution_explanation: "Цикл for с break и else — каноническая схема повторов: break при успехе, else — когда попытки кончились. Строку `Попытка 1:` собираем склейкой, чтобы двоеточие встало вплотную к номеру."
+    tests:
+      - name: "Успех со второй"
+        stdin: "3\n503\n200\n"
+        stdout: "Попытка 1: ошибка 503\nУспех с попытки 2"
+      - name: "Все неудачны"
+        stdin: "2\n500\n429\n"
+        stdout: "Попытка 1: ошибка 500\nПопытка 2: ошибка 429\nВсе попытки исчерпаны"
+      - name: "Сразу успех"
+        stdin: "5\n200\n"
+        stdout: "Успех с попытки 1"
+      - name: "Успех на последней"
+        stdin: "3\n500\n500\n200\n"
+        stdout: "Попытка 1: ошибка 500\nПопытка 2: ошибка 500\nУспех с попытки 3"
+      - name: "Одна неудачная попытка"
+        stdin: "1\n404\n"
+        stdout: "Попытка 1: ошибка 404\nВсе попытки исчерпаны"

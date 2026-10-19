@@ -1,0 +1,380 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from functools import lru_cache
+
+
+      @lru_cache(maxsize=None)
+      def double(x):
+          return x * 2
+
+
+      for x in [1, 2, 1, 1, 3]:
+          double(x)
+      info = double.cache_info()
+      print(info.hits, info.misses, info.currsize)
+    options:
+      - text: "`2 3 3`"
+        correct: true
+        why: "Уникальных аргументов три (промахи), повторов — два (попадания)."
+      - text: "`3 2 3`"
+        why: "Первый вызов с каждым аргументом — промах."
+      - text: "`2 3 5`"
+        why: "currsize — число записей в кэше, по одной на уникальный аргумент."
+    explanation: "cache_info показывает попадания, промахи и размер кэша."
+
+  - id: q2
+    type: find_bug
+    prompt: "Почему вызов `mean([1, 2, 3])` падает?"
+    code: |
+      from functools import cache
+
+
+      @cache
+      def mean(values):
+          return sum(values) / len(values)
+    options:
+      - text: "Аргументы кэшируемой функции должны быть хешируемыми; список — нет"
+        correct: true
+        why: "TypeError: unhashable type: 'list'. Передавайте кортеж."
+      - text: "@cache нельзя применять к функциям с return"
+        why: "Можно — кэшируется именно возвращаемое значение."
+      - text: "Нужно писать @cache()"
+        why: "@cache применяется без скобок."
+    explanation: "Ключ кэша — аргументы, поэтому они должны быть хешируемыми."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from functools import partial
+
+
+      def fmt(value, digits, unit):
+          return f"{value:.{digits}f}{unit}"
+
+
+      percent = partial(fmt, digits=1, unit="%")
+      print(percent(42.256), percent(7, unit=" п.п."))
+    options:
+      - text: "`42.3% 7.0 п.п.`"
+        correct: true
+        why: "Зафиксированный именованный аргумент можно переопределить при вызове."
+      - text: "`42.3% 7.0%`"
+        why: "unit при вызове заменяет значение из partial."
+      - text: "TypeError: unit передан дважды"
+        why: "Для именованных аргументов partial допускает переопределение."
+    explanation: "partial подставляет аргументы, но именованные можно переопределить."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from functools import reduce
+
+      print(reduce(lambda acc, x: acc * 10 + x, [4, 0, 2], 0))
+    options:
+      - text: "`402`"
+        correct: true
+        why: "0 → 4 → 40 → 402: каждый шаг сдвигает аккумулятор и добавляет цифру."
+      - text: "`6`"
+        why: "Это была бы сумма."
+      - text: "`204`"
+        why: "reduce обходит элементы слева направо."
+    explanation: "reduce последовательно сворачивает элементы через аккумулятор."
+
+  - id: q5
+    type: single
+    prompt: "Что делает `@cached_property` над методом `tokens(self)`?"
+    options:
+      - text: "Вычисляет значение при первом обращении к obj.tokens и сохраняет его в объекте"
+        correct: true
+        why: "Повторные обращения читают сохранённое значение."
+      - text: "Кэширует результат для всех объектов класса сразу"
+        why: "Кэш свой у каждого объекта."
+      - text: "Пересчитывает значение при каждом обращении"
+        why: "Так ведёт себя обычный @property."
+      - text: "Превращает метод в статический"
+        why: "self по-прежнему передаётся."
+    explanation: "cached_property — ленивое вычисление один раз на объект."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно? Выберите все."
+    options:
+      - text: "`operator.itemgetter(1)` можно использовать вместо `lambda x: x[1]`"
+        correct: true
+        why: "itemgetter создаёт такую функцию."
+      - text: "`reduce` без начального значения падает на пустой последовательности"
+        correct: true
+        why: "TypeError: нечего взять в аккумулятор."
+      - text: "`partial` фиксирует значения в момент создания"
+        correct: true
+        why: "Поэтому в циклах нет проблемы позднего связывания."
+      - text: "`reduce(lambda a, b: a + b, nums)` — лучший способ сложить числа"
+        why: "Для этого есть sum."
+    explanation: "functools и operator — для выразительности, но встроенные функции предпочтительнее."
+
+tasks:
+  - id: t1
+    title: "Подсчёт путей с кэшем"
+    difficulty: 2
+    statement: |
+      С помощью `functools.lru_cache` (или `cache`) напишите:
+
+      - `grid_paths(rows, cols)` — число путей из левого верхнего угла в правый нижний по сетке клеток `rows × cols`, двигаясь только вправо и вниз (для сетки 1×N или N×1 путь один);
+      - `climb_ways(n, steps=(1, 2))` — сколькими способами можно подняться на `n` ступенек, делая шаги из набора `steps` (`n = 0` — один способ, отрицательное — ноль).
+
+      Без кэша функции не справятся с большими входами за отведённое время.
+    examples:
+      - input: "grid_paths(3, 3)"
+        output: "6"
+    starter: |
+      def grid_paths(rows, cols):
+          if rows == 1 or cols == 1:
+              return 1
+          return grid_paths(rows - 1, cols) + grid_paths(rows, cols - 1)
+    hints:
+      - "Поставьте `@lru_cache(maxsize=None)` над рекурсивной функцией — рекурсивные вызовы тоже пойдут через кэш."
+      - "climb_ways: `if n == 0: return 1`; `if n < 0: return 0`; иначе `sum(climb_ways(n - s, steps) for s in steps)` — steps должен быть кортежем, чтобы быть хешируемым."
+    solution: |
+      from functools import lru_cache
+
+
+      @lru_cache(maxsize=None)
+      def grid_paths(rows, cols):
+          """Число путей по сетке вправо и вниз."""
+          if rows == 1 or cols == 1:
+              return 1
+          return grid_paths(rows - 1, cols) + grid_paths(rows, cols - 1)
+
+
+      @lru_cache(maxsize=None)
+      def climb_ways(n, steps=(1, 2)):
+          """Число способов подняться на n ступенек."""
+          if n == 0:
+              return 1
+          if n < 0:
+              return 0
+          return sum(climb_ways(n - step, steps) for step in steps)
+    solution_explanation: "Рекурсия без кэша пересчитывает одни и те же подзадачи экспоненциальное число раз. lru_cache запоминает каждую пару аргументов, и число вычислений становится равным числу различных подзадач. Это идея динамического программирования."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        call: "grid_paths(3, 3)"
+        expected: "6"
+      - name: "Большая сетка"
+        call: "grid_paths(17, 17)"
+        expected: "601080390"
+      - name: "Лестница"
+        call: "[climb_ways(0), climb_ways(4), climb_ways(5, (1, 3))]"
+        expected: "[1, 5, 4]"
+      - name: "Большая лестница"
+        call: "climb_ways(200, (1, 2, 3))"
+        expected: "52622583840983769603765180599790256716084480555530641"
+      - name: "Используется кэш"
+        code: |
+          assert hasattr(grid_paths, "cache_info") and hasattr(climb_ways, "cache_info"), "Используйте functools.lru_cache или cache"
+
+  - id: t2
+    title: "Форматтеры через partial"
+    difficulty: 1
+    statement: |
+      1. Функция `format_number(value, digits=2, prefix="", suffix="")` → строка `prefix + число с digits знаками + suffix`.
+      2. С помощью `functools.partial` создайте:
+         - `as_rub` — 2 знака, суффикс `" ₽"`;
+         - `as_percent` — 1 знак, суффикс `"%"`;
+         - `as_usd` — 2 знака, префикс `"$"`.
+      3. `format_all(values, formatter)` — список отформатированных значений.
+    examples:
+      - input: "format_all([0.5, 12.345], as_percent)"
+        output: "['0.5%', '12.3%']"
+    starter: |
+      def format_number(value, digits=2, prefix="", suffix=""):
+          return str(value)
+
+
+      as_rub = format_number
+    hints:
+      - "`f\"{prefix}{value:.{digits}f}{suffix}\"` — число знаков подставляется во вложенные фигурные скобки."
+      - "`as_rub = partial(format_number, suffix=\" ₽\")`."
+    solution: |
+      from functools import partial
+
+
+      def format_number(value, digits=2, prefix="", suffix=""):
+          """Отформатировать число с префиксом и суффиксом."""
+          return f"{prefix}{value:.{digits}f}{suffix}"
+
+
+      as_rub = partial(format_number, suffix=" ₽")
+      as_percent = partial(format_number, digits=1, suffix="%")
+      as_usd = partial(format_number, prefix="$")
+
+
+      def format_all(values, formatter):
+          """Применить форматтер ко всем значениям."""
+          return [formatter(value) for value in values]
+    solution_explanation: "Один универсальный форматтер и три «настроенные» версии через partial — без дублирования кода и без lambda."
+    tests:
+      - name: "Пример"
+        call: "format_all([0.5, 12.345], as_percent)"
+        expected: "['0.5%', '12.3%']"
+      - name: "Рубли и доллары"
+        call: "[as_rub(1500), as_usd(0.1)]"
+        expected: "['1500.00 ₽', '$0.10']"
+      - name: "Это partial"
+        code: |
+          from functools import partial
+          for f in (as_rub, as_percent, as_usd):
+              assert isinstance(f, partial), "Создайте форматтеры через functools.partial"
+              assert f.func is format_number
+      - name: "Переопределение при вызове"
+        call: "as_percent(3.14159, digits=3)"
+        expected: "'3.142%'"
+      - name: "format_number"
+        call: "format_number(2, digits=0, prefix=\"~\")"
+        expected: "'~2'"
+
+  - id: t3
+    title: "Слияние конфигураций"
+    difficulty: 2
+    statement: |
+      - `deep_merge(base, override)` — новый словарь: ключи `override` перекрывают `base`, а если оба значения — словари, они сливаются рекурсивно. Исходные словари не меняются.
+      - `merge_configs(*configs)` — слияние любого числа конфигураций слева направо с помощью `functools.reduce` (без аргументов — `{}`).
+    examples:
+      - input: "merge_configs({\"model\": {\"name\": \"a\", \"layers\": 2}}, {\"model\": {\"layers\": 4}, \"lr\": 0.1})"
+        output: "{'model': {'name': 'a', 'layers': 4}, 'lr': 0.1}"
+    starter: |
+      def merge_configs(*configs):
+          result = {}
+          for config in configs:
+              result.update(config)
+          return result
+    hints:
+      - "deep_merge: `result = dict(base)`; для каждого ключа override: если оба значения dict — `result[key] = deep_merge(result[key], value)`, иначе `result[key] = value`."
+      - "`reduce(deep_merge, configs, {})`."
+    solution: |
+      from functools import reduce
+
+
+      def deep_merge(base, override):
+          """Рекурсивное слияние словарей без изменения исходных."""
+          result = dict(base)
+          for key, value in override.items():
+              if isinstance(result.get(key), dict) and isinstance(value, dict):
+                  result[key] = deep_merge(result[key], value)
+              else:
+                  result[key] = value
+          return result
+
+
+      def merge_configs(*configs):
+          """Слить конфигурации слева направо."""
+          return reduce(deep_merge, configs, {})
+    solution_explanation: "deep_merge описывает слияние двух словарей, а reduce применяет его к цепочке: значения по умолчанию → файл → командная строка. Начальное значение {} делает merge_configs() без аргументов корректным."
+    tests:
+      - name: "Пример"
+        call: "merge_configs({\"model\": {\"name\": \"a\", \"layers\": 2}}, {\"model\": {\"layers\": 4}, \"lr\": 0.1})"
+        expected: "{'model': {'name': 'a', 'layers': 4}, 'lr': 0.1}"
+      - name: "Три слоя"
+        call: "merge_configs({\"a\": 1, \"b\": {\"c\": 1}}, {\"b\": {\"d\": 2}}, {\"a\": 3, \"b\": {\"c\": 9}})"
+        expected: "{'a': 3, 'b': {'c': 9, 'd': 2}}"
+      - name: "Словарь заменяет не-словарь"
+        call: "deep_merge({\"x\": 1}, {\"x\": {\"y\": 2}})"
+        expected: "{'x': {'y': 2}}"
+      - name: "Исходные не меняются"
+        code: |
+          base = {"m": {"a": 1}}
+          over = {"m": {"b": 2}}
+          deep_merge(base, over)
+          assert base == {"m": {"a": 1}} and over == {"m": {"b": 2}}
+      - name: "Без аргументов и reduce"
+        code: |
+          assert merge_configs() == {}
+          assert "reduce" in __source__, "Используйте functools.reduce"
+
+  - id: t4
+    title: "Документы с ленивыми вычислениями"
+    difficulty: 3
+    statement: |
+      1. Функция `normalize(word)` с `@lru_cache(maxsize=1024)`: нижний регистр и удаление знаков `.,!?;:` по краям.
+      2. Класс `Document(text)`:
+         - `tokens` — `@cached_property`: список нормализованных слов (пустые после нормализации отбрасываются); при **каждом реальном** вычислении увеличивает атрибут класса `Document.tokenize_calls`;
+         - `vocab` — `@cached_property`: множество токенов;
+         - `jaccard(other)` — сходство Жаккара словарей: `|A ∩ B| / |A ∪ B|` (два пустых — 0.0), округление до 3 знаков.
+    examples:
+      - input: "Document(\"Кот спит. Кот ест!\").tokens"
+        output: "['кот', 'спит', 'кот', 'ест']"
+    starter: |
+      class Document:
+          tokenize_calls = 0
+
+          def __init__(self, text):
+              self.text = text
+
+          def tokens(self):
+              return self.text.split()
+    hints:
+      - "`from functools import lru_cache, cached_property`. tokens: `Document.tokenize_calls += 1`, затем `[w for w in map(normalize, self.text.split()) if w]`."
+      - "jaccard: `union = self.vocab | other.vocab`; если пусто — 0.0; иначе `round(len(self.vocab & other.vocab) / len(union), 3)`."
+    solution: |
+      from functools import cached_property, lru_cache
+
+
+      @lru_cache(maxsize=1024)
+      def normalize(word):
+          """Нижний регистр без знаков препинания по краям."""
+          return word.lower().strip(".,!?;:")
+
+
+      class Document:
+          """Документ с лениво вычисляемыми токенами."""
+
+          tokenize_calls = 0
+
+          def __init__(self, text):
+              self.text = text
+
+          @cached_property
+          def tokens(self):
+              Document.tokenize_calls += 1
+              return [word for word in map(normalize, self.text.split()) if word]
+
+          @cached_property
+          def vocab(self):
+              return set(self.tokens)
+
+          def jaccard(self, other):
+              union = self.vocab | other.vocab
+              if not union:
+                  return 0.0
+              return round(len(self.vocab & other.vocab) / len(union), 3)
+    solution_explanation: "Два уровня кэширования: lru_cache на функции нормализации (одинаковые слова встречаются во многих документах) и cached_property на объекте (токены документа считаются один раз, сколько бы раз их ни запрашивали vocab и jaccard)."
+    tests:
+      - name: "Пример"
+        call: "Document(\"Кот спит. Кот ест!\").tokens"
+        expected: "['кот', 'спит', 'кот', 'ест']"
+      - name: "Токенизация один раз"
+        code: |
+          Document.tokenize_calls = 0
+          doc = Document("a b c")
+          doc.tokens
+          doc.vocab
+          doc.jaccard(doc)
+          assert Document.tokenize_calls == 1, f"Токенизация выполнена {Document.tokenize_calls} раз"
+      - name: "jaccard"
+        call: "Document(\"кот спит\").jaccard(Document(\"Кот ест.\"))"
+        expected: "0.333"
+      - name: "Пустые документы и пунктуация"
+        code: |
+          assert Document("!!! ...").tokens == []
+          assert Document("").jaccard(Document("?")) == 0.0
+      - name: "normalize кэширована"
+        code: |
+          normalize.cache_clear()
+          normalize("Привет!")
+          normalize("Привет!")
+          assert normalize.cache_info().hits == 1

@@ -1,0 +1,463 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      letters = iter("abcd")
+      next(letters)
+      print(list(letters), list(letters))
+    options:
+      - text: "`['b', 'c', 'd'] []`"
+        correct: true
+        why: "next забрал 'a', первый list — остальное, второй — пустой: итератор исчерпан."
+      - text: "`['b', 'c', 'd'] ['b', 'c', 'd']`"
+        why: "Итератор одноразовый и помнит позицию."
+      - text: "`['a', 'b', 'c', 'd'] []`"
+        why: "Первый элемент уже взят вызовом next."
+    explanation: "Итератор движется только вперёд и не перезапускается."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      lengths = map(len, ["ab", "cde", "f"])
+      print(max(lengths), sum(lengths))
+    options:
+      - text: "`3 0`"
+        correct: true
+        why: "max прошёл итератор до конца, sum получил пустой."
+      - text: "`3 6`"
+        why: "map возвращает итератор — второй проход пуст."
+      - text: "`3 1`"
+        why: "max перебирает все элементы, ничего не остаётся."
+    explanation: "Результат map, zip, filter — одноразовый итератор."
+
+  - id: q3
+    type: find_bug
+    prompt: "Цикл `for x in Steps(3): print(x)` никогда не заканчивается. Почему?"
+    code: |
+      class Steps:
+          def __init__(self, n):
+              self.n = n
+              self.i = 0
+
+          def __iter__(self):
+              return self
+
+          def __next__(self):
+              if self.i >= self.n:
+                  return None
+              self.i += 1
+              return self.i
+    options:
+      - text: "В конце нужно бросать StopIteration, а не возвращать None"
+        correct: true
+        why: "for останавливается только по StopIteration; None — обычное значение."
+      - text: "__iter__ должен возвращать новый объект"
+        why: "Для итератора return self правильно."
+      - text: "Счётчик нужно увеличивать после return"
+        why: "После return код не выполняется — порядок верный."
+    explanation: "Конец итерации обозначается исключением StopIteration."
+
+  - id: q4
+    type: single
+    prompt: "Чем итерируемый объект отличается от итератора?"
+    options:
+      - text: "Итерируемый объект создаёт итераторы через __iter__; итератор выдаёт элементы через __next__ и помнит позицию"
+        correct: true
+        why: "Список — итерируемый, iter(список) — итератор."
+      - text: "Это одно и то же"
+        why: "Список можно перебирать много раз, а его итератор — только один."
+      - text: "Итератор хранит все элементы в памяти, итерируемый — нет"
+        why: "Скорее наоборот: итератор может вычислять элементы по запросу."
+      - text: "Итерируемые объекты — только встроенные типы"
+        why: "Свой класс с __iter__ тоже итерируемый."
+    explanation: "Книга (iterable) и закладка (iterator)."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Pair:
+          def __init__(self):
+              self.items = ["x", "y"]
+              self.i = 0
+
+          def __iter__(self):
+              return self
+
+          def __next__(self):
+              if self.i >= len(self.items):
+                  raise StopIteration
+              self.i += 1
+              return self.items[self.i - 1]
+
+
+      p = Pair()
+      print([a + b for a in p for b in p])
+    options:
+      - text: "`['xy']`"
+        correct: true
+        why: "Оба цикла двигают одну позицию: внутренний съел 'y', внешнему не осталось элементов."
+      - text: "`['xx', 'xy', 'yx', 'yy']`"
+        why: "Так было бы, если бы __iter__ возвращал новый итератор."
+      - text: "`[]`"
+        why: "Первый элемент внешний цикл получает."
+    explanation: "Коллекция, возвращающая self из __iter__, ломает вложенные циклы."
+
+  - id: q6
+    type: multiple
+    prompt: "Что из этого — итераторы (одноразовые)? Выберите все."
+    options:
+      - text: "`zip(a, b)`"
+        correct: true
+        why: "zip возвращает итератор."
+      - text: "`enumerate(items)`"
+        correct: true
+        why: "enumerate — итератор."
+      - text: "Открытый файл `open(\"data.txt\")`"
+        correct: true
+        why: "Файл — итератор по строкам."
+      - text: "`range(10)`"
+        why: "range — итерируемый объект: его можно перебирать много раз."
+    explanation: "Проверка: iter(obj) is obj — у итератора истинно."
+
+tasks:
+  - id: t1
+    title: "Обратный отсчёт с шагом"
+    difficulty: 1
+    statement: |
+      Создайте класс-итератор `Countdown(start, step=1)`: выдаёт `start`, `start - step`, … пока значение больше 0. `step` ≤ 0 → `ValueError`.
+    examples:
+      - input: "list(Countdown(10, step=3))"
+        output: "[10, 7, 4, 1]"
+    starter: |
+      class Countdown:
+          def __init__(self, start, step=1):
+              self.current = start
+              self.step = step
+
+          def __next__(self):
+              self.current -= self.step
+              return self.current
+    hints:
+      - "Нужен `__iter__`, возвращающий `self`."
+      - "В `__next__`: `if self.current <= 0: raise StopIteration`; запомните значение, уменьшите current и верните запомненное."
+    solution: |
+      class Countdown:
+          """Обратный отсчёт с заданным шагом."""
+
+          def __init__(self, start, step=1):
+              if step <= 0:
+                  raise ValueError("шаг должен быть положительным")
+              self.current = start
+              self.step = step
+
+          def __iter__(self):
+              return self
+
+          def __next__(self):
+              if self.current <= 0:
+                  raise StopIteration
+              value = self.current
+              self.current -= self.step
+              return value
+    solution_explanation: "Итератор хранит текущую позицию и выдаёт значения по одному. StopIteration сообщает for и list, что элементы закончились."
+    tests:
+      - name: "Пример"
+        call: "list(Countdown(10, step=3))"
+        expected: "[10, 7, 4, 1]"
+      - name: "Шаг по умолчанию"
+        call: "list(Countdown(3))"
+        expected: "[3, 2, 1]"
+      - name: "Ноль и отрицательное"
+        call: "[list(Countdown(0)), list(Countdown(-5))]"
+        expected: "[[], []]"
+      - name: "next и StopIteration"
+        code: |
+          c = Countdown(2)
+          assert next(c) == 2 and next(c) == 1
+          try:
+              next(c)
+          except StopIteration:
+              pass
+          else:
+              raise AssertionError("Ожидался StopIteration")
+      - name: "Неверный шаг"
+        code: |
+          try:
+              Countdown(5, 0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Это итератор"
+        code: |
+          c = Countdown(3)
+          assert iter(c) is c, "__iter__ итератора должен возвращать self"
+
+  - id: t2
+    title: "Диапазон дробных чисел"
+    difficulty: 2
+    statement: |
+      Встроенный `range` работает только с целыми. Создайте **многоразовый** итерируемый класс `FloatRange(start, stop, step)`:
+
+      - выдаёт `start`, `start + step`, … пока значение меньше `stop` (для отрицательного `step` — пока больше `stop`);
+      - i-е значение вычисляйте как `round(start + i * step, 10)` — без накопления ошибки;
+      - `step == 0` → `ValueError`;
+      - `len()` — количество значений;
+      - объект можно перебирать много раз (в том числе во вложенных циклах).
+    examples:
+      - input: "list(FloatRange(0, 1, 0.25))"
+        output: "[0.0, 0.25, 0.5, 0.75]"
+    starter: |
+      class FloatRange:
+          def __init__(self, start, stop, step):
+              self.current = start
+              self.stop = stop
+              self.step = step
+
+          def __iter__(self):
+              return self
+
+          def __next__(self):
+              if self.current >= self.stop:
+                  raise StopIteration
+              value = self.current
+              self.current += self.step
+              return value
+    hints:
+      - "Посчитайте количество значений заранее: `math.ceil((stop - start) / step)` (не меньше 0) и сохраните."
+      - "`__iter__` может вернуть итератор по генераторному выражению или списку: `iter([round(start + i * step, 10) for i in range(self._count)])` — каждый вызов даёт новый итератор."
+    solution: |
+      import math
+
+
+      class FloatRange:
+          """Многоразовый диапазон дробных чисел."""
+
+          def __init__(self, start, stop, step):
+              if step == 0:
+                  raise ValueError("шаг не может быть нулевым")
+              self.start = start
+              self.stop = stop
+              self.step = step
+              self._count = max(0, math.ceil((stop - start) / step))
+
+          def __len__(self):
+              return self._count
+
+          def __iter__(self):
+              return FloatRangeIterator(self)
+
+
+      class FloatRangeIterator:
+          def __init__(self, float_range):
+              self._range = float_range
+              self._index = 0
+
+          def __iter__(self):
+              return self
+
+          def __next__(self):
+              if self._index >= len(self._range):
+                  raise StopIteration
+              r = self._range
+              value = round(r.start + self._index * r.step, 10)
+              self._index += 1
+              return value
+    solution_explanation: "Значение вычисляется по номеру, а не сложением шага в цикле: 0.1 + 0.1 + 0.1 накапливает ошибку float, а start + i * step — нет. Отдельный итератор на каждый __iter__ делает диапазон многоразовым, как range."
+    tests:
+      - name: "Пример"
+        call: "list(FloatRange(0, 1, 0.25))"
+        expected: "[0.0, 0.25, 0.5, 0.75]"
+      - name: "Без накопления ошибки"
+        call: "list(FloatRange(0, 0.5, 0.1))"
+        expected: "[0.0, 0.1, 0.2, 0.3, 0.4]"
+      - name: "Отрицательный шаг"
+        call: "list(FloatRange(1, 0, -0.5))"
+        expected: "[1.0, 0.5]"
+      - name: "len и пустой диапазон"
+        call: "[len(FloatRange(0, 1, 0.3)), len(FloatRange(5, 1, 1))]"
+        expected: "[4, 0]"
+      - name: "Многоразовость"
+        code: |
+          r = FloatRange(0, 1, 0.5)
+          assert list(r) == list(r) == [0.0, 0.5]
+          assert [(a, b) for a in r for b in r] == [(0.0, 0.0), (0.0, 0.5), (0.5, 0.0), (0.5, 0.5)]
+      - name: "Нулевой шаг"
+        code: |
+          try:
+              FloatRange(0, 1, 0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+
+  - id: t3
+    title: "Бесконечный цикл"
+    difficulty: 2
+    statement: |
+      1. Класс-итератор `Cycle(items)` бесконечно повторяет элементы по кругу (`items` копируется; пустой → `ValueError`).
+      2. Функция `take(iterator, n)` возвращает список первых `n` элементов итератора, используя `next()` (не `list()` — итератор может быть бесконечным). Если элементы кончились раньше, вернуть столько, сколько было.
+      3. Функция `assign(tasks, workers)` распределяет задачи по исполнителям по кругу и возвращает список пар `(задача, исполнитель)`.
+    examples:
+      - input: "take(Cycle([\"a\", \"b\"]), 5)"
+        output: "['a', 'b', 'a', 'b', 'a']"
+    starter: |
+      class Cycle:
+          def __init__(self, items):
+              self.items = items
+
+
+      def take(iterator, n):
+          return list(iterator)[:n]
+    hints:
+      - "В Cycle храните индекс и берите `self._items[self._index % len(self._items)]`."
+      - "take: цикл `for _ in range(n)` с `next(iterator, sentinel)`, где `sentinel = object()` — уникальный маркер конца. assign: `list(zip(tasks, Cycle(workers)))` — zip остановится по короткой последовательности."
+    solution: |
+      class Cycle:
+          """Бесконечный перебор элементов по кругу."""
+
+          def __init__(self, items):
+              self._items = list(items)
+              if not self._items:
+                  raise ValueError("нечего повторять")
+              self._index = 0
+
+          def __iter__(self):
+              return self
+
+          def __next__(self):
+              item = self._items[self._index % len(self._items)]
+              self._index += 1
+              return item
+
+
+      def take(iterator, n):
+          """Первые n элементов итератора."""
+          sentinel = object()
+          result = []
+          for _ in range(n):
+              item = next(iterator, sentinel)
+              if item is sentinel:
+                  break
+              result.append(item)
+          return result
+
+
+      def assign(tasks, workers):
+          """Распределить задачи по исполнителям по кругу."""
+          return list(zip(tasks, Cycle(workers)))
+    solution_explanation: "Бесконечный итератор безопасен, пока его ограничивает кто-то конечный: take — счётчиком, zip — длиной списка задач. Маркер sentinel = object() отличает «конец» от любого настоящего элемента, даже None."
+    tests:
+      - name: "Пример"
+        call: "take(Cycle([\"a\", \"b\"]), 5)"
+        expected: "['a', 'b', 'a', 'b', 'a']"
+      - name: "take с конечным итератором"
+        call: "take(iter([1, None, 3]), 10)"
+        expected: "[1, None, 3]"
+      - name: "assign"
+        call: "assign([\"t1\", \"t2\", \"t3\"], [\"ada\", \"alan\"])"
+        expected: "[('t1', 'ada'), ('t2', 'alan'), ('t3', 'ada')]"
+      - name: "Пустой Cycle"
+        code: |
+          try:
+              Cycle([])
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "take продолжает итератор"
+        code: |
+          c = Cycle([1, 2, 3])
+          take(c, 2)
+          assert take(c, 2) == [3, 1], "Итератор должен продолжать с места остановки"
+
+  - id: t4
+    title: "Скользящее окно"
+    difficulty: 3
+    statement: |
+      Для чанкинга с перекрытием нужны «окна». Создайте многоразовый итерируемый класс `SlidingWindow(sequence, size, step=1)`:
+
+      - выдаёт кортежи длины `size`: `sequence[0:size]`, `sequence[step:step+size]`, …; неполное окно в конце не выдаётся;
+      - `size < 1` или `step < 1` → `ValueError`;
+      - `len()` — количество окон;
+      - последовательность копируется (в кортеж).
+    examples:
+      - input: "list(SlidingWindow([1, 2, 3, 4, 5], size=3))"
+        output: "[(1, 2, 3), (2, 3, 4), (3, 4, 5)]"
+    starter: |
+      class SlidingWindow:
+          def __init__(self, sequence, size, step=1):
+              self.sequence = sequence
+              self.size = size
+
+          def __iter__(self):
+              return iter([self.sequence])
+    hints:
+      - "Количество окон: если `len(seq) < size` — 0, иначе `(len(seq) - size) // step + 1`."
+      - "`__iter__` возвращает новый итератор, который выдаёт `self._items[i * step : i * step + size]` для `i` от 0 до количества окон."
+    solution: |
+      class SlidingWindow:
+          """Окна фиксированного размера с заданным шагом."""
+
+          def __init__(self, sequence, size, step=1):
+              if size < 1 or step < 1:
+                  raise ValueError("size и step должны быть положительными")
+              self._items = tuple(sequence)
+              self.size = size
+              self.step = step
+
+          def __len__(self):
+              if len(self._items) < self.size:
+                  return 0
+              return (len(self._items) - self.size) // self.step + 1
+
+          def __iter__(self):
+              return WindowIterator(self)
+
+
+      class WindowIterator:
+          def __init__(self, window):
+              self._window = window
+              self._index = 0
+
+          def __iter__(self):
+              return self
+
+          def __next__(self):
+              if self._index >= len(self._window):
+                  raise StopIteration
+              start = self._index * self._window.step
+              self._index += 1
+              return self._window._items[start:start + self._window.size]
+    solution_explanation: "Число окон считается формулой, а каждое окно — срез кортежа по номеру. Итератор отдельный, поэтому окна можно перебирать повторно. С step < size окна перекрываются — так режут тексты для RAG, чтобы мысль на границе чанков не потерялась."
+    tests:
+      - name: "Пример"
+        call: "list(SlidingWindow([1, 2, 3, 4, 5], size=3))"
+        expected: "[(1, 2, 3), (2, 3, 4), (3, 4, 5)]"
+      - name: "Шаг и неполное окно"
+        call: "list(SlidingWindow(\"abcdefg\", size=3, step=2))"
+        expected: "[('a', 'b', 'c'), ('c', 'd', 'e'), ('e', 'f', 'g')]"
+      - name: "Короткая последовательность"
+        call: "[list(SlidingWindow([1, 2], 3)), len(SlidingWindow([1, 2], 3))]"
+        expected: "[[], 0]"
+      - name: "len"
+        call: "[len(SlidingWindow(range(10), 4, 3)), len(list(SlidingWindow(range(10), 4, 3)))]"
+        expected: "[3, 3]"
+      - name: "Многоразовость и копия"
+        code: |
+          data = [1, 2, 3]
+          w = SlidingWindow(data, 2)
+          data.append(4)
+          assert list(w) == list(w) == [(1, 2), (2, 3)]
+      - name: "Неверные параметры"
+        code: |
+          for args in ((0, 1), (2, 0)):
+              try:
+                  SlidingWindow([1, 2, 3], *args)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"Параметры {args} должны вызывать ValueError")

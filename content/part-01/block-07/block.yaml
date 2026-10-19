@@ -1,0 +1,18 @@
+title: "Ошибки, файлы, модули"
+description: "Обработка исключений, собственные ошибки, файлы, JSON и CSV, модули стандартной библиотеки, pip и виртуальные окружения."
+mini_project: "Конвертер CSV → JSON с обработкой ошибок"
+lessons:
+  - id: lesson-01
+    title: "Исключения: try, except, else, finally"
+  - id: lesson-02
+    title: "raise и собственные исключения"
+  - id: lesson-03
+    title: "Работа с файлами"
+  - id: lesson-04
+    title: "JSON — формат всех AI API"
+  - id: lesson-05
+    title: "CSV и модуль csv"
+  - id: lesson-06
+    title: "Модули, import и стандартная библиотека"
+  - id: lesson-07
+    title: "pip и виртуальные окружения"

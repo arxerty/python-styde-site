@@ -1,0 +1,571 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class V:
+          def __init__(self, x):
+              self.x = x
+
+          def __mul__(self, k):
+              return V(self.x * k)
+
+
+      try:
+          print((V(2) * 3).x)
+          print((3 * V(2)).x)
+      except TypeError:
+          print("ошибка")
+    options:
+      - text: |
+          ```
+          6
+          ошибка
+          ```
+        correct: true
+        why: "Для 3 * V(2) нужен __rmul__ — его нет."
+      - text: |
+          ```
+          6
+          6
+          ```
+        why: "int.__mul__ не умеет умножать на V, а отражённого метода нет."
+      - text: "`ошибка`"
+        why: "Первое умножение работает: V(2) * 3 вызывает V.__mul__."
+    explanation: "Для числа слева от объекта Python ищет отражённый метод __rmul__ правого операнда."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Vector:
+          def __init__(self, *c):
+              self.c = tuple(c)
+
+          def __add__(self, other):
+              return Vector(*(a + b for a, b in zip(self.c, other.c)))
+
+
+      a = Vector(1, 2)
+      b = a + Vector(10, 10)
+      print(a.c, b.c)
+    options:
+      - text: "`(1, 2) (11, 12)`"
+        correct: true
+        why: "__add__ возвращает новый объект, a не меняется."
+      - text: "`(11, 12) (11, 12)`"
+        why: "a не изменяется — создаётся новый вектор."
+      - text: "`(1, 2) None`"
+        why: "__add__ возвращает новый Vector."
+    explanation: "Операторы возвращают новый объект, не меняя операнды."
+
+  - id: q3
+    type: single
+    prompt: "Как Python вычисляет `a + b`, если `a.__add__(b)` вернул `NotImplemented`?"
+    options:
+      - text: "Пробует `b.__radd__(a)`; если и он не справился — `TypeError`"
+        correct: true
+        why: "Отражённый метод даёт шанс правому операнду."
+      - text: "Сразу бросает `NotImplementedError`"
+        why: "NotImplemented — сигнал попробовать другой вариант, а не исключение."
+      - text: "Возвращает `NotImplemented` как результат выражения"
+        why: "Python не отдаёт NotImplemented наружу из оператора."
+      - text: "Пробует `b.__add__(a)`"
+        why: "Ищется именно отражённый метод __radd__."
+    explanation: "Цепочка: __add__ левого → __radd__ правого → TypeError."
+
+  - id: q4
+    type: find_bug
+    prompt: "После `c = a + b` неожиданно меняется `a`. В чём ошибка?"
+    code: |
+      class Counter:
+          def __init__(self, value):
+              self.value = value
+
+          def __add__(self, other):
+              self.value += other.value
+              return self
+    options:
+      - text: "__add__ изменяет self и возвращает его, вместо создания нового объекта"
+        correct: true
+        why: "Нужно return Counter(self.value + other.value)."
+      - text: "Нужно определить __radd__"
+        why: "__radd__ нужен для другого случая — когда слева чужой тип."
+      - text: "__add__ должен возвращать NotImplemented"
+        why: "NotImplemented — только для неподдерживаемых типов."
+    explanation: "Арифметический оператор не должен менять операнды."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from functools import total_ordering
+
+
+      @total_ordering
+      class Grade:
+          def __init__(self, value):
+              self.value = value
+
+          def __eq__(self, other):
+              return self.value == other.value
+
+          def __lt__(self, other):
+              return self.value < other.value
+
+
+      print(Grade(3) >= Grade(5), max([Grade(4), Grade(5), Grade(2)]).value)
+    options:
+      - text: "`False 5`"
+        correct: true
+        why: "total_ordering достроил >= из __lt__ и __eq__; max использует сравнения."
+      - text: "TypeError: '>=' not supported"
+        why: "@total_ordering добавляет недостающие методы сравнения."
+      - text: "`True 5`"
+        why: "3 >= 5 — ложь."
+    explanation: "Достаточно __eq__ и __lt__ — остальные сравнения достроит @total_ordering."
+
+  - id: q6
+    type: multiple
+    prompt: "Какие перегрузки операторов уместны? Выберите все."
+    options:
+      - text: "`vector1 + vector2` — покомпонентное сложение"
+        correct: true
+        why: "Совпадает с математическим смыслом."
+      - text: "`money * 3` — утроить сумму"
+        correct: true
+        why: "Очевидный смысл."
+      - text: "`matrix @ vector` — матричное умножение"
+        correct: true
+        why: "Для этого оператор @ и создан."
+      - text: "`user + order` — оформить заказ на пользователя"
+        why: "Смысл неочевиден — лучше метод user.place(order)."
+    explanation: "Перегружайте операторы, только когда их смысл очевиден читающему."
+
+tasks:
+  - id: t1
+    title: "Вектор: арифметика"
+    difficulty: 2
+    statement: |
+      Создайте класс `Vector(*components)` (компоненты хранятся в кортеже `components`):
+
+      - `__repr__` → `Vector(1, 2)` (для одной компоненты — `Vector(5)`);
+      - `__eq__` — равны при равных компонентах; чужой тип → `NotImplemented`;
+      - `+` и `-` с другим вектором; разная размерность → `ValueError`; чужой тип → `NotImplemented`;
+      - `*` на число (`int`/`float`) с обеих сторон: `v * 2` и `2 * v`;
+      - унарный минус `-v`.
+
+      Операторы возвращают новые векторы.
+    examples:
+      - input: "Vector(1, 2) + 2 * Vector(3, 4)"
+        output: "Vector(7, 10)"
+    starter: |
+      class Vector:
+          def __init__(self, *components):
+              self.components = tuple(components)
+
+          def __add__(self, other):
+              return [a + b for a, b in zip(self.components, other.components)]
+    hints:
+      - "repr: `\"Vector(\" + \", \".join(str(c) for c in self.components) + \")\"` — так одна компонента не даст лишней запятой."
+      - "Общую проверку размерности вынесите в `_check(other)`; `__rmul__` просто возвращает `self * scalar`, `__neg__` — `self * -1`."
+    solution: |
+      class Vector:
+          """Вектор произвольной размерности."""
+
+          def __init__(self, *components):
+              self.components = tuple(components)
+
+          def __repr__(self):
+              return "Vector(" + ", ".join(str(c) for c in self.components) + ")"
+
+          def __len__(self):
+              return len(self.components)
+
+          def __eq__(self, other):
+              if not isinstance(other, Vector):
+                  return NotImplemented
+              return self.components == other.components
+
+          def _check(self, other):
+              if len(self) != len(other):
+                  raise ValueError(f"размерности не совпадают: {len(self)} и {len(other)}")
+
+          def __add__(self, other):
+              if not isinstance(other, Vector):
+                  return NotImplemented
+              self._check(other)
+              return Vector(*(a + b for a, b in zip(self.components, other.components)))
+
+          def __sub__(self, other):
+              if not isinstance(other, Vector):
+                  return NotImplemented
+              self._check(other)
+              return Vector(*(a - b for a, b in zip(self.components, other.components)))
+
+          def __mul__(self, scalar):
+              if isinstance(scalar, bool) or not isinstance(scalar, (int, float)):
+                  return NotImplemented
+              return Vector(*(c * scalar for c in self.components))
+
+          def __rmul__(self, scalar):
+              return self * scalar
+
+          def __neg__(self):
+              return self * -1
+    solution_explanation: "Каждый оператор сначала проверяет тип (NotImplemented для чужого), потом данные (ValueError для разной размерности) и возвращает новый вектор. __rmul__ и __neg__ переиспользуют __mul__ — логика умножения в одном месте."
+    tests:
+      - name: "Пример"
+        call: "repr(Vector(1, 2) + 2 * Vector(3, 4))"
+        expected: "'Vector(7, 10)'"
+      - name: "Вычитание и минус"
+        call: "[Vector(5, 5) - Vector(1, 2) == Vector(4, 3), -Vector(1, -2) == Vector(-1, 2)]"
+        expected: "[True, True]"
+      - name: "repr одной компоненты"
+        call: "repr(Vector(5))"
+        expected: "'Vector(5)'"
+      - name: "Разная размерность"
+        code: |
+          try:
+              Vector(1, 2) + Vector(1, 2, 3)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Чужой тип"
+        code: |
+          for action in (lambda: Vector(1) + 1, lambda: Vector(1) * "a", lambda: "a" * Vector(1)):
+              try:
+                  action()
+              except TypeError:
+                  pass
+              else:
+                  raise AssertionError("Для неподдерживаемого типа ожидался TypeError")
+      - name: "Операнды не меняются"
+        code: |
+          a = Vector(1, 1)
+          b = a + Vector(2, 2)
+          c = a * 10
+          assert a == Vector(1, 1) and b == Vector(3, 3) and c == Vector(10, 10)
+
+  - id: t2
+    title: "Норма и косинусное сходство"
+    difficulty: 2
+    statement: |
+      Дополните класс `Vector` из заготовки:
+
+      - `abs(v)` — длина вектора √(Σ cᵢ²);
+      - `v @ w` — скалярное произведение (разная размерность → `ValueError`);
+      - `v / k` — деление на число;
+      - `normalized()` — вектор длины 1 той же направленности; для нулевого вектора — `ValueError`;
+      - `cosine(other)` — косинусное сходство `(v @ w) / (|v|·|w|)`.
+    examples:
+      - input: "abs(Vector(3, 4))"
+        output: "5.0"
+    starter: |
+      import math
+
+
+      class Vector:
+          def __init__(self, *components):
+              self.components = tuple(components)
+
+          def __repr__(self):
+              return "Vector(" + ", ".join(str(c) for c in self.components) + ")"
+
+          def __mul__(self, scalar):
+              return Vector(*(c * scalar for c in self.components))
+    hints:
+      - "`__abs__`: `math.sqrt(sum(c * c for c in self.components))`; `__truediv__`: `self * (1 / k)`."
+      - "normalized: `length = abs(self)`; если `length == 0` — ValueError; иначе `self / length`. cosine: `(self @ other) / (abs(self) * abs(other))`."
+    solution: |
+      import math
+
+
+      class Vector:
+          def __init__(self, *components):
+              self.components = tuple(components)
+
+          def __repr__(self):
+              return "Vector(" + ", ".join(str(c) for c in self.components) + ")"
+
+          def __mul__(self, scalar):
+              return Vector(*(c * scalar for c in self.components))
+
+          def __abs__(self):
+              return math.sqrt(sum(c * c for c in self.components))
+
+          def __matmul__(self, other):
+              if not isinstance(other, Vector):
+                  return NotImplemented
+              if len(self.components) != len(other.components):
+                  raise ValueError("размерности не совпадают")
+              return sum(a * b for a, b in zip(self.components, other.components))
+
+          def __truediv__(self, scalar):
+              if not isinstance(scalar, (int, float)):
+                  return NotImplemented
+              return self * (1 / scalar)
+
+          def normalized(self):
+              length = abs(self)
+              if length == 0:
+                  raise ValueError("нулевой вектор нельзя нормировать")
+              return self / length
+
+          def cosine(self, other):
+              return (self @ other) / (abs(self) * abs(other))
+    solution_explanation: "Методы строятся друг на друге: normalized использует abs и деление, cosine — @ и abs. Формула косинусного сходства читается как в учебнике — в этом и смысл перегрузки операторов."
+    tests:
+      - name: "Длина"
+        call: "abs(Vector(3, 4))"
+        expected: "5.0"
+      - name: "Скалярное произведение"
+        call: "Vector(1, 2, 3) @ Vector(4, 5, 6)"
+        expected: "32"
+      - name: "Нормировка"
+        code: |
+          n = Vector(3, 4).normalized()
+          assert abs(abs(n) - 1) < 1e-9
+          assert abs(n.components[0] - 0.6) < 1e-9 and abs(n.components[1] - 0.8) < 1e-9
+      - name: "Нулевой вектор"
+        code: |
+          try:
+              Vector(0, 0).normalized()
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Косинус"
+        call: "[round(Vector(1, 0).cosine(Vector(0, 5)), 6), round(Vector(1, 1).cosine(Vector(2, 2)), 6), round(Vector(1, 0).cosine(Vector(-3, 0)), 6)]"
+        expected: "[0.0, 1.0, -1.0]"
+      - name: "Разная размерность в @"
+        code: |
+          try:
+              Vector(1, 2) @ Vector(1)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+
+  - id: t3
+    title: "Деньги с операторами"
+    difficulty: 2
+    statement: |
+      Создайте класс `Money(amount, currency)` (сумма — в копейках/центах, целое число):
+
+      - `+` и `-` между суммами одной валюты; разные валюты → `ValueError`; чужой тип → `NotImplemented`;
+      - `*` на целое число с обеих сторон;
+      - `sum([...])` по списку сумм должен работать (подсказка: `__radd__` и 0);
+      - сравнения `<`, `<=`, `>`, `>=`, `==` для одной валюты (используйте `@total_ordering`); `<` для разных валют → `ValueError`;
+      - `__repr__` → `Money(1500, 'RUB')`.
+    examples:
+      - input: "sum([Money(100, \"RUB\"), Money(250, \"RUB\")]) * 2"
+        output: "Money(700, 'RUB')"
+    starter: |
+      class Money:
+          def __init__(self, amount, currency):
+              self.amount = amount
+              self.currency = currency
+
+          def __add__(self, other):
+              return Money(self.amount + other.amount, self.currency)
+    hints:
+      - "`from functools import total_ordering` и декоратор над классом; нужны `__eq__` и `__lt__`."
+      - "`__radd__`: `if other == 0: return self`, иначе `NotImplemented`. Проверку валюты вынесите в `_same_currency(other)`."
+    solution: |
+      from functools import total_ordering
+
+
+      @total_ordering
+      class Money:
+          """Сумма в минимальных единицах валюты."""
+
+          def __init__(self, amount, currency):
+              self.amount = amount
+              self.currency = currency
+
+          def __repr__(self):
+              return f"Money({self.amount}, {self.currency!r})"
+
+          def _same_currency(self, other):
+              if self.currency != other.currency:
+                  raise ValueError(f"разные валюты: {self.currency} и {other.currency}")
+
+          def __add__(self, other):
+              if not isinstance(other, Money):
+                  return NotImplemented
+              self._same_currency(other)
+              return Money(self.amount + other.amount, self.currency)
+
+          def __radd__(self, other):
+              if other == 0:
+                  return self
+              return NotImplemented
+
+          def __sub__(self, other):
+              if not isinstance(other, Money):
+                  return NotImplemented
+              self._same_currency(other)
+              return Money(self.amount - other.amount, self.currency)
+
+          def __mul__(self, factor):
+              if isinstance(factor, bool) or not isinstance(factor, int):
+                  return NotImplemented
+              return Money(self.amount * factor, self.currency)
+
+          def __rmul__(self, factor):
+              return self * factor
+
+          def __eq__(self, other):
+              if not isinstance(other, Money):
+                  return NotImplemented
+              return (self.amount, self.currency) == (other.amount, other.currency)
+
+          def __lt__(self, other):
+              if not isinstance(other, Money):
+                  return NotImplemented
+              self._same_currency(other)
+              return self.amount < other.amount
+
+          def __hash__(self):
+              return hash((self.amount, self.currency))
+    solution_explanation: "Суммы в целых копейках избавляют от ошибок округления float. __radd__ с проверкой на 0 позволяет встроенной sum начать с нуля. Сравнение разных валют — ошибка данных, поэтому ValueError, а не тихий результат."
+    tests:
+      - name: "Пример"
+        call: "repr(sum([Money(100, \"RUB\"), Money(250, \"RUB\")]) * 2)"
+        expected: "\"Money(700, 'RUB')\""
+      - name: "Умножение слева и вычитание"
+        call: "[3 * Money(10, \"USD\") == Money(30, \"USD\"), Money(50, \"USD\") - Money(20, \"USD\") == Money(30, \"USD\")]"
+        expected: "[True, True]"
+      - name: "Разные валюты"
+        code: |
+          for action in (lambda: Money(1, "RUB") + Money(1, "USD"), lambda: Money(1, "RUB") < Money(2, "USD")):
+              try:
+                  action()
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError("Разные валюты — ValueError")
+      - name: "Сравнения"
+        code: |
+          a, b = Money(100, "RUB"), Money(200, "RUB")
+          assert a < b and b > a and a <= Money(100, "RUB") and b >= a and a != b
+          assert max([a, b, Money(150, "RUB")]) == b
+      - name: "Чужой тип"
+        code: |
+          for action in (lambda: Money(1, "RUB") + 5, lambda: Money(1, "RUB") * 1.5):
+              try:
+                  action()
+              except TypeError:
+                  pass
+              else:
+                  raise AssertionError("Ожидался TypeError")
+
+  - id: t4
+    title: "Многочлены"
+    difficulty: 3
+    statement: |
+      Создайте класс `Polynomial(*coeffs)` — коэффициенты от младшего к старшему: `Polynomial(1, 2, 3)` = 1 + 2x + 3x². Нулевые старшие коэффициенты отбрасываются (но многочлен `Polynomial(0)` или `Polynomial()` хранится как `(0,)`).
+
+      - атрибут `coeffs` (кортеж), свойство `degree` (степень; у нулевого многочлена — 0);
+      - `evaluate(x)` — значение в точке;
+      - `+` с многочленом или числом (с обеих сторон);
+      - `*` с многочленом (перемножение) или числом (с обеих сторон);
+      - `__eq__`, `__repr__` → `Polynomial(1, 2, 3)`.
+    examples:
+      - input: "(Polynomial(1, 1) * Polynomial(1, 1)).coeffs"
+        output: "(1, 2, 1)"
+    starter: |
+      class Polynomial:
+          def __init__(self, *coeffs):
+              self.coeffs = coeffs
+
+          def evaluate(self, x):
+              return sum(self.coeffs) * x
+    hints:
+      - "Отбрасывание нулей: `coeffs = list(coeffs) or [0]`, затем `while len(coeffs) > 1 and coeffs[-1] == 0: coeffs.pop()`. Число превращайте в многочлен: `Polynomial(number)`."
+      - "Произведение: список нулей длины `len(a) + len(b) - 1`, и для всех пар `i, j`: `result[i + j] += a[i] * b[j]`."
+    solution: |
+      class Polynomial:
+          """Многочлен с коэффициентами от младшего к старшему."""
+
+          def __init__(self, *coeffs):
+              values = list(coeffs) or [0]
+              while len(values) > 1 and values[-1] == 0:
+                  values.pop()
+              self.coeffs = tuple(values)
+
+          @property
+          def degree(self):
+              return len(self.coeffs) - 1
+
+          def evaluate(self, x):
+              return sum(c * x ** power for power, c in enumerate(self.coeffs))
+
+          @staticmethod
+          def _coerce(other):
+              if isinstance(other, Polynomial):
+                  return other
+              if isinstance(other, (int, float)) and not isinstance(other, bool):
+                  return Polynomial(other)
+              return None
+
+          def __add__(self, other):
+              other = self._coerce(other)
+              if other is None:
+                  return NotImplemented
+              size = max(len(self.coeffs), len(other.coeffs))
+              a = self.coeffs + (0,) * (size - len(self.coeffs))
+              b = other.coeffs + (0,) * (size - len(other.coeffs))
+              return Polynomial(*(x + y for x, y in zip(a, b)))
+
+          def __radd__(self, other):
+              return self + other
+
+          def __mul__(self, other):
+              other = self._coerce(other)
+              if other is None:
+                  return NotImplemented
+              result = [0] * (len(self.coeffs) + len(other.coeffs) - 1)
+              for i, a in enumerate(self.coeffs):
+                  for j, b in enumerate(other.coeffs):
+                      result[i + j] += a * b
+              return Polynomial(*result)
+
+          def __rmul__(self, other):
+              return self * other
+
+          def __eq__(self, other):
+              other = self._coerce(other)
+              if other is None:
+                  return NotImplemented
+              return self.coeffs == other.coeffs
+
+          def __repr__(self):
+              return "Polynomial(" + ", ".join(str(c) for c in self.coeffs) + ")"
+    solution_explanation: "Приём «приведение типа» (_coerce): число превращается в многочлен нулевой степени, и дальше работает единая логика сложения и умножения. Нормализация коэффициентов в __init__ гарантирует, что равные многочлены имеют одинаковые кортежи, — поэтому __eq__ просто сравнивает их."
+    tests:
+      - name: "Квадрат суммы"
+        call: "(Polynomial(1, 1) * Polynomial(1, 1)).coeffs"
+        expected: "(1, 2, 1)"
+      - name: "Значение"
+        call: "Polynomial(1, 2, 3).evaluate(2)"
+        expected: "17"
+      - name: "Старшие нули"
+        code: |
+          p = Polynomial(1, 2, 0, 0)
+          assert p.coeffs == (1, 2) and p.degree == 1
+          assert Polynomial().coeffs == (0,) and Polynomial(0, 0).degree == 0
+      - name: "Сложение и сокращение"
+        code: |
+          s = Polynomial(1, 2, 3) + Polynomial(0, 0, -3)
+          assert s == Polynomial(1, 2) and s.degree == 1, repr(s)
+      - name: "Числа с обеих сторон"
+        code: |
+          p = Polynomial(1, 1)
+          assert 2 + p == Polynomial(3, 1) and p + 2 == Polynomial(3, 1)
+          assert 3 * p == Polynomial(3, 3) and p * 0 == Polynomial(0)
+      - name: "repr"
+        call: "repr(Polynomial(0, 1) * Polynomial(0, 1) + 5)"
+        expected: "'Polynomial(5, 0, 1)'"

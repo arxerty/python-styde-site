@@ -1,0 +1,334 @@
+questions:
+  - id: q1
+    type: multiple
+    prompt: "При каких ответах автоматический повтор запроса имеет смысл? Выберите все."
+    options:
+      - text: "429 Too Many Requests"
+        correct: true
+        why: "Временный лимит: подождать и повторить."
+      - text: "503 Service Unavailable"
+        correct: true
+        why: "Временная перегрузка сервера."
+      - text: "500 Internal Server Error"
+        correct: true
+        why: "Сбой сервера часто временный — повтор с задержкой."
+      - text: "401 Unauthorized"
+        why: "Неверный ключ повтором не исправить."
+    explanation: "Повторяют 429, 5xx и сетевые таймауты; остальные 4xx — ошибки запроса."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from http import HTTPStatus
+
+      print(HTTPStatus(404).phrase, HTTPStatus.CREATED.value, HTTPStatus(503).is_server_error)
+    options:
+      - text: "`Not Found 201 True`"
+        correct: true
+        why: "HTTPStatus — перечисление кодов с фразами и признаками класса."
+      - text: "`NotFound 200 True`"
+        why: "CREATED — код 201; фраза пишется через пробел."
+      - text: "`Not Found 201 False`"
+        why: "503 — ошибка сервера (5xx)."
+    explanation: "http.HTTPStatus избавляет от «магических чисел» в коде."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from urllib.parse import urlparse
+
+      u = urlparse("https://api.site.com/v1/models?limit=10")
+      print(u.hostname, u.path, u.query)
+    options:
+      - text: "`api.site.com /v1/models limit=10`"
+        correct: true
+        why: "urlparse разбирает URL на хост, путь и строку параметров."
+      - text: "`https api.site.com /v1/models`"
+        why: "Печатаются hostname, path и query."
+      - text: "`api.site.com /v1/models?limit=10 None`"
+        why: "Параметры отделяются от пути."
+    explanation: "URL: схема://хост/путь?параметры."
+
+  - id: q4
+    type: find_bug
+    prompt: "Что не так с формированием запроса?"
+    code: |
+      def search_url(query, api_key):
+          return f"https://api.example.com/search?q={query}&key={api_key}"
+    options:
+      - text: "Параметры не кодируются (пробелы, &, кириллица ломают URL), а ключ в URL попадает в логи — его передают в заголовке"
+        correct: true
+        why: "urlencode для параметров, Authorization для ключа."
+      - text: "f-строки нельзя использовать с URL"
+        why: "Можно, но параметры нужно кодировать."
+      - text: "Нужно использовать http вместо https"
+        why: "Наоборот: ключи — только по https."
+    explanation: "Кодируйте параметры и не кладите секреты в URL."
+
+  - id: q5
+    type: single
+    prompt: "Какой метод НЕ идемпотентен: повтор может создать дубликат?"
+    options:
+      - text: "POST"
+        correct: true
+        why: "Повтор «создать» может создать второй объект."
+      - text: "GET"
+        why: "GET ничего не меняет."
+      - text: "PUT"
+        why: "Повторная замена даёт тот же результат."
+      - text: "DELETE"
+        why: "Повторное удаление не меняет итог."
+    explanation: "Для безопасного повтора POST используют заголовок Idempotency-Key."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно про HTTP-заголовки? Выберите все."
+    options:
+      - text: "Имена заголовков нечувствительны к регистру"
+        correct: true
+        why: "Content-Type и content-type — одно и то же."
+      - text: "API-ключ обычно передают в Authorization или специальном заголовке"
+        correct: true
+        why: "Например, Authorization: Bearer sk-..."
+      - text: "Retry-After сообщает, через сколько секунд повторить запрос"
+        correct: true
+        why: "Его присылают с 429 и 503."
+      - text: "Content-Length — это число символов тела"
+        why: "Это число байтов."
+    explanation: "Заголовки — метаданные запроса и ответа."
+
+tasks:
+  - id: t1
+    title: "Классификация статусов"
+    difficulty: 1
+    statement: |
+      - `status_class(code)` → `"success"` (2xx), `"redirect"` (3xx), `"client_error"` (4xx), `"server_error"` (5xx), иначе `"unknown"`;
+      - `should_retry(code)` → `True` для 408, 429 и всех 5xx, иначе `False`.
+    examples:
+      - input: "[status_class(204), status_class(429), should_retry(429), should_retry(404)]"
+        output: "['success', 'client_error', True, False]"
+    starter: |
+      def status_class(code):
+          if code == 200:
+              return "success"
+          return "client_error"
+    hints:
+      - "Класс определяется первой цифрой: `code // 100`."
+      - "should_retry: `code in (408, 429) or 500 <= code < 600`."
+    solution: |
+      CLASSES = {2: "success", 3: "redirect", 4: "client_error", 5: "server_error"}
+
+
+      def status_class(code):
+          """Класс HTTP-ответа."""
+          return CLASSES.get(code // 100, "unknown") if 100 <= code < 600 else "unknown"
+
+
+      def should_retry(code):
+          """Имеет ли смысл повтор запроса."""
+          return code in (408, 429) or 500 <= code < 600
+    solution_explanation: "Первая цифра кода определяет класс ответа. Повторяют только временные проблемы: таймаут запроса (408), лимит (429) и сбои сервера (5xx)."
+    tests:
+      - name: "Пример"
+        call: "[status_class(204), status_class(429), should_retry(429), should_retry(404)]"
+        expected: "['success', 'client_error', True, False]"
+      - name: "Все классы"
+        call: "[status_class(c) for c in (200, 301, 404, 503, 700, 99)]"
+        expected: "['success', 'redirect', 'client_error', 'server_error', 'unknown', 'unknown']"
+      - name: "Повторы"
+        call: "[should_retry(c) for c in (408, 500, 502, 599, 400, 401, 200)]"
+        expected: "[True, True, True, True, False, False, False]"
+      - name: "1xx"
+        call: "status_class(100)"
+        expected: "'unknown'"
+      - name: "Граница 600"
+        call: "should_retry(600)"
+        expected: "False"
+
+  - id: t2
+    title: "Сборка URL"
+    difficulty: 1
+    statement: |
+      Напишите `build_url(base, path, params=None)`:
+
+      - соединяет `base` и `path` ровно одним `/` (независимо от того, есть ли слэш в конце `base` и в начале `path`);
+      - параметры кодируются через `urllib.parse.urlencode`; параметры со значением `None` пропускаются; если параметров не осталось — без `?`.
+    examples:
+      - input: "build_url(\"https://api.site.com/\", \"/v1/search\", {\"q\": \"кот\", \"limit\": 5, \"lang\": None})"
+        output: "'https://api.site.com/v1/search?q=%D0%BA%D0%BE%D1%82&limit=5'"
+    starter: |
+      def build_url(base, path, params=None):
+          return base + path + "?" + str(params)
+    hints:
+      - "`base.rstrip(\"/\") + \"/\" + path.lstrip(\"/\")`."
+      - "`clean = {k: v for k, v in (params or {}).items() if v is not None}`; если clean не пуст — `\"?\" + urlencode(clean)`."
+    solution: |
+      from urllib.parse import urlencode
+
+
+      def build_url(base, path, params=None):
+          """URL с правильно закодированными параметрами."""
+          url = base.rstrip("/") + "/" + path.lstrip("/")
+          clean = {key: value for key, value in (params or {}).items() if value is not None}
+          if clean:
+              url += "?" + urlencode(clean)
+          return url
+    solution_explanation: "urlencode кодирует пробелы, кириллицу и спецсимволы так, что сервер получит ровно те значения, что вы передали. Ручная склейка ломается на первом же «&» в запросе."
+    tests:
+      - name: "Пример"
+        call: "build_url(\"https://api.site.com/\", \"/v1/search\", {\"q\": \"кот\", \"limit\": 5, \"lang\": None})"
+        expected: "'https://api.site.com/v1/search?q=%D0%BA%D0%BE%D1%82&limit=5'"
+      - name: "Слэши"
+        call: "[build_url(\"https://a.ru\", \"x\"), build_url(\"https://a.ru/\", \"x\"), build_url(\"https://a.ru\", \"/x\")]"
+        expected: "['https://a.ru/x', 'https://a.ru/x', 'https://a.ru/x']"
+      - name: "Спецсимволы"
+        call: "build_url(\"https://a.ru\", \"s\", {\"q\": \"a&b=c d\"})"
+        expected: "'https://a.ru/s?q=a%26b%3Dc+d'"
+      - name: "Все параметры None"
+        call: "build_url(\"https://a.ru\", \"s\", {\"x\": None})"
+        expected: "'https://a.ru/s'"
+      - name: "Обратный разбор"
+        code: |
+          from urllib.parse import urlparse, parse_qs
+          url = build_url("https://a.ru", "s", {"q": "что такое RAG?", "n": 3})
+          assert parse_qs(urlparse(url).query) == {"q": ["что такое RAG?"], "n": ["3"]}
+
+  - id: t3
+    title: "Заголовки ответа"
+    difficulty: 2
+    statement: |
+      - `parse_headers(lines)` — список строк `"Имя: значение"` → словарь с именами в **нижнем регистре** и значениями без пробелов по краям (строки без `:` пропускаются; значение может содержать `:`);
+      - `retry_after(headers, default=1)` — значение `retry-after` как целое число секунд; если заголовка нет или он не число — `default`;
+      - `rate_limit(headers)` — словарь `{"limit": int, "remaining": int}` из заголовков `x-ratelimit-limit` и `x-ratelimit-remaining`; отсутствующие ключи не включаются.
+    examples:
+      - input: "retry_after(parse_headers([\"Retry-After: 20\", \"Content-Type: application/json\"]))"
+        output: "20"
+    starter: |
+      def parse_headers(lines):
+          return dict(line.split(": ") for line in lines)
+    hints:
+      - "`name, sep, value = line.partition(\":\")` — partition делит по первому двоеточию; при пустом `sep` строку пропустите."
+      - "retry_after: `value = headers.get(\"retry-after\", \"\")`, затем `int(value) if value.isdigit() else default`."
+    solution: |
+      def parse_headers(lines):
+          """Заголовки с именами в нижнем регистре."""
+          headers = {}
+          for line in lines:
+              name, sep, value = line.partition(":")
+              if sep:
+                  headers[name.strip().lower()] = value.strip()
+          return headers
+
+
+      def retry_after(headers, default=1):
+          """Пауза перед повтором в секундах."""
+          value = headers.get("retry-after", "")
+          return int(value) if value.isdigit() else default
+
+
+      def rate_limit(headers):
+          """Лимиты запросов из заголовков."""
+          info = {}
+          for key, header in (("limit", "x-ratelimit-limit"), ("remaining", "x-ratelimit-remaining")):
+              if headers.get(header, "").isdigit():
+                  info[key] = int(headers[header])
+          return info
+    solution_explanation: "Нормализация имён к нижнему регистру делает поиск заголовков независимым от того, как их написал сервер. partition сохраняет двоеточия в значении — например, в датах и URL."
+    tests:
+      - name: "Пример"
+        call: "retry_after(parse_headers([\"Retry-After: 20\", \"Content-Type: application/json\"]))"
+        expected: "20"
+      - name: "parse_headers"
+        call: "parse_headers([\"Content-Type: application/json\", \"X-Url: https://a.ru:443/x\", \"мусор\"])"
+        expected: "{'content-type': 'application/json', 'x-url': 'https://a.ru:443/x'}"
+      - name: "retry_after по умолчанию"
+        call: "[retry_after({}), retry_after({\"retry-after\": \"Wed, 21 Oct 2026\"}, default=5)]"
+        expected: "[1, 5]"
+      - name: "rate_limit"
+        call: "rate_limit(parse_headers([\"X-RateLimit-Limit: 60\", \"X-RateLimit-Remaining: 7\"]))"
+        expected: "{'limit': 60, 'remaining': 7}"
+      - name: "rate_limit без данных"
+        call: "rate_limit({\"x-ratelimit-limit\": \"много\"})"
+        expected: "{}"
+
+  - id: t4
+    title: "Разбор HTTP-ответа и решение"
+    difficulty: 3
+    statement: |
+      Сырой ответ — строка: стартовая строка, заголовки, пустая строка, тело.
+
+      - `parse_response(raw)` → `{"status": int, "reason": str, "headers": dict (имена в нижнем регистре), "body": ...}`; тело разбирается из JSON, если `content-type` начинается с `application/json`, иначе остаётся строкой;
+      - `decide(response)` → действие:
+        - 2xx: `"ok"`;
+        - 429 и 503: `"retry after N"`, где N — `retry-after` (по умолчанию 1);
+        - другие 5xx: `"retry"`;
+        - другие 4xx: `"fix request: <сообщение>"`, где сообщение — `body["error"]["message"]`, если тело такое содержит, иначе `reason`.
+    examples:
+      - input: "decide(parse_response(\"HTTP/1.1 429 Too Many Requests\\nRetry-After: 7\\n\\n\"))"
+        output: "'retry after 7'"
+    starter: |
+      def parse_response(raw):
+          return {"status": int(raw.split()[1])}
+
+
+      def decide(response):
+          return "ok"
+    hints:
+      - "`head, _, body = raw.partition(\"\\n\\n\")`; первая строка заголовка: `_, code, *reason = line.split(\" \")`."
+      - "Сообщение об ошибке достаньте безопасно: `body.get(\"error\", {}).get(\"message\")`, если body — словарь."
+    solution: |
+      import json
+
+
+      def parse_response(raw):
+          """Разобрать сырой HTTP-ответ."""
+          head, _, body = raw.partition("\n\n")
+          status_line, *header_lines = head.splitlines()
+          _, code, *reason = status_line.split(" ")
+          headers = {}
+          for line in header_lines:
+              name, sep, value = line.partition(":")
+              if sep:
+                  headers[name.strip().lower()] = value.strip()
+          if headers.get("content-type", "").startswith("application/json") and body.strip():
+              body = json.loads(body)
+          return {"status": int(code), "reason": " ".join(reason), "headers": headers, "body": body}
+
+
+      def decide(response):
+          """Что делать с ответом."""
+          status = response["status"]
+          if 200 <= status < 300:
+              return "ok"
+          if status in (429, 503):
+              value = response["headers"].get("retry-after", "")
+              return f"retry after {int(value) if value.isdigit() else 1}"
+          if 500 <= status < 600:
+              return "retry"
+          message = response["reason"]
+          body = response["body"]
+          if isinstance(body, dict) and isinstance(body.get("error"), dict):
+              message = body["error"].get("message", message)
+          return f"fix request: {message}"
+    solution_explanation: "Решение о повторе принимается по статус-коду и заголовку Retry-After, а сообщение для исправления запроса берётся из тела, если сервер прислал структурированную ошибку. Так работает обработка ошибок внутри SDK для LLM."
+    tests:
+      - name: "Пример"
+        call: "decide(parse_response(\"HTTP/1.1 429 Too Many Requests\\nRetry-After: 7\\n\\n\"))"
+        expected: "'retry after 7'"
+      - name: "Успех с JSON"
+        code: |
+          r = parse_response('HTTP/1.1 200 OK\nContent-Type: application/json\n\n{"text": "Привет"}')
+          assert r["status"] == 200 and r["reason"] == "OK" and r["body"] == {"text": "Привет"}
+          assert decide(r) == "ok"
+      - name: "Ошибка клиента с сообщением"
+        code: |
+          r = parse_response('HTTP/1.1 400 Bad Request\nContent-Type: application/json\n\n{"error": {"type": "invalid", "message": "max_tokens слишком большой"}}')
+          assert decide(r) == "fix request: max_tokens слишком большой"
+      - name: "Ошибка без JSON"
+        call: "decide(parse_response(\"HTTP/1.1 404 Not Found\\nContent-Type: text/html\\n\\n<h1>404</h1>\"))"
+        expected: "'fix request: Not Found'"
+      - name: "Сбои сервера"
+        call: "[decide(parse_response(\"HTTP/1.1 500 Internal Server Error\\n\\n\")), decide(parse_response(\"HTTP/1.1 503 Service Unavailable\\n\\n\"))]"
+        expected: "['retry', 'retry after 1']"

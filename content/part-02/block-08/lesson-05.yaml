@@ -1,0 +1,633 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import logging
+      import sys
+
+      logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(levelname)s %(message)s", force=True)
+      logging.debug("a")
+      logging.info("b")
+      logging.warning("c")
+      logging.critical("d")
+    options:
+      - text: |
+          ```text
+          INFO b
+          WARNING c
+          CRITICAL d
+          ```
+        correct: true
+        why: "Уровень INFO пропускает INFO и всё, что важнее; DEBUG отбрасывается."
+      - text: |
+          ```text
+          WARNING c
+          CRITICAL d
+          ```
+        why: "Уровень задан явно — INFO, а не WARNING по умолчанию."
+      - text: |
+          ```text
+          DEBUG a
+          INFO b
+          WARNING c
+          CRITICAL d
+          ```
+        why: "DEBUG (10) ниже уровня INFO (20)."
+    explanation: "Логгер пропускает сообщения не ниже своего уровня."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import logging
+
+      logging.getLogger("app").setLevel(logging.ERROR)
+      child = logging.getLogger("app.db.pool")
+      print(child.level, child.getEffectiveLevel(), child.parent.name)
+    options:
+      - text: "`0 40 app`"
+        correct: true
+        why: "Свой уровень не задан (0 = NOTSET), действующий берётся у ближайшего предка с уровнем; промежуточного логгера app.db нет, поэтому родитель — app."
+      - text: "`40 40 app.db`"
+        why: "Уровень потомку не копируется, он наследуется при проверке."
+      - text: "`0 30 root`"
+        why: "У предка app задан ERROR (40)."
+    explanation: "Иерархия по точкам в имени: настройки предка действуют на потомков."
+
+  - id: q3
+    type: find_bug
+    prompt: "Через час работы сервиса каждая строка лога повторяется сотни раз. Почему?"
+    code: |
+      import logging
+
+      def handle_request(request):
+          logger = logging.getLogger("service")
+          logger.addHandler(logging.StreamHandler())
+          logger.info("запрос %s", request.id)
+          ...
+    options:
+      - text: "Логгер — глобальный объект, и каждый запрос добавляет к нему ещё один обработчик"
+        correct: true
+        why: "Обработчики настраивают один раз при старте приложения, а в коде — только getLogger и вызовы."
+      - text: "getLogger каждый раз создаёт новый логгер"
+        why: "Наоборот: getLogger с тем же именем возвращает тот же объект — поэтому обработчики и копятся."
+      - text: "StreamHandler нельзя использовать с INFO"
+        why: "Можно; проблема в многократном addHandler."
+    explanation: "Настройка логирования — один раз в точке входа."
+
+  - id: q4
+    type: single
+    prompt: "Почему пишут `logger.debug(\"ответ: %s\", response)`, а не `logger.debug(f\"ответ: {response}\")`?"
+    options:
+      - text: "Строка собирается, только если сообщение будет выведено; к тому же шаблон одинаков для всех таких записей"
+        correct: true
+        why: "При выключенном DEBUG f-строка всё равно тратит время на форматирование."
+      - text: "f-строки в logging вызывают ошибку"
+        why: "Ошибки не будет, это вопрос эффективности и группировки."
+      - text: "Так сообщение попадает в stdout, а не в stderr"
+        why: "Поток определяется обработчиком, а не способом форматирования."
+    explanation: "Ленивое форматирование — стандарт для logging."
+
+  - id: q5
+    type: multiple
+    prompt: "Что правильно делать в модуле **библиотеки** (пакета, который импортируют другие)? Выберите все."
+    options:
+      - text: "`logger = logging.getLogger(__name__)` на уровне модуля"
+        correct: true
+        why: "Логгер с именем модуля можно настроить из приложения."
+      - text: "Писать сообщения подходящих уровней через `logger.*`"
+        correct: true
+        why: "Это и есть задача библиотеки."
+      - text: "Вызывать `logging.basicConfig(level=logging.DEBUG)` при импорте"
+        why: "Библиотека не должна перенастраивать логирование приложения."
+      - text: "Печатать отладку через `print`"
+        why: "print нельзя отключить и он смешивается с выводом программы."
+    explanation: "Библиотеки только пишут, приложение настраивает."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import logging
+      import sys
+
+      logging.basicConfig(stream=sys.stdout, format="%(levelname)s|%(name)s|%(message)s", force=True)
+      log = logging.getLogger("llm")
+      try:
+          {}["model"]
+      except KeyError:
+          log.error("нет ключа %s", "model")
+      print("дальше")
+    options:
+      - text: |
+          ```text
+          ERROR|llm|нет ключа model
+          дальше
+          ```
+        correct: true
+        why: "error() не добавляет traceback — это делает exception()."
+      - text: |
+          ```text
+          ERROR|llm|нет ключа model
+          Traceback (most recent call last):
+          дальше
+          ```
+        why: "Traceback добавляет только logger.exception (или exc_info=True)."
+      - text: "`дальше`"
+        why: "ERROR выше уровня по умолчанию WARNING — сообщение выводится."
+    explanation: "Внутри except используйте logger.exception, чтобы сохранить traceback."
+
+tasks:
+  - id: t1
+    title: "Настройка логгера без дублей"
+    difficulty: 1
+    statement: |
+      Напишите `setup_logger(name, level="INFO", stream=None)`:
+
+      - вернуть логгер `logging.getLogger(name)` с уровнем `level`; `level` — число или строка с именем уровня в любом регистре (`"debug"`); неизвестное имя → `ValueError`;
+      - у логгера должен быть **ровно один** обработчик — `StreamHandler`, пишущий в `stream` (по умолчанию `sys.stderr`), с форматом `"%(levelname)s %(name)s: %(message)s"`; повторный вызов не добавляет второй обработчик, а заменяет прежний;
+      - `propagate = False` — записи не передаются корневому логгеру.
+    examples:
+      - input: "demo()"
+        output: "'WARNING app: осторожно\\n'"
+    setup: |
+      import io
+
+
+      def demo():
+          stream = io.StringIO()
+          logger = setup_logger("app", "warning", stream)
+          logger.info("не видно")
+          logger.warning("осторожно")
+          return stream.getvalue()
+    starter: |
+      import logging
+
+
+      def setup_logger(name, level="INFO", stream=None):
+          logger = logging.getLogger(name)
+          logger.addHandler(logging.StreamHandler(stream))
+          return logger
+    hints:
+      - "Имя уровня: `logging.getLevelNamesMapping()` — словарь `{\"DEBUG\": 10, ...}`; ищите в нём `level.upper()`."
+      - "Перед `addHandler` очистите старые: `logger.handlers.clear()`. Обработчик: `handler = logging.StreamHandler(stream or sys.stderr)`, `handler.setFormatter(logging.Formatter(FORMAT))`."
+    solution: |
+      import logging
+      import sys
+
+      FORMAT = "%(levelname)s %(name)s: %(message)s"
+
+
+      def setup_logger(name, level="INFO", stream=None):
+          """Логгер с одним обработчиком в stream и заданным уровнем."""
+          if isinstance(level, str):
+              levels = logging.getLevelNamesMapping()
+              if level.upper() not in levels:
+                  raise ValueError(f"неизвестный уровень: {level}")
+              level = levels[level.upper()]
+          logger = logging.getLogger(name)
+          logger.setLevel(level)
+          logger.handlers.clear()
+          handler = logging.StreamHandler(stream if stream is not None else sys.stderr)
+          handler.setFormatter(logging.Formatter(FORMAT))
+          logger.addHandler(handler)
+          logger.propagate = False
+          return logger
+    solution_explanation: "Логгер с данным именем — один на весь процесс, поэтому функция сначала очищает его обработчики: повторные вызовы безопасны. propagate = False не даёт корневому логгеру напечатать ту же запись второй раз."
+    tests:
+      - name: "Пример"
+        call: "demo()"
+        expected: "'WARNING app: осторожно\\n'"
+      - name: "Уровень числом и формат"
+        code: |
+          stream = io.StringIO()
+          logger = setup_logger("t1.number", logging.DEBUG, stream)
+          logger.debug("подробно %d", 5)
+          assert stream.getvalue() == "DEBUG t1.number: подробно 5\n", repr(stream.getvalue())
+          assert logger.level == logging.DEBUG
+      - name: "Нет дублей при повторном вызове"
+        code: |
+          first, second = io.StringIO(), io.StringIO()
+          setup_logger("t1.dup", "info", first)
+          logger = setup_logger("t1.dup", "info", second)
+          logger.info("раз")
+          assert len(logger.handlers) == 1, logger.handlers
+          assert first.getvalue() == "" and second.getvalue() == "INFO t1.dup: раз\n", (first.getvalue(), second.getvalue())
+      - name: "Не передаёт записи корню"
+        code: |
+          logger = setup_logger("t1.prop", "INFO", io.StringIO())
+          assert logger.propagate is False
+      - name: "Поток по умолчанию — stderr"
+        code: |
+          import sys
+          logger = setup_logger("t1.default")
+          assert logger.handlers[0].stream is sys.stderr
+          assert logger.level == logging.INFO
+      - name: "Неизвестный уровень"
+        code: |
+          try:
+              setup_logger("t1.bad", "verbose")
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+
+  - id: t2
+    title: "JSON-форматтер"
+    difficulty: 2
+    statement: |
+      Напишите класс `JsonFormatter(logging.Formatter)` для структурированных логов. Метод `format(record)` возвращает строку JSON (`ensure_ascii=False`) со словарём:
+
+      - `"level"` — имя уровня, `"logger"` — имя логгера, `"message"` — текст с подставленными аргументами (`record.getMessage()`) — именно в таком порядке;
+      - если в запись передан `extra={"context": {...}}`, все пары из этого словаря добавляются на верхний уровень (после `message`);
+      - если запись содержит исключение (`record.exc_info`, например от `logger.exception`), добавить `"exception": "<Тип>: <сообщение>"`.
+    examples:
+      - input: "demo()"
+        output: "'{\"level\": \"INFO\", \"logger\": \"api\", \"message\": \"ответ за 0.5 с\", \"model\": \"mini\"}'"
+    setup: |
+      import io
+      import json
+      import logging
+
+
+      def make_logger(name):
+          stream = io.StringIO()
+          logger = logging.getLogger(name)
+          logger.handlers.clear()
+          handler = logging.StreamHandler(stream)
+          handler.setFormatter(JsonFormatter())
+          logger.addHandler(handler)
+          logger.setLevel(logging.DEBUG)
+          logger.propagate = False
+          return logger, stream
+
+
+      def demo():
+          logger, stream = make_logger("api")
+          logger.info("ответ за %.1f с", 0.5, extra={"context": {"model": "mini"}})
+          return stream.getvalue().strip()
+    starter: |
+      import json
+      import logging
+
+
+      class JsonFormatter(logging.Formatter):
+          def format(self, record):
+              return json.dumps({"message": record.msg})
+    hints:
+      - "`data = {\"level\": record.levelname, \"logger\": record.name, \"message\": record.getMessage()}`, затем `data.update(getattr(record, \"context\", {}))` — поля из `extra` становятся атрибутами записи."
+      - "`record.exc_info` — кортеж `(тип, исключение, traceback)` или `None`: `f\"{exc_type.__name__}: {exc}\"`."
+    solution: |
+      import json
+      import logging
+
+
+      class JsonFormatter(logging.Formatter):
+          """Запись лога — одна строка JSON."""
+
+          def format(self, record):
+              data = {
+                  "level": record.levelname,
+                  "logger": record.name,
+                  "message": record.getMessage(),
+              }
+              data.update(getattr(record, "context", {}))
+              if record.exc_info:
+                  exc_type, exc, _ = record.exc_info
+                  data["exception"] = f"{exc_type.__name__}: {exc}"
+              return json.dumps(data, ensure_ascii=False)
+    solution_explanation: "Поля из extra становятся атрибутами LogRecord, поэтому контекст достаётся через getattr. getMessage подставляет аргументы в шаблон, а exc_info заполняется методом exception (или exc_info=True)."
+    tests:
+      - name: "Пример"
+        call: "demo()"
+        expected: "'{\"level\": \"INFO\", \"logger\": \"api\", \"message\": \"ответ за 0.5 с\", \"model\": \"mini\"}'"
+      - name: "Без контекста"
+        code: |
+          logger, stream = make_logger("t2.plain")
+          logger.warning("повтор %d из %d", 1, 3)
+          assert json.loads(stream.getvalue()) == {"level": "WARNING", "logger": "t2.plain", "message": "повтор 1 из 3"}
+      - name: "Порядок ключей и кириллица"
+        code: |
+          logger, stream = make_logger("t2.order")
+          logger.error("сбой", extra={"context": {"request_id": "r1", "tokens": 120}})
+          assert stream.getvalue().strip() == '{"level": "ERROR", "logger": "t2.order", "message": "сбой", "request_id": "r1", "tokens": 120}', stream.getvalue()
+      - name: "Исключение"
+        code: |
+          logger, stream = make_logger("t2.exc")
+          try:
+              int("abc")
+          except ValueError:
+              logger.exception("не разобрать")
+          data = json.loads(stream.getvalue())
+          assert data["exception"] == "ValueError: invalid literal for int() with base 10: 'abc'", data
+          assert data["level"] == "ERROR" and data["message"] == "не разобрать"
+      - name: "Одна строка на запись"
+        code: |
+          logger, stream = make_logger("t2.lines")
+          logger.info("a")
+          logger.debug("b")
+          lines = stream.getvalue().splitlines()
+          assert [json.loads(line)["message"] for line in lines] == ["a", "b"], lines
+
+  - id: t3
+    title: "Фильтр секретов"
+    difficulty: 2
+    statement: |
+      Напишите класс `SecretFilter(logging.Filter)`, который маскирует секреты в **итоговом тексте** сообщения (после подстановки аргументов):
+
+      - ключи вида `sk-` и не меньше 8 символов из букв, цифр, `_`, `-` → `sk-***`;
+      - токен после `Bearer ` (непробельные символы) → `Bearer ***`;
+      - значение после `api_key=` или `token=` (до пробела, `&` или конца строки) → `api_key=***` / `token=***`;
+      - точные строки из необязательного параметра конструктора `SecretFilter(secrets=())` (например, настоящий ключ из окружения) → `***` (пустые строки игнорируются).
+
+      Метод `filter(record)` всегда возвращает `True` (запись не отбрасывается), а запись после него содержит готовый текст в `record.msg` и пустые `record.args`.
+    examples:
+      - input: "demo('ключ %s', 'sk-abc12345XYZ')"
+        output: "'ключ sk-***'"
+    setup: |
+      import io
+      import logging
+
+
+      def demo(message, *args, secrets=()):
+          stream = io.StringIO()
+          logger = logging.getLogger("t3.demo")
+          logger.handlers.clear()
+          handler = logging.StreamHandler(stream)
+          handler.addFilter(SecretFilter(secrets))
+          logger.addHandler(handler)
+          logger.propagate = False
+          logger.warning(message, *args)
+          return stream.getvalue().rstrip("\n")
+    starter: |
+      import logging
+
+
+      class SecretFilter(logging.Filter):
+          def __init__(self, secrets=()):
+              super().__init__()
+
+          def filter(self, record):
+              return True
+    hints:
+      - "Регулярные выражения: `r\"sk-[A-Za-z0-9_-]{8,}\"`, `r\"Bearer \\S+\"`, `r\"(api_key|token)=[^\\s&]+\"` с заменой `r\"\\1=***\"`."
+      - "Сначала `text = record.getMessage()`, затем замены (точные строки — через `str.replace`), потом `record.msg = text` и `record.args = ()`."
+    solution: |
+      import logging
+      import re
+
+      PATTERNS = [
+          (re.compile(r"sk-[A-Za-z0-9_-]{8,}"), "sk-***"),
+          (re.compile(r"Bearer \S+"), "Bearer ***"),
+          (re.compile(r"(api_key|token)=[^\s&]+"), r"\1=***"),
+      ]
+
+
+      class SecretFilter(logging.Filter):
+          """Маскирует ключи и токены в тексте записи."""
+
+          def __init__(self, secrets=()):
+              super().__init__()
+              self.secrets = [secret for secret in secrets if secret]
+
+          def filter(self, record):
+              text = record.getMessage()
+              for secret in self.secrets:
+                  text = text.replace(secret, "***")
+              for pattern, replacement in PATTERNS:
+                  text = pattern.sub(replacement, text)
+              record.msg = text
+              record.args = ()
+              return True
+    solution_explanation: "Маскировать нужно итоговый текст: ключ часто приходит аргументом, а не в шаблоне. После getMessage готовая строка записывается в msg, а args очищаются, чтобы форматтер не подставлял их второй раз."
+    tests:
+      - name: "Пример"
+        call: "demo('ключ %s', 'sk-abc12345XYZ')"
+        expected: "'ключ sk-***'"
+      - name: "Bearer и параметры"
+        call: "demo('headers=%s url=%s', {'Authorization': 'Bearer abc.def.ghi'}, 'https://x.io/v1?api_key=12345&q=1')"
+        expected: "\"headers={'Authorization': 'Bearer *** url=https://x.io/v1?api_key=***&q=1\""
+      - name: "token= и короткое sk-"
+        call: "demo('token=qwerty sk-short ok')"
+        expected: "'token=*** sk-short ok'"
+      - name: "Точные секреты"
+        call: "demo('ключ из окружения: %s', 'my-secret-value', secrets=['my-secret-value', ''])"
+        expected: "'ключ из окружения: ***'"
+      - name: "Запись после фильтра"
+        code: |
+          record = logging.LogRecord("x", logging.INFO, "app.py", 1, "ключ %s и %d", ("sk-1234567890", 5), None)
+          assert SecretFilter().filter(record) is True
+          assert record.msg == "ключ sk-*** и 5" and record.args == (), (record.msg, record.args)
+      - name: "Обычный текст не меняется"
+        call: "demo('модель %s ответила за %.1f с', 'mini', 1.25)"
+        expected: "'модель mini ответила за 1.2 с'"
+
+  - id: t4
+    title: "Перевести скрипт с print на logging"
+    mode: local
+    difficulty: 2
+    statement: |
+      Скачайте архив. Модуль `pipeline.py` обрабатывает записи и сообщает о ходе работы через `print`. Перепишите его на `logging` так, чтобы прошли тесты `test_pipeline.py` (их не меняйте):
+
+      1. В модуле — `logger = logging.getLogger(__name__)`; при импорте модуль **ничего не настраивает** (никаких `basicConfig` и обработчиков на уровне модуля).
+      2. `process(records)` ничего не печатает, возвращает тот же результат и пишет в лог с **ленивыми аргументами** (`"%d"`, `"%s"`):
+
+         | Событие | Уровень | Шаблон |
+         |---|---|---|
+         | старт | INFO | `"старт: %d записей"` |
+         | пустой текст | WARNING | `"пустой текст в записи %s"` |
+         | запись обработана | DEBUG | `"обработана запись %s, длина %d"` |
+         | ни одной валидной записи | ERROR | `"нет ни одной валидной записи"` |
+         | итог | INFO | `"готово: %d из %d"` |
+
+      3. `main(argv=None)` — аргументы: путь к JSON-файлу со списком записей и необязательный ключ `-v`. Настраивает логирование **здесь**: `basicConfig(level=DEBUG если -v иначе INFO, stream=sys.stderr, format="%(levelname)s %(name)s: %(message)s", force=True)`. Печатает в **stdout** только результат — `json.dumps(result, ensure_ascii=False)` — и возвращает 0. Нет файла → `logger.error(...)` и код 1.
+
+      ```bash
+      pip install pytest
+      pytest -q
+      ```
+    files:
+      pipeline.py: |
+        """Очистка текстовых записей перед загрузкой в индекс."""
+        import json
+        import sys
+
+
+        def process(records):
+            """records — список словарей {"id", "text"}; вернуть список очищенных текстов."""
+            print("старт: записей", len(records))
+            result = []
+            for record in records:
+                text = record.get("text")
+                if not text or not text.strip():
+                    print("ПРЕДУПРЕЖДЕНИЕ: пустой текст в записи", record.get("id"))
+                    continue
+                cleaned = " ".join(text.split())
+                print("обработана запись", record.get("id"), "длина", len(cleaned))
+                result.append(cleaned)
+            if not result:
+                print("ОШИБКА: нет ни одной валидной записи")
+            print("готово:", len(result), "из", len(records))
+            return result
+
+
+        def main(argv=None):
+            args = sys.argv[1:] if argv is None else argv
+            with open(args[0], encoding="utf-8") as file:
+                records = json.load(file)
+            print(json.dumps(process(records), ensure_ascii=False))
+            return 0
+
+
+        if __name__ == "__main__":
+            raise SystemExit(main())
+      test_pipeline.py: |
+        """Тесты задания. Не меняйте этот файл."""
+        import importlib
+        import json
+        import logging
+
+        import pytest
+
+        import pipeline
+
+        RECORDS = [
+            {"id": 1, "text": "  Привет,   мир  "},
+            {"id": 2, "text": "   "},
+            {"id": 3, "text": "Второй\nтекст"},
+        ]
+
+
+        def test_result_unchanged():
+            assert pipeline.process(RECORDS) == ["Привет, мир", "Второй текст"]
+
+
+        def test_process_prints_nothing(capsys):
+            pipeline.process(RECORDS)
+            captured = capsys.readouterr()
+            assert captured.out == "" and captured.err == "", "process не должна печатать — только логировать"
+
+
+        def test_module_logger():
+            assert isinstance(pipeline.logger, logging.Logger)
+            assert pipeline.logger.name == "pipeline"
+
+
+        def test_log_records(caplog):
+            caplog.set_level(logging.DEBUG, logger="pipeline")
+            pipeline.process(RECORDS)
+            got = [(r.levelname, r.getMessage()) for r in caplog.records if r.name == "pipeline"]
+            assert got == [
+                ("INFO", "старт: 3 записей"),
+                ("DEBUG", "обработана запись 1, длина 11"),
+                ("WARNING", "пустой текст в записи 2"),
+                ("DEBUG", "обработана запись 3, длина 12"),
+                ("INFO", "готово: 2 из 3"),
+            ]
+
+
+        def test_lazy_arguments(caplog):
+            caplog.set_level(logging.DEBUG, logger="pipeline")
+            pipeline.process(RECORDS)
+            for record in caplog.records:
+                if record.name == "pipeline" and record.getMessage() != "нет ни одной валидной записи":
+                    assert "%" in str(record.msg) and record.args, f"Передавайте аргументы отдельно: {record.msg!r}"
+
+
+        def test_error_when_nothing_valid(caplog):
+            caplog.set_level(logging.DEBUG, logger="pipeline")
+            assert pipeline.process([{"id": 7, "text": ""}]) == []
+            errors = [r.getMessage() for r in caplog.records if r.levelname == "ERROR"]
+            assert errors == ["нет ни одной валидной записи"]
+
+
+        def test_import_does_not_configure_logging():
+            root = logging.getLogger()
+            before = list(root.handlers)
+            importlib.reload(pipeline)
+            assert root.handlers == before, "Модуль не должен настраивать логирование при импорте"
+            assert pipeline.logger.handlers == [], "Не добавляйте обработчики в модуле — только в main"
+
+
+        def write_records(tmp_path):
+            path = tmp_path / "records.json"
+            path.write_text(json.dumps(RECORDS, ensure_ascii=False), encoding="utf-8")
+            return path
+
+
+        def test_main_stdout_is_only_result(tmp_path, capsys):
+            assert pipeline.main([str(write_records(tmp_path))]) == 0
+            captured = capsys.readouterr()
+            assert captured.out == '["Привет, мир", "Второй текст"]\n'
+            assert "INFO pipeline: старт: 3 записей" in captured.err
+            assert "обработана запись" not in captured.err, "Без -v DEBUG не выводится"
+
+
+        def test_main_verbose(tmp_path, capsys):
+            assert pipeline.main([str(write_records(tmp_path)), "-v"]) == 0
+            assert "DEBUG pipeline: обработана запись 1, длина 11" in capsys.readouterr().err
+
+
+        def test_main_missing_file(tmp_path, capsys):
+            assert pipeline.main([str(tmp_path / "nope.json")]) == 1
+            captured = capsys.readouterr()
+            assert captured.out == ""
+            assert "ERROR pipeline:" in captured.err
+    run: "pytest -q"
+    hints:
+      - "В `process` замените каждый `print` вызовом логгера нужного уровня с шаблоном из таблицы: `logger.info(\"старт: %d записей\", len(records))`."
+      - "В `main`: `verbose = \"-v\" in args`, `paths = [a for a in args if a != \"-v\"]`, затем `logging.basicConfig(...)`; чтение файла оберните в `try/except FileNotFoundError` с `logger.error(\"нет файла: %s\", path)` и `return 1`."
+    solution_files:
+      pipeline.py: |
+        """Очистка текстовых записей перед загрузкой в индекс."""
+        import json
+        import logging
+        import sys
+
+        logger = logging.getLogger(__name__)
+
+
+        def process(records):
+            """records — список словарей {"id", "text"}; вернуть список очищенных текстов."""
+            logger.info("старт: %d записей", len(records))
+            result = []
+            for record in records:
+                text = record.get("text")
+                if not text or not text.strip():
+                    logger.warning("пустой текст в записи %s", record.get("id"))
+                    continue
+                cleaned = " ".join(text.split())
+                logger.debug("обработана запись %s, длина %d", record.get("id"), len(cleaned))
+                result.append(cleaned)
+            if not result:
+                logger.error("нет ни одной валидной записи")
+            logger.info("готово: %d из %d", len(result), len(records))
+            return result
+
+
+        def main(argv=None):
+            """Точка входа: настройка логирования, чтение файла, вывод результата."""
+            args = sys.argv[1:] if argv is None else argv
+            verbose = "-v" in args
+            paths = [arg for arg in args if arg != "-v"]
+            logging.basicConfig(
+                level=logging.DEBUG if verbose else logging.INFO,
+                stream=sys.stderr,
+                format="%(levelname)s %(name)s: %(message)s",
+                force=True,
+            )
+            path = paths[0]
+            try:
+                with open(path, encoding="utf-8") as file:
+                    records = json.load(file)
+            except FileNotFoundError:
+                logger.error("нет файла: %s", path)
+                return 1
+            print(json.dumps(process(records), ensure_ascii=False))
+            return 0
+
+
+        if __name__ == "__main__":
+            raise SystemExit(main())
+    solution_explanation: "Модуль только пишет в свой логгер, а настраивает логирование main — точка входа приложения. Логи идут в stderr, результат — в stdout, поэтому вывод можно перенаправить в файл или передать другой программе, не смешивая с сообщениями."

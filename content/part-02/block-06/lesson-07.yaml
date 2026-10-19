@@ -1,0 +1,369 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "Программа отправляет 500 запросов к LLM API и почти всё время ждёт ответов. Что её ускорит?"
+    options:
+      - text: "Потоки (ThreadPoolExecutor) или asyncio — во время ожидания GIL отпускается"
+        correct: true
+        why: "Задача I/O-bound: нужна конкурентность ожиданий."
+      - text: "Только процессы — потоки в Python не работают"
+        why: "Потоки работают и отлично подходят для ожидания."
+      - text: "Ничего — из-за GIL параллельности в Python нет"
+        why: "GIL мешает только параллельным вычислениям на Python-коде."
+      - text: "Переписать цикл через map"
+        why: "Встроенный map выполняет вызовы последовательно."
+    explanation: "I/O-bound → потоки или asyncio; CPU-bound → процессы или векторизация."
+
+  - id: q2
+    type: single
+    prompt: "Почему 4 потока, считающие простые числа на чистом Python, не быстрее одного?"
+    options:
+      - text: "GIL позволяет выполнять байт-код Python только одному потоку процесса одновременно"
+        correct: true
+        why: "Потоки выполняются по очереди на одном ядре."
+      - text: "У компьютера одно ядро"
+        why: "Даже на многоядерной машине результат тот же."
+      - text: "Потоки нельзя запускать для математики"
+        why: "Можно, но выигрыша не будет из-за GIL."
+      - text: "Потоки каждый раз копируют данные"
+        why: "Потоки разделяют память — копирования нет."
+    explanation: "Для вычислений на Python — процессы: у каждого свой GIL."
+
+  - id: q3
+    type: output
+    prompt: "Закон Амдала. Что выведет код?"
+    code: |
+      def amdahl(p, n):
+          return 1 / ((1 - p) + p / n)
+
+
+      print(round(amdahl(0.5, 2), 2), round(amdahl(0.5, 1000), 2))
+    options:
+      - text: "`1.33 2.0`"
+        correct: true
+        why: "При половине последовательной работы ускорение не превысит 2."
+      - text: "`2.0 1000.0`"
+        why: "Последовательная часть ограничивает ускорение."
+      - text: "`1.5 2.0`"
+        why: "1 / (0.5 + 0.25) = 1.33."
+    explanation: "Предел ускорения — 1 / (1 − p)."
+
+  - id: q4
+    type: find_bug
+    prompt: "На Windows скрипт с процессами падает или запускает процессы бесконечно. Почему?"
+    code: |
+      from concurrent.futures import ProcessPoolExecutor
+
+
+      def heavy(n):
+          return sum(i * i for i in range(n))
+
+
+      with ProcessPoolExecutor() as pool:
+          print(list(pool.map(heavy, [10**6] * 4)))
+    options:
+      - text: "Нет защиты `if __name__ == \"__main__\":` — дочерние процессы заново импортируют модуль и снова создают пул"
+        correct: true
+        why: "Код запуска пула должен быть внутри этой проверки."
+      - text: "ProcessPoolExecutor нельзя использовать в with"
+        why: "Можно и нужно."
+      - text: "heavy должна быть lambda"
+        why: "Наоборот: lambda нельзя передать в процесс (pickle)."
+    explanation: "Процессы на Windows/macOS стартуют через повторный импорт модуля."
+
+  - id: q5
+    type: single
+    prompt: "Что запускает параметр `num_workers=4` у DataLoader в PyTorch?"
+    options:
+      - text: "4 процесса, которые параллельно загружают и готовят данные"
+        correct: true
+        why: "Процессы обходят GIL при обработке данных на Python."
+      - text: "4 потока, которые обучают модель"
+        why: "Обучение идёт в основном процессе на GPU/CPU."
+      - text: "4 GPU"
+        why: "Это параметр загрузки данных."
+      - text: "4 копии модели"
+        why: "Модель не копируется."
+    explanation: "Загрузка данных в отдельных процессах не даёт GPU простаивать."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно? Выберите все."
+    options:
+      - text: "Потоки одного процесса разделяют память"
+        correct: true
+        why: "Поэтому возможны гонки данных."
+      - text: "NumPy может использовать несколько ядер, отпуская GIL в C-коде"
+        correct: true
+        why: "Тяжёлые вычисления идут вне интерпретатора."
+      - text: "`pool.map` возвращает результаты в исходном порядке"
+        correct: true
+        why: "Даже если задачи завершились в другом порядке."
+      - text: "Процессы обмениваются объектами без копирования"
+        why: "Данные сериализуются и копируются."
+    explanation: "Выбор между потоками и процессами определяет тип задачи."
+
+tasks:
+  - id: t1
+    title: "Закон Амдала"
+    difficulty: 1
+    statement: |
+      - `amdahl_speedup(parallel_fraction, workers)` — ускорение по закону Амдала, округлённое до 2 знаков; доля вне `[0, 1]` или `workers < 1` → `ValueError`;
+      - `workers_for(parallel_fraction, target)` — минимальное целое число исполнителей, дающее ускорение **не меньше** `target`; если это невозможно (target ≥ предела `1 / (1 − p)`, а для `p = 1` предела нет) — `None`.
+    examples:
+      - input: "[amdahl_speedup(0.9, 8), workers_for(0.9, 5)]"
+        output: "[4.71, 9]"
+    starter: |
+      def amdahl_speedup(parallel_fraction, workers):
+          return workers
+    hints:
+      - "Формула: `1 / ((1 - p) + p / n)`; для workers_for проверьте предел: при `p < 1` и `target >= 1 / (1 - p)` — `None`."
+      - "Затем перебирайте n = 1, 2, 3… пока неокруглённое ускорение меньше target (или решите неравенство и возьмите `math.ceil`). Сравнивайте с небольшим допуском (`1e-9`): `1 - 0.9` в float — не ровно 0.1."
+    solution: |
+      import math
+
+
+      def _speedup(p, n):
+          return 1 / ((1 - p) + p / n)
+
+
+      def amdahl_speedup(parallel_fraction, workers):
+          """Ускорение по закону Амдала."""
+          if not 0 <= parallel_fraction <= 1 or workers < 1:
+              raise ValueError("доля от 0 до 1, исполнителей не меньше 1")
+          return round(_speedup(parallel_fraction, workers), 2)
+
+
+      def workers_for(parallel_fraction, target):
+          """Минимум исполнителей для ускорения target или None."""
+          p = parallel_fraction
+          if target <= 1:
+              return 1
+          eps = 1e-9
+          if p < 1 and target >= 1 / (1 - p) - eps:
+              return None
+          n = max(1, math.ceil(p / (1 / target - (1 - p))) - 1)
+          while _speedup(p, n) < target - eps:
+              n += 1
+          return n
+    solution_explanation: "Из неравенства 1 / ((1 − p) + p/n) ≥ target получаем n ≥ p / (1/target − (1 − p)); цикл после оценки страхует от погрешностей float. Если target не меньше предела 1/(1 − p), никакое число исполнителей не поможет. Допуск eps нужен потому, что 1 − 0.9 в float — не ровно 0.1, и без него предел «10» превратился бы в 10.000000000000002."
+    tests:
+      - name: "Пример"
+        call: "[amdahl_speedup(0.9, 8), workers_for(0.9, 5)]"
+        expected: "[4.71, 9]"
+      - name: "Крайние случаи"
+        call: "[amdahl_speedup(0, 100), amdahl_speedup(1, 16), workers_for(1, 50), workers_for(0.5, 1)]"
+        expected: "[1.0, 16.0, 50, 1]"
+      - name: "Недостижимо"
+        call: "[workers_for(0.9, 10), workers_for(0.5, 3)]"
+        expected: "[None, None]"
+      - name: "Минимальность"
+        code: |
+          n = workers_for(0.95, 10)
+          assert n == 19, n
+      - name: "Ошибки"
+        code: |
+          for args in ((1.5, 2), (0.5, 0)):
+              try:
+                  amdahl_speedup(*args)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"{args} должен вызывать ValueError")
+
+  - id: t2
+    title: "Разделение работы между воркерами"
+    difficulty: 2
+    statement: |
+      Пулу процессов работу выгодно отдавать крупными кусками. Напишите `split_work(items, workers)`: разбить список на `min(workers, len(items))` **непрерывных** кусков, размеры которых отличаются не больше чем на 1 (более длинные — первыми). Пустой список → `[]`; `workers < 1` → `ValueError`.
+    examples:
+      - input: "split_work(list(range(10)), 3)"
+        output: "[[0, 1, 2, 3], [4, 5, 6], [7, 8, 9]]"
+    starter: |
+      def split_work(items, workers):
+          size = len(items) // workers
+          return [items[i:i + size] for i in range(0, len(items), size)]
+    hints:
+      - "`n = min(workers, len(items))`; `base, extra = divmod(len(items), n)` — первые `extra` кусков на 1 длиннее."
+      - "Идите по списку с указателем `start`: размер i-го куска — `base + (1 if i < extra else 0)`."
+    solution: |
+      def split_work(items, workers):
+          """Непрерывные куски почти равного размера."""
+          if workers < 1:
+              raise ValueError("нужен хотя бы один воркер")
+          if not items:
+              return []
+          n = min(workers, len(items))
+          base, extra = divmod(len(items), n)
+          chunks = []
+          start = 0
+          for i in range(n):
+              size = base + (1 if i < extra else 0)
+              chunks.append(items[start:start + size])
+              start += size
+          return chunks
+    solution_explanation: "divmod делит работу поровну, а остаток распределяется по одному элементу на первые куски. Непрерывные куски сохраняют порядок, и результаты легко собрать обратно конкатенацией."
+    tests:
+      - name: "Пример"
+        call: "split_work(list(range(10)), 3)"
+        expected: "[[0, 1, 2, 3], [4, 5, 6], [7, 8, 9]]"
+      - name: "Воркеров больше, чем элементов"
+        call: "split_work([\"a\", \"b\"], 5)"
+        expected: "[['a'], ['b']]"
+      - name: "Ровное деление и пусто"
+        call: "[split_work([1, 2, 3, 4], 2), split_work([], 3)]"
+        expected: "[[[1, 2], [3, 4]], []]"
+      - name: "Свойства разбиения"
+        code: |
+          items = list(range(103))
+          chunks = split_work(items, 8)
+          sizes = [len(c) for c in chunks]
+          assert len(chunks) == 8 and max(sizes) - min(sizes) <= 1 and sizes == sorted(sizes, reverse=True)
+          assert [x for c in chunks for x in c] == items
+      - name: "Неверное число воркеров"
+        code: |
+          try:
+              split_work([1], 0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+
+  - id: t3
+    title: "Сколько потоков нужно"
+    difficulty: 2
+    statement: |
+      Пул раздаёт задачи по порядку: каждая следующая задача достаётся исполнителю, который освободится раньше всех.
+
+      - `pool_time(durations, workers)` — время выполнения всех задач (модель на `heapq`), округлённое до 2 знаков; пустой список → `0.0`;
+      - `min_workers(durations, deadline)` — минимальное число исполнителей, при котором всё выполнится не позже `deadline`; если не уложиться даже при исполнителе на каждую задачу — `None`.
+    examples:
+      - input: "pool_time([1.2, 0.8, 2.5, 0.4, 1.1, 0.9, 3.0, 0.6], 2)"
+        output: "6.3"
+    starter: |
+      def pool_time(durations, workers):
+          return sum(durations) / workers
+    hints:
+      - "Куча моментов освобождения: `finish = [0.0] * workers`; для каждой задачи `heappop` даёт ближайший момент, `heappush` — новый."
+      - "min_workers: перебирайте workers от 1 до `len(durations)`; если и при максимуме не укладываемся — `None`."
+    solution: |
+      import heapq
+
+
+      def pool_time(durations, workers):
+          """Время выполнения задач на пуле исполнителей."""
+          if not durations:
+              return 0.0
+          finish = [0.0] * workers
+          for duration in durations:
+              free_at = heapq.heappop(finish)
+              heapq.heappush(finish, free_at + duration)
+          return round(max(finish), 2)
+
+
+      def min_workers(durations, deadline):
+          """Минимальное число исполнителей, чтобы уложиться в срок."""
+          for workers in range(1, max(1, len(durations)) + 1):
+              if pool_time(durations, workers) <= deadline:
+                  return workers
+          return None
+    solution_explanation: "Модель пула показывает закон Амдала на практике: время не может стать меньше самой длинной задачи, поэтому лишние исполнители простаивают. Такая оценка помогает выбрать max_workers до запуска реальных запросов."
+    tests:
+      - name: "Пример"
+        call: "pool_time([1.2, 0.8, 2.5, 0.4, 1.1, 0.9, 3.0, 0.6], 2)"
+        expected: "6.3"
+      - name: "Один и много исполнителей"
+        call: "[pool_time([1, 2, 3], 1), pool_time([1, 2, 3], 10), pool_time([], 3)]"
+        expected: "[6.0, 3.0, 0.0]"
+      - name: "min_workers"
+        call: "[min_workers([2, 2, 2, 2], 4), min_workers([2, 2, 2, 2], 2), min_workers([5, 1], 4)]"
+        expected: "[2, 4, None]"
+      - name: "Порядок раздачи"
+        call: "pool_time([5, 1, 1, 1, 1, 1], 2)"
+        expected: "5.0"
+      - name: "Много задач"
+        call: "pool_time([0.5] * 1000, 10)"
+        expected: "50.0"
+
+  - id: t4
+    title: "Параллельные запросы в потоках"
+    mode: local
+    difficulty: 3
+    statement: |
+      Скачайте архив. В `parallel.py` напишите `fetch_all(prompts, call, max_workers=8)`:
+
+      - вызывает `call(prompt)` для каждого промпта в `ThreadPoolExecutor` с `max_workers` потоками;
+      - возвращает список пар `(prompt, результат)` **в исходном порядке**;
+      - если вызов бросил исключение, вместо результата — строка `"ошибка: <ТипИсключения>: <сообщение>"` (остальные запросы продолжают выполняться).
+
+      Тесты используют фейковый `call` с `time.sleep` — 10 запросов по 0.3 с при 10 потоках должны занять заметно меньше 3 секунд.
+
+      ```bash
+      pip install pytest
+      pytest -q
+      ```
+    files:
+      parallel.py: |
+        def fetch_all(prompts, call, max_workers=8):
+            """Выполнить call для всех промптов параллельно."""
+            return [(prompt, call(prompt)) for prompt in prompts]
+      test_parallel.py: |
+        import time
+
+        from parallel import fetch_all
+
+
+        def slow_echo(prompt):
+            time.sleep(0.3)
+            return prompt.upper()
+
+
+        def flaky(prompt):
+            if "сбой" in prompt:
+                raise TimeoutError("нет ответа")
+            return "ok"
+
+
+        def test_order_and_results():
+            prompts = [f"q{i}" for i in range(5)]
+            assert fetch_all(prompts, slow_echo, max_workers=5) == [(p, p.upper()) for p in prompts]
+
+
+        def test_parallel_speed():
+            prompts = [f"q{i}" for i in range(10)]
+            start = time.perf_counter()
+            fetch_all(prompts, slow_echo, max_workers=10)
+            assert time.perf_counter() - start < 1.5
+
+
+        def test_errors_are_captured():
+            result = fetch_all(["a", "сбой", "b"], flaky)
+            assert result == [("a", "ok"), ("сбой", "ошибка: TimeoutError: нет ответа"), ("b", "ok")]
+
+
+        def test_empty():
+            assert fetch_all([], slow_echo) == []
+    run: "pytest -q"
+    hints:
+      - "Оберните call в функцию `safe(prompt)`, которая ловит `Exception` и возвращает строку ошибки, — тогда `pool.map` не прервётся на исключении."
+      - "`with ThreadPoolExecutor(max_workers=max_workers) as pool: results = list(pool.map(safe, prompts))`, затем `list(zip(prompts, results))`."
+    solution_files:
+      parallel.py: |
+        from concurrent.futures import ThreadPoolExecutor
+
+
+        def fetch_all(prompts, call, max_workers=8):
+            """Выполнить call для всех промптов параллельно, сохранив порядок."""
+
+            def safe(prompt):
+                try:
+                    return call(prompt)
+                except Exception as error:
+                    return f"ошибка: {type(error).__name__}: {error}"
+
+            if not prompts:
+                return []
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                results = list(pool.map(safe, prompts))
+            return list(zip(prompts, results))
+    solution_explanation: "Пока потоки спят в ожидании «ответа сервера», GIL свободен, и десять ожиданий по 0.3 с идут одновременно. pool.map сохраняет порядок результатов, а обёртка safe превращает исключение одного запроса в строку, не останавливая остальные."

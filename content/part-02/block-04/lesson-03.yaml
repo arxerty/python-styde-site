@@ -1,0 +1,503 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def deco(func):
+          print("A")
+
+          def wrapper():
+              print("B")
+              return func()
+
+          return wrapper
+
+
+      @deco
+      def hello():
+          print("C")
+
+
+      print("D")
+      hello()
+    options:
+      - text: |
+          ```
+          A
+          D
+          B
+          C
+          ```
+        correct: true
+        why: "Тело декоратора выполняется при определении функции, обёртка — при вызове."
+      - text: |
+          ```
+          D
+          A
+          B
+          C
+          ```
+        why: "Декоратор срабатывает сразу при определении hello, до print(\"D\")."
+      - text: |
+          ```
+          A
+          B
+          C
+          D
+          ```
+        why: "Обёртка выполняется только при вызове hello()."
+    explanation: "@deco = hello = deco(hello) в момент определения; wrapper — при каждом вызове."
+
+  - id: q2
+    type: find_bug
+    prompt: "После декорирования `square(4)` возвращает None. Почему?"
+    code: |
+      from functools import wraps
+
+
+      def trace(func):
+          @wraps(func)
+          def wrapper(*args, **kwargs):
+              print("вызов", func.__name__)
+              func(*args, **kwargs)
+          return wrapper
+
+
+      @trace
+      def square(x):
+          return x * x
+    options:
+      - text: "Обёртка не возвращает результат func — нужно return func(*args, **kwargs)"
+        correct: true
+        why: "Функция без return возвращает None."
+      - text: "@wraps мешает возврату значения"
+        why: "wraps копирует только метаданные."
+      - text: "Нужно вернуть wrapper() со скобками"
+        why: "Декоратор возвращает функцию-обёртку, а не результат её вызова."
+    explanation: "Обёртка обязана вернуть результат исходной функции."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def plus_one(func):
+          def wrapper(x):
+              return func(x) + 1
+          return wrapper
+
+
+      def double(func):
+          def wrapper(x):
+              return func(x) * 2
+          return wrapper
+
+
+      @plus_one
+      @double
+      def identity(x):
+          return x
+
+
+      print(identity(5))
+    options:
+      - text: "`11`"
+        correct: true
+        why: "identity = plus_one(double(identity)): (5 * 2) + 1."
+      - text: "`12`"
+        why: "Это (5 + 1) * 2 — обратный порядок."
+      - text: "`5`"
+        why: "Оба декоратора меняют результат."
+    explanation: "Декораторы применяются снизу вверх; внешний (верхний) обрабатывает результат внутреннего."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def plain(func):
+          def wrapper(*args, **kwargs):
+              return func(*args, **kwargs)
+          return wrapper
+
+
+      @plain
+      def fetch_data():
+          """Загрузить данные."""
+
+
+      print(fetch_data.__name__, fetch_data.__doc__)
+    options:
+      - text: "`wrapper None`"
+        correct: true
+        why: "Без @wraps имя и docstring берутся у обёртки."
+      - text: "`fetch_data Загрузить данные.`"
+        why: "Так было бы с @functools.wraps(func)."
+      - text: "`plain None`"
+        why: "__name__ — у функции wrapper."
+    explanation: "functools.wraps копирует метаданные исходной функции на обёртку."
+
+  - id: q5
+    type: single
+    prompt: "Что означает запись `@cache` над `def load(path): ...`?"
+    options:
+      - text: "После определения выполняется `load = cache(load)`"
+        correct: true
+        why: "Синтаксис @ — сокращение для этого присваивания."
+      - text: "При каждом вызове load вызывается cache(load)"
+        why: "Декоратор применяется один раз, при определении."
+      - text: "cache становится методом функции load"
+        why: "Декоратор заменяет функцию результатом своего вызова."
+      - text: "load импортируется из модуля cache"
+        why: "@ не связан с импортом."
+    explanation: "@deco — синтаксический сахар для f = deco(f)."
+
+  - id: q6
+    type: multiple
+    prompt: "Что должна делать типичная обёртка в декораторе? Выберите все."
+    options:
+      - text: "Принимать *args, **kwargs"
+        correct: true
+        why: "Чтобы подходить к функциям с любой сигнатурой."
+      - text: "Вызывать func(*args, **kwargs)"
+        correct: true
+        why: "Передать аргументы исходной функции."
+      - text: "Возвращать результат func"
+        correct: true
+        why: "Иначе декорированная функция вернёт None."
+      - text: "Вызывать декоратор повторно на каждом вызове"
+        why: "Декоратор применяется один раз."
+    explanation: "Плюс @wraps(func) над обёрткой — для сохранения метаданных."
+
+tasks:
+  - id: t1
+    title: "Журнал вызовов"
+    difficulty: 1
+    statement: |
+      Напишите декоратор `record`, который после каждого вызова функции добавляет в глобальный список `CALLS` кортеж `(имя_функции, args, kwargs, результат)` и возвращает результат. Сохраните имя и docstring функции (`functools.wraps`).
+    examples:
+      - input: "CALLS.clear(); add(2, b=3); CALLS"
+        output: "[('add', (2,), {'b': 3}, 5)]"
+    setup: |
+      CALLS = []
+    starter: |
+      def record(func):
+          def wrapper(*args, **kwargs):
+              CALLS.append(func.__name__)
+          return wrapper
+
+
+      @record
+      def add(a, b):
+          """Сложить два числа."""
+          return a + b
+    hints:
+      - "`from functools import wraps` и `@wraps(func)` над wrapper."
+      - "В wrapper: `result = func(*args, **kwargs)`, `CALLS.append((func.__name__, args, kwargs, result))`, `return result`."
+    solution: |
+      from functools import wraps
+
+
+      def record(func):
+          """Записывать вызовы функции в CALLS."""
+          @wraps(func)
+          def wrapper(*args, **kwargs):
+              result = func(*args, **kwargs)
+              CALLS.append((func.__name__, args, kwargs, result))
+              return result
+          return wrapper
+
+
+      @record
+      def add(a, b):
+          """Сложить два числа."""
+          return a + b
+    solution_explanation: "Обёртка принимает любые аргументы, передаёт их функции, записывает вызов и возвращает результат. wraps сохраняет имя add и его docstring."
+    tests:
+      - name: "Пример"
+        code: |
+          CALLS.clear()
+          assert add(2, b=3) == 5
+          assert CALLS == [("add", (2,), {"b": 3}, 5)], CALLS
+      - name: "Метаданные"
+        code: |
+          assert add.__name__ == "add" and add.__doc__ == "Сложить два числа."
+      - name: "Другая функция"
+        code: |
+          CALLS.clear()
+          @record
+          def upper(text):
+              return text.upper()
+          upper("x")
+          upper(text="y")
+          assert CALLS == [("upper", ("x",), {}, "X"), ("upper", (), {"text": "y"}, "Y")], CALLS
+      - name: "__wrapped__"
+        code: |
+          assert add.__wrapped__(1, 1) == 2
+      - name: "Ошибка не записывается"
+        code: |
+          CALLS.clear()
+          @record
+          def fail():
+              raise RuntimeError("boom")
+          try:
+              fail()
+          except RuntimeError:
+              pass
+          assert CALLS == [], "Вызов, завершившийся исключением, не имеет результата для записи"
+
+  - id: t2
+    title: "Счётчик вызовов со сбросом"
+    difficulty: 2
+    statement: |
+      Напишите декоратор `count_calls`: у декорированной функции появляются атрибут `calls` (число вызовов) и функция-атрибут `reset()`, обнуляющая счётчик. Вызов засчитывается, даже если функция бросила исключение. Метаданные функции сохраняются.
+    examples:
+      - input: "@count_calls\ndef f(): return 1\nf(); f(); f.calls"
+        output: "2"
+    starter: |
+      def count_calls(func):
+          calls = 0
+
+          def wrapper(*args, **kwargs):
+              return func(*args, **kwargs)
+
+          return wrapper
+    hints:
+      - "В обёртке сначала `wrapper.calls += 1`, потом `return func(...)` — так ошибка не помешает подсчёту."
+      - "После определения обёртки: `wrapper.calls = 0`, а `reset` — вложенная функция, которая делает `wrapper.calls = 0`; присвойте `wrapper.reset = reset`."
+    solution: |
+      from functools import wraps
+
+
+      def count_calls(func):
+          """Считать вызовы функции."""
+          @wraps(func)
+          def wrapper(*args, **kwargs):
+              wrapper.calls += 1
+              return func(*args, **kwargs)
+
+          def reset():
+              wrapper.calls = 0
+
+          wrapper.calls = 0
+          wrapper.reset = reset
+          return wrapper
+    solution_explanation: "Функция — объект, поэтому состояние и даже вспомогательные функции можно повесить на обёртку как атрибуты. Увеличение счётчика до вызова func гарантирует учёт и неудачных вызовов."
+    tests:
+      - name: "Подсчёт"
+        code: |
+          @count_calls
+          def f(x):
+              return x
+          f(1)
+          f(2)
+          assert f.calls == 2
+      - name: "reset"
+        code: |
+          @count_calls
+          def g():
+              pass
+          g()
+          g.reset()
+          g()
+          assert g.calls == 1
+      - name: "Исключение засчитывается"
+        code: |
+          @count_calls
+          def bad():
+              raise ValueError("x")
+          try:
+              bad()
+          except ValueError:
+              pass
+          assert bad.calls == 1
+      - name: "Независимые счётчики и метаданные"
+        code: |
+          @count_calls
+          def a():
+              """Функция a."""
+          @count_calls
+          def b():
+              pass
+          a()
+          assert (a.calls, b.calls) == (1, 0)
+          assert a.__name__ == "a" and a.__doc__ == "Функция a."
+      - name: "Результат возвращается"
+        code: |
+          @count_calls
+          def square(x):
+              return x * x
+          assert square(7) == 49 and square.calls == 1
+
+  - id: t3
+    title: "Проверка неотрицательных чисел"
+    difficulty: 2
+    statement: |
+      Напишите декоратор `non_negative`: перед вызовом функции проверяет **все** аргументы (позиционные и именованные); если какой-то из них — число (`int` или `float`, но не `bool`) меньше нуля, бросает `ValueError` с сообщением `"<имя_функции>: отрицательный аргумент <значение>"`. Остальные аргументы не проверяются.
+    examples:
+      - input: "area(3, 4)"
+        output: "12"
+    starter: |
+      def non_negative(func):
+          return func
+
+
+      @non_negative
+      def area(width, height):
+          return width * height
+    hints:
+      - "Все значения: `for value in (*args, *kwargs.values()):`."
+      - "Число, но не bool: `isinstance(value, (int, float)) and not isinstance(value, bool)`."
+    solution: |
+      from functools import wraps
+
+
+      def non_negative(func):
+          """Запретить отрицательные числовые аргументы."""
+          @wraps(func)
+          def wrapper(*args, **kwargs):
+              for value in (*args, *kwargs.values()):
+                  is_number = isinstance(value, (int, float)) and not isinstance(value, bool)
+                  if is_number and value < 0:
+                      raise ValueError(f"{func.__name__}: отрицательный аргумент {value}")
+              return func(*args, **kwargs)
+          return wrapper
+
+
+      @non_negative
+      def area(width, height):
+          return width * height
+    solution_explanation: "Проверка вынесена из функции в декоратор и переиспользуется для любых функций. Сама area содержит только свою логику."
+    tests:
+      - name: "Пример"
+        call: "area(3, 4)"
+        expected: "12"
+      - name: "Отрицательный позиционный"
+        code: |
+          try:
+              area(-1, 5)
+          except ValueError as error:
+              assert str(error) == "area: отрицательный аргумент -1", str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Отрицательный именованный"
+        code: |
+          @non_negative
+          def scale(x, factor=1.0):
+              return x * factor
+          try:
+              scale(2, factor=-0.5)
+          except ValueError as error:
+              assert "scale" in str(error) and "-0.5" in str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Нечисловые аргументы не проверяются"
+        code: |
+          @non_negative
+          def describe(name, flag, n):
+              return f"{name}-{flag}-{n}"
+          assert describe("x", False, 0) == "x-False-0"
+      - name: "Метаданные"
+        code: |
+          assert area.__name__ == "area"
+
+  - id: t4
+    title: "Реестр инструментов агента"
+    difficulty: 3
+    statement: |
+      Напишите декоратор-регистратор `tool` (без обёртки — возвращает ту же функцию):
+
+      - добавляет функцию в глобальный словарь `TOOLS` под её именем: `{"func": функция, "description": первая строка docstring или ""}`;
+      - если инструмент с таким именем уже есть — `ValueError`.
+
+      Функции:
+
+      - `describe_tools()` — отсортированный по имени список строк `"имя: описание"`;
+      - `call_tool(name, **kwargs)` — вызвать инструмент с именованными аргументами; неизвестное имя → строка `"ошибка: неизвестный инструмент <name>"`; если вызов бросил исключение — строка `"ошибка: <ТипИсключения>: <сообщение>"`.
+    examples:
+      - input: "call_tool(\"add\", a=2, b=3)"
+        output: "5"
+    setup: |
+      TOOLS = {}
+    starter: |
+      def tool(func):
+          def wrapper(*args, **kwargs):
+              return func(*args, **kwargs)
+          return wrapper
+
+
+      @tool
+      def add(a, b):
+          """Сложить два числа.
+
+          Подробности не нужны в описании.
+          """
+          return a + b
+    hints:
+      - "Первая строка docstring: `(func.__doc__ or \"\").strip().split(\"\\n\")[0]`."
+      - "call_tool: `try: return TOOLS[name][\"func\"](**kwargs)` / `except Exception as error: return f\"ошибка: {type(error).__name__}: {error}\"` — после проверки, что имя есть в TOOLS."
+    solution: |
+      def tool(func):
+          """Зарегистрировать функцию как инструмент агента."""
+          name = func.__name__
+          if name in TOOLS:
+              raise ValueError(f"инструмент {name!r} уже зарегистрирован")
+          description = (func.__doc__ or "").strip().split("\n")[0]
+          TOOLS[name] = {"func": func, "description": description}
+          return func
+
+
+      def describe_tools():
+          """Список «имя: описание» по алфавиту."""
+          return [f"{name}: {TOOLS[name]['description']}" for name in sorted(TOOLS)]
+
+
+      def call_tool(name, **kwargs):
+          """Вызвать инструмент; ошибки вернуть строкой для модели."""
+          if name not in TOOLS:
+              return f"ошибка: неизвестный инструмент {name}"
+          try:
+              return TOOLS[name]["func"](**kwargs)
+          except Exception as error:
+              return f"ошибка: {type(error).__name__}: {error}"
+
+
+      @tool
+      def add(a, b):
+          """Сложить два числа.
+
+          Подробности не нужны в описании.
+          """
+          return a + b
+    solution_explanation: "Декоратор-регистратор работает в момент определения функции и возвращает её без изменений. call_tool превращает любые ошибки в текст — агент не падает, а модель получает сообщение и может исправить вызов."
+    tests:
+      - name: "Пример"
+        call: "call_tool(\"add\", a=2, b=3)"
+        expected: "5"
+      - name: "Описание из первой строки docstring"
+        code: |
+          assert TOOLS["add"]["description"] == "Сложить два числа."
+          assert TOOLS["add"]["func"] is add, "tool должен возвращать ту же функцию"
+      - name: "describe_tools"
+        code: |
+          @tool
+          def weather(city):
+              """Погода в городе."""
+              return "солнечно"
+          @tool
+          def blank():
+              pass
+          assert describe_tools() == ["add: Сложить два числа.", "blank: ", "weather: Погода в городе."], describe_tools()
+      - name: "Ошибки вызова"
+        code: |
+          assert call_tool("search", q="x") == "ошибка: неизвестный инструмент search"
+          result = call_tool("add", a=1)
+          assert result.startswith("ошибка: TypeError:"), result
+      - name: "Повторная регистрация"
+        code: |
+          try:
+              @tool
+              def add(a, b):
+                  return 0
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Повторное имя должно вызывать ValueError")

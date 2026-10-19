@@ -1,0 +1,262 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      x = 3.14159
+      print(f"{x:.2f} {x:.0f} {10:.1f}")
+    options:
+      - text: "`3.14 3 10.0`"
+        correct: true
+        why: ".2f — два знака, .0f — без дробной части, целое 10 с .1f показывается как 10.0."
+      - text: "`3.14 3.0 10`"
+        why: ".0f не оставляет точку, а .1f всегда показывает один знак."
+      - text: "`3.1 3 10`"
+        why: ".2f — два знака после запятой."
+    explanation: "Формат .Nf всегда показывает ровно N знаков после запятой."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print(f"{1234567:,} {0.25:.0%}")
+    options:
+      - text: "`1,234,567 25%`"
+        correct: true
+        why: "`,` — разделитель тысяч; `%` умножает на 100 и добавляет знак процента."
+      - text: "`1234567 0.25%`"
+        why: "Спецификации меняют вид: появляются запятые и умножение на 100."
+      - text: "`1,234,567 0%`"
+        why: "0.25 → 25%."
+    explanation: "Формат % удобен для метрик, хранящихся как доли."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      name = "AI"
+      print(f"[{name:>5}][{name:^6}][{7:03d}]")
+    options:
+      - text: "`[   AI][  AI  ][007]`"
+        correct: true
+        why: ">5 — вправо в поле 5; ^6 — по центру в поле 6; 03d — ширина 3 с нулями."
+      - text: "`[AI   ][  AI  ][007]`"
+        why: "> выравнивает вправо, а не влево."
+      - text: "`[   AI][  AI  ][  7]`"
+        why: "0 перед шириной включает заполнение нулями."
+    explanation: "Ширина и выравнивание: <, >, ^; нули — 0 перед шириной."
+
+  - id: q4
+    type: find_bug
+    prompt: "Программа печатает `Привет, {name}!` вместо имени. Почему?"
+    code: |
+      name = input()
+      print("Привет, {name}!")
+    options:
+      - text: "Пропущен префикс `f` перед строкой"
+        correct: true
+        why: "Без f фигурные скобки — обычный текст."
+      - text: "Переменная name не определена"
+        why: "Определена в первой строке."
+      - text: "В f-строках нельзя использовать восклицательный знак"
+        why: "Можно — это обычный символ текста."
+      - text: "Нужно писать {{name}}"
+        why: "Двойные скобки, наоборот, выводят скобки как текст."
+    explanation: "f-строка начинается с префикса f: f\"Привет, {name}!\"."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие выражения дают строку `\"007\"`? Выберите все."
+    options:
+      - text: "`f\"{7:03d}\"`"
+        correct: true
+        why: "Целое, ширина 3, заполнение нулями."
+      - text: "`f\"{7:03}\"`"
+        correct: true
+        why: "Тип d для int можно не указывать."
+      - text: "`str(7).zfill(3)`"
+        correct: true
+        why: "Метод zfill дополняет строку нулями слева."
+      - text: "`f\"{7:3}\"`"
+        why: "Ширина 3 без нуля дополняет пробелами: «  7»."
+      - text: "`f\"{7:.3f}\"`"
+        why: "Это «7.000» — три знака после запятой."
+    explanation: "0 перед шириной включает заполнение нулями."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      score = 0.8766
+      print(f"{score:.1%}")
+    answer: "87.7%"
+    explanation: "Формат % умножает на 100: 87.66, затем оставляет один знак после запятой — 87.7%."
+
+tasks:
+  - id: t1
+    title: "Строка чека"
+    difficulty: 1
+    statement: |
+      Программа читает название товара, цену (дробное) и количество (целое) и выводит строку чека:
+
+      `<товар>: <количество> × <цена> = <сумма>` — цена и сумма с двумя знаками после запятой.
+    examples:
+      - input: "Кофе\n199.9\n2"
+        output: "Кофе: 2 × 199.90 = 399.80"
+    starter: |
+      item = input()
+      price = float(input())
+      quantity = int(input())
+    hints:
+      - "f-строка: `f\"{item}: {quantity} × {price:.2f} = …\"`."
+      - "Сумму можно вычислить прямо в скобках: `{price * quantity:.2f}`."
+    solution: |
+      item = input()
+      price = float(input())
+      quantity = int(input())
+      print(f"{item}: {quantity} × {price:.2f} = {price * quantity:.2f}")
+    solution_explanation: "Формат .2f показывает ровно два знака, даже если они нули — как принято для денег."
+    constraints:
+      require: ["f\""]
+    tests:
+      - name: "Кофе"
+        stdin: "Кофе\n199.9\n2\n"
+        stdout: "Кофе: 2 × 199.90 = 399.80"
+      - name: "Целая цена"
+        stdin: "Книга\n500\n1\n"
+        stdout: "Книга: 1 × 500.00 = 500.00"
+      - name: "Ноль штук"
+        stdin: "Чай\n99.99\n0\n"
+        stdout: "Чай: 0 × 99.99 = 0.00"
+      - name: "Много"
+        stdin: "Ручка\n12.5\n40\n"
+        stdout: "Ручка: 40 × 12.50 = 500.00"
+      - name: "Копейки"
+        stdin: "Жвачка\n0.33\n3\n"
+        stdout: "Жвачка: 3 × 0.33 = 0.99"
+
+  - id: t2
+    title: "Прогресс задачи"
+    difficulty: 1
+    statement: |
+      Программа читает количество выполненных шагов и общее количество (больше нуля) и выводит:
+
+      `Выполнено: <готово>/<всего> (<процент с одним знаком>%)`
+    examples:
+      - input: "37\n120"
+        output: "Выполнено: 37/120 (30.8%)"
+    starter: |
+      done = int(input())
+      total = int(input())
+    hints:
+      - "Доля — `done / total`."
+      - "Формат `.1%` сам умножит долю на 100 и добавит знак процента."
+    solution: |
+      done = int(input())
+      total = int(input())
+      print(f"Выполнено: {done}/{total} ({done / total:.1%})")
+    solution_explanation: "Формат % избавляет от ручного умножения на 100 и склейки со знаком процента."
+    tests:
+      - name: "37 из 120"
+        stdin: "37\n120\n"
+        stdout: "Выполнено: 37/120 (30.8%)"
+      - name: "Ноль"
+        stdin: "0\n50\n"
+        stdout: "Выполнено: 0/50 (0.0%)"
+      - name: "Всё"
+        stdin: "8\n8\n"
+        stdout: "Выполнено: 8/8 (100.0%)"
+      - name: "Треть"
+        stdin: "1\n3\n"
+        stdout: "Выполнено: 1/3 (33.3%)"
+      - name: "Две трети"
+        stdin: "2\n3\n"
+        stdout: "Выполнено: 2/3 (66.7%)"
+
+  - id: t3
+    title: "Таблица метрик"
+    difficulty: 2
+    statement: |
+      Программа читает `n`, затем `n` строк вида `<название> <значение>` (название без пробелов, значение — дробное).
+      Выведите таблицу: название выровнено **влево** в поле ширины 12, значение — **вправо** в поле ширины 8 с тремя знаками после запятой.
+    examples:
+      - input: "2\naccuracy 0.91234\nf1 0.8"
+        output: "accuracy       0.912\nf1             0.800"
+    starter: |
+      n = int(input())
+      for _ in range(n):
+          line = input()
+    hints:
+      - "Разбейте строку: `name, value = line.split()`, затем `value = float(value)`."
+      - "`f\"{name:<12}{value:>8.3f}\"`."
+    solution: |
+      n = int(input())
+      for _ in range(n):
+          name, value = input().split()
+          print(f"{name:<12}{float(value):>8.3f}")
+    solution_explanation: "Спецификации ширины и выравнивания делают столбцы ровными независимо от длины названий."
+    tests:
+      - name: "Пример"
+        stdin: "2\naccuracy 0.91234\nf1 0.8\n"
+        stdout: "accuracy       0.912\nf1             0.800"
+      - name: "Одна метрика"
+        stdin: "1\nloss 1.23456\n"
+        stdout: "loss           1.235"
+      - name: "Ширина строки"
+        stdin: "1\nprecision 0.5\n"
+        code: |
+          line = __stdout__.rstrip("\n")
+          assert len(line) == 20, f"Длина строки должна быть 20, получено {len(line)}"
+      - name: "Большое значение"
+        stdin: "1\nlatency_ms 152.3\n"
+        stdout: "latency_ms   152.300"
+      - name: "Три строки"
+        stdin: "3\na 1\nbb 2.5\nccc 0.0005\n"
+        stdout: "a              1.000\nbb             2.500\nccc            0.001"
+
+  - id: t4
+    title: "Лог обучения"
+    difficulty: 3
+    statement: |
+      Программа читает количество эпох `n`, затем `n` значений loss (дробные, по одному в строке). Для каждой эпохи выведите строку:
+
+      `Эпоха <номер шириной 3, вправо> | loss <loss с 4 знаками> | <изменение>`
+
+      Изменение — разница с предыдущей эпохой со знаком и 4 знаками после запятой (`+0.0091`, `-0.1667`). Для первой эпохи вместо изменения — слово `старт`.
+    examples:
+      - input: "3\n0.9123\n0.7456\n0.7547"
+        output: "Эпоха   1 | loss 0.9123 | старт\nЭпоха   2 | loss 0.7456 | -0.1667\nЭпоха   3 | loss 0.7547 | +0.0091"
+    starter: |
+      n = int(input())
+      previous = None
+      for epoch in range(1, n + 1):
+          loss = float(input())
+    hints:
+      - "Изменение: `\"старт\" if previous is None else f\"{loss - previous:+.4f}\"`."
+      - "Номер эпохи: `{epoch:>3}`. Не забудьте обновлять `previous = loss` в конце итерации."
+    solution: |
+      n = int(input())
+      previous = None
+      for epoch in range(1, n + 1):
+          loss = float(input())
+          change = "старт" if previous is None else f"{loss - previous:+.4f}"
+          print(f"Эпоха {epoch:>3} | loss {loss:.4f} | {change}")
+          previous = loss
+    solution_explanation: "None как маркер «предыдущего значения ещё нет», тернарный оператор для выбора текста и формат +.4f, показывающий знак изменения. Так выглядят логи настоящих скриптов обучения."
+    tests:
+      - name: "Пример"
+        stdin: "3\n0.9123\n0.7456\n0.7547\n"
+        stdout: "Эпоха   1 | loss 0.9123 | старт\nЭпоха   2 | loss 0.7456 | -0.1667\nЭпоха   3 | loss 0.7547 | +0.0091"
+      - name: "Одна эпоха"
+        stdin: "1\n2.5\n"
+        stdout: "Эпоха   1 | loss 2.5000 | старт"
+      - name: "Без изменений"
+        stdin: "2\n0.5\n0.5\n"
+        stdout: "Эпоха   1 | loss 0.5000 | старт\nЭпоха   2 | loss 0.5000 | +0.0000"
+      - name: "Двузначные эпохи"
+        stdin: "10\n1\n1\n1\n1\n1\n1\n1\n1\n1\n0.9\n"
+        code: |
+          assert __stdout__.strip().splitlines()[-1] == "Эпоха  10 | loss 0.9000 | -0.1000"
+      - name: "Ноль эпох"
+        stdin: "0\n"
+        stdout: ""

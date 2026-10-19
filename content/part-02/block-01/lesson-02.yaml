@@ -1,0 +1,449 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Settings:
+          mode = "fast"
+
+
+      a = Settings()
+      b = Settings()
+      a.mode = "slow"
+      Settings.mode = "auto"
+      print(a.mode, b.mode)
+    options:
+      - text: "`slow auto`"
+        correct: true
+        why: "У a свой атрибут экземпляра, b видит изменённый атрибут класса."
+      - text: "`auto auto`"
+        why: "Присваивание a.mode создало атрибут экземпляра, он затеняет атрибут класса."
+      - text: "`slow fast`"
+        why: "Settings.mode = \"auto\" меняет атрибут класса, и b его видит."
+    explanation: "Чтение ищет сначала в объекте, потом в классе; присваивание через объект создаёт атрибут экземпляра."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Basket:
+          items = []
+
+          def add(self, item):
+              self.items.append(item)
+
+
+      first = Basket()
+      second = Basket()
+      first.add("яблоко")
+      second.add("груша")
+      print(len(first.items))
+    options:
+      - text: "`2`"
+        correct: true
+        why: "items — один список в классе, append меняет его для всех."
+      - text: "`1`"
+        why: "Так было бы, если бы список создавался в __init__."
+      - text: "`0`"
+        why: "append добавляет элементы в общий список."
+    explanation: "Изменяемый атрибут класса делится между всеми объектами — создавайте такие данные в __init__."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему `Visitor.total` остаётся равным 0 после создания объектов?"
+    code: |
+      class Visitor:
+          total = 0
+
+          def __init__(self, name):
+              self.name = name
+              self.total += 1
+    options:
+      - text: "`self.total += 1` создаёт атрибут экземпляра; общий счётчик меняют через `Visitor.total += 1`"
+        correct: true
+        why: "Справа читается значение класса, слева создаётся атрибут объекта."
+      - text: "Атрибут класса нельзя изменять после объявления"
+        why: "Можно — через имя класса."
+      - text: "Нужно объявить total внутри __init__"
+        why: "Тогда он станет атрибутом экземпляра и общего счётчика не будет вовсе."
+    explanation: "Изменяйте атрибуты класса через имя класса, а не через self."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Model:
+          family = "gpt"
+
+          def __init__(self, size):
+              self.size = size
+
+
+      m = Model("mini")
+      print(vars(m))
+    options:
+      - text: "`{'size': 'mini'}`"
+        correct: true
+        why: "vars показывает только атрибуты экземпляра."
+      - text: "`{'family': 'gpt', 'size': 'mini'}`"
+        why: "family — атрибут класса, в словаре объекта его нет."
+      - text: "`{}`"
+        why: "size создан в __init__ через self — это атрибут экземпляра."
+    explanation: "vars(obj) — словарь атрибутов самого объекта; атрибуты класса хранятся в классе."
+
+  - id: q5
+    type: find_bug
+    prompt: "Цепочка `Pipeline().add(\"clean\").add(\"tokenize\").run()` падает. Почему?"
+    code: |
+      class Pipeline:
+          def __init__(self):
+              self.steps = []
+
+          def add(self, step):
+              self.steps.append(step)
+
+          def run(self):
+              return " -> ".join(self.steps)
+    options:
+      - text: "add не возвращает self, поэтому второй .add вызывается у None"
+        correct: true
+        why: "AttributeError: 'NoneType' object has no attribute 'add'."
+      - text: "steps должен быть атрибутом класса"
+        why: "Тогда все пайплайны делили бы один список."
+      - text: "join не работает со списком строк"
+        why: "Работает: \" -> \".join([...])."
+    explanation: "Для цепочек каждый изменяющий метод должен заканчиваться return self."
+
+  - id: q6
+    type: multiple
+    prompt: "Что разумно хранить в атрибутах класса? Выберите все."
+    options:
+      - text: "Константы, общие для всех объектов (`MAX_LENGTH = 512`)"
+        correct: true
+        why: "Неизменяемое общее значение — идеальный кандидат."
+      - text: "Значения по умолчанию, которые объект может переопределить"
+        correct: true
+        why: "Атрибут экземпляра с тем же именем затенит значение класса."
+      - text: "Счётчик созданных объектов"
+        correct: true
+        why: "Намеренно общее состояние; менять через имя класса."
+      - text: "Историю сообщений конкретного чата"
+        why: "Это данные конкретного объекта — им место в __init__."
+    explanation: "Класс — для общего, объект — для своего."
+
+tasks:
+  - id: t1
+    title: "Нумерация пользователей"
+    difficulty: 1
+    statement: |
+      Создайте класс `User`:
+
+      - атрибут класса `count` — сколько пользователей создано (сначала 0);
+      - `User(name)` увеличивает `count` и сохраняет в атрибут экземпляра `id` номер пользователя (первый получает 1, второй 2 и т.д.), имя — в `name`;
+      - `__repr__` возвращает `User(1, 'Ада')`.
+
+      Тесты сбрасывают счётчик сами: `User.count = 0`.
+    examples:
+      - input: "User.count = 0; a = User(\"Ада\"); b = User(\"Алан\"); b.id"
+        output: "2"
+    starter: |
+      class User:
+          count = 0
+
+          def __init__(self, name):
+              self.count += 1
+              self.id = self.count
+              self.name = name
+    hints:
+      - "`self.count += 1` создаёт атрибут экземпляра. Счётчик класса меняют так: `User.count += 1`."
+      - "`__repr__`: `f\"User({self.id}, {self.name!r})\"` — `!r` добавит кавычки к строке."
+    solution: |
+      class User:
+          """Пользователь с автоматическим номером."""
+
+          count = 0
+
+          def __init__(self, name):
+              User.count += 1
+              self.id = User.count
+              self.name = name
+
+          def __repr__(self):
+              return f"User({self.id}, {self.name!r})"
+    solution_explanation: "Общий счётчик живёт в классе и меняется через имя класса; номер каждого пользователя — атрибут экземпляра, копия значения счётчика в момент создания."
+    tests:
+      - name: "Номера по порядку"
+        code: |
+          User.count = 0
+          a = User("Ада")
+          b = User("Алан")
+          assert (a.id, b.id) == (1, 2), f"Номера: {a.id}, {b.id}"
+      - name: "Счётчик класса"
+        code: |
+          User.count = 0
+          for name in ("a", "b", "c"):
+              User(name)
+          assert User.count == 3, f"User.count = {User.count}"
+      - name: "Номер не меняется"
+        code: |
+          User.count = 0
+          first = User("x")
+          User("y")
+          assert first.id == 1, "Номер первого пользователя должен остаться 1"
+      - name: "repr"
+        code: |
+          User.count = 0
+          assert repr(User("Ада")) == "User(1, 'Ада')", repr(User("Ада"))
+      - name: "Имя сохраняется"
+        code: |
+          User.count = 0
+          assert User("Грейс").name == "Грейс"
+
+  - id: t2
+    title: "Корзина покупок"
+    difficulty: 2
+    statement: |
+      Создайте класс `Cart`:
+
+      - атрибут `items` — словарь `{название: [цена, количество]}`, у каждой корзины свой;
+      - `add(name, price, quantity=1)` — добавить товар; если он уже есть, увеличить количество (цена берётся новая);
+      - `remove(name)` — удалить товар; если его нет — `KeyError`;
+      - `total()` — сумма `цена * количество`;
+      - `count()` — общее количество единиц товаров.
+    examples:
+      - input: "c = Cart(); c.add(\"чай\", 100, 2); c.add(\"чай\", 100); c.total()"
+        output: "300"
+    starter: |
+      class Cart:
+          items = {}
+
+          def add(self, name, price, quantity=1):
+              self.items[name] = [price, quantity]
+
+          def total(self):
+              return sum(price * qty for price, qty in self.items.values())
+    hints:
+      - "Словарь создавайте в `__init__`: `self.items = {}` — иначе все корзины будут общей."
+      - "В add: `if name in self.items: self.items[name][1] += quantity`, затем обновите цену; иначе — новый элемент. Для remove подойдёт `del self.items[name]` — он сам бросит KeyError."
+    solution: |
+      class Cart:
+          """Корзина покупок."""
+
+          def __init__(self):
+              self.items = {}
+
+          def add(self, name, price, quantity=1):
+              """Добавить товар или увеличить его количество."""
+              if name in self.items:
+                  self.items[name][0] = price
+                  self.items[name][1] += quantity
+              else:
+                  self.items[name] = [price, quantity]
+
+          def remove(self, name):
+              """Удалить товар из корзины."""
+              del self.items[name]
+
+          def total(self):
+              """Стоимость всей корзины."""
+              return sum(price * quantity for price, quantity in self.items.values())
+
+          def count(self):
+              """Количество единиц товаров."""
+              return sum(quantity for _, quantity in self.items.values())
+    solution_explanation: "Главное — словарь в __init__: в заготовке он был атрибутом класса, и все корзины делили одни и те же товары. Методы total и count не меняют корзину, а add и remove — меняют."
+    tests:
+      - name: "Пример"
+        code: |
+          c = Cart()
+          c.add("чай", 100, 2)
+          c.add("чай", 100)
+          assert c.total() == 300 and c.count() == 3
+      - name: "Корзины независимы"
+        code: |
+          a = Cart()
+          b = Cart()
+          a.add("сыр", 500)
+          assert b.items == {}, "Товары одной корзины попали в другую — словарь создаётся в __init__"
+      - name: "Удаление"
+        code: |
+          c = Cart()
+          c.add("хлеб", 50)
+          c.add("молоко", 90, 2)
+          c.remove("хлеб")
+          assert c.total() == 180
+      - name: "Удаление отсутствующего"
+        code: |
+          c = Cart()
+          try:
+              c.remove("икра")
+          except KeyError:
+              pass
+          else:
+              raise AssertionError("Ожидался KeyError")
+      - name: "Новая цена при повторном добавлении"
+        code: |
+          c = Cart()
+          c.add("кофе", 300)
+          c.add("кофе", 350)
+          assert c.items["кофе"] == [350, 2], f"items = {c.items}"
+      - name: "Пустая корзина"
+        code: |
+          c = Cart()
+          assert c.total() == 0 and c.count() == 0
+
+  - id: t3
+    title: "Построитель SQL-запроса"
+    difficulty: 2
+    statement: |
+      Создайте класс `QueryBuilder(table)` с методами-цепочками:
+
+      - `select(*fields)` — поля выборки (по умолчанию `*`);
+      - `where(condition)` — добавить условие; несколько условий соединяются через ` AND `;
+      - `limit(n)` — ограничение;
+      - `build()` — вернуть строку запроса.
+
+      `select`, `where` и `limit` возвращают `self`. Формат: `SELECT поля FROM таблица[ WHERE усл1 AND усл2][ LIMIT n]`.
+    examples:
+      - input: "QueryBuilder(\"users\").select(\"id\", \"name\").where(\"age > 18\").limit(5).build()"
+        output: "'SELECT id, name FROM users WHERE age > 18 LIMIT 5'"
+    starter: |
+      class QueryBuilder:
+          def __init__(self, table):
+              self.table = table
+
+          def build(self):
+              return f"SELECT * FROM {self.table}"
+    hints:
+      - "В `__init__` заведите `self.fields = [\"*\"]`, `self.conditions = []`, `self.max_rows = None`."
+      - "В build соберите части списком и соедините пробелом: `\" AND \".join(self.conditions)` для условий."
+    solution: |
+      class QueryBuilder:
+          """Построитель простых SELECT-запросов."""
+
+          def __init__(self, table):
+              self.table = table
+              self.fields = ["*"]
+              self.conditions = []
+              self.max_rows = None
+
+          def select(self, *fields):
+              self.fields = list(fields)
+              return self
+
+          def where(self, condition):
+              self.conditions.append(condition)
+              return self
+
+          def limit(self, n):
+              self.max_rows = n
+              return self
+
+          def build(self):
+              """Собрать строку запроса."""
+              parts = [f"SELECT {', '.join(self.fields)} FROM {self.table}"]
+              if self.conditions:
+                  parts.append("WHERE " + " AND ".join(self.conditions))
+              if self.max_rows is not None:
+                  parts.append(f"LIMIT {self.max_rows}")
+              return " ".join(parts)
+    solution_explanation: "Методы-цепочки только накапливают состояние и возвращают self, а вся сборка строки — в build. Части запроса собираются в список и соединяются пробелом, поэтому необязательные части не дают лишних пробелов."
+    tests:
+      - name: "Пример"
+        call: "QueryBuilder(\"users\").select(\"id\", \"name\").where(\"age > 18\").limit(5).build()"
+        expected: "'SELECT id, name FROM users WHERE age > 18 LIMIT 5'"
+      - name: "Только таблица"
+        call: "QueryBuilder(\"logs\").build()"
+        expected: "'SELECT * FROM logs'"
+      - name: "Несколько условий"
+        call: "QueryBuilder(\"t\").where(\"a = 1\").where(\"b < 2\").build()"
+        expected: "'SELECT * FROM t WHERE a = 1 AND b < 2'"
+      - name: "Методы возвращают self"
+        code: |
+          q = QueryBuilder("t")
+          assert q.select("x") is q and q.where("x > 0") is q and q.limit(1) is q
+      - name: "LIMIT 0 тоже выводится"
+        call: "QueryBuilder(\"t\").limit(0).build()"
+        expected: "'SELECT * FROM t LIMIT 0'"
+      - name: "Построители независимы"
+        code: |
+          a = QueryBuilder("t").where("x = 1")
+          b = QueryBuilder("t")
+          assert b.build() == "SELECT * FROM t", "Условия одного построителя попали в другой"
+
+  - id: t4
+    title: "Конфигурация обучения"
+    difficulty: 3
+    statement: |
+      Создайте класс `TrainingConfig`. Значения по умолчанию — атрибуты класса: `learning_rate = 0.001`, `epochs = 10`, `batch_size = 32`; кортеж имён настроек — `FIELDS = ("learning_rate", "epochs", "batch_size")`.
+
+      - `TrainingConfig(**overrides)` — переопределить настройки для этого объекта; неизвестное имя → `ValueError` с этим именем в сообщении;
+      - `to_dict()` — словарь всех настроек (в порядке `FIELDS`);
+      - `changed()` — словарь только тех настроек, что отличаются от значений по умолчанию в классе.
+    examples:
+      - input: "TrainingConfig(epochs=3).changed()"
+        output: "{'epochs': 3}"
+    starter: |
+      class TrainingConfig:
+          learning_rate = 0.001
+          epochs = 10
+          batch_size = 32
+
+          def __init__(self, **overrides):
+              self.overrides = overrides
+    hints:
+      - "В `__init__`: `for name, value in overrides.items():` — проверка `if name not in self.FIELDS: raise ValueError(...)`, затем `setattr(self, name, value)`."
+      - "Значение объекта — `getattr(self, name)`, значение по умолчанию — `getattr(TrainingConfig, name)`."
+    solution: |
+      class TrainingConfig:
+          """Настройки обучения модели со значениями по умолчанию."""
+
+          learning_rate = 0.001
+          epochs = 10
+          batch_size = 32
+          FIELDS = ("learning_rate", "epochs", "batch_size")
+
+          def __init__(self, **overrides):
+              for name, value in overrides.items():
+                  if name not in self.FIELDS:
+                      raise ValueError(f"неизвестная настройка: {name}")
+                  setattr(self, name, value)
+
+          def to_dict(self):
+              """Все настройки словарём."""
+              return {name: getattr(self, name) for name in self.FIELDS}
+
+          def changed(self):
+              """Настройки, отличающиеся от значений по умолчанию."""
+              return {
+                  name: getattr(self, name)
+                  for name in self.FIELDS
+                  if getattr(self, name) != getattr(TrainingConfig, name)
+              }
+    solution_explanation: "setattr создаёт атрибут экземпляра, который затеняет значение класса; для непереданных настроек getattr(self, name) находит значение по умолчанию в классе. Сравнение с getattr(TrainingConfig, name) показывает, что изменилось."
+    tests:
+      - name: "Пример"
+        call: "TrainingConfig(epochs=3).changed()"
+        expected: "{'epochs': 3}"
+      - name: "Все настройки"
+        call: "TrainingConfig(batch_size=64).to_dict()"
+        expected: "{'learning_rate': 0.001, 'epochs': 10, 'batch_size': 64}"
+      - name: "Без изменений"
+        call: "TrainingConfig().changed()"
+        expected: "{}"
+      - name: "Неизвестная настройка"
+        code: |
+          try:
+              TrainingConfig(dropout=0.1)
+          except ValueError as error:
+              assert "dropout" in str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Класс не меняется"
+        code: |
+          TrainingConfig(learning_rate=0.1)
+          assert TrainingConfig.learning_rate == 0.001, "Переопределение должно касаться только объекта"
+          assert TrainingConfig().learning_rate == 0.001
+      - name: "Значение равно умолчанию"
+        call: "TrainingConfig(epochs=10, learning_rate=0.01).changed()"
+        expected: "{'learning_rate': 0.01}"

@@ -1,0 +1,363 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def gen():
+          print("A")
+          yield 1
+          print("B")
+          yield 2
+
+
+      g = gen()
+      print("C")
+      print(next(g))
+    options:
+      - text: |
+          ```
+          C
+          A
+          1
+          ```
+        correct: true
+        why: "Вызов gen() не запускает тело; оно начинает выполняться только при next."
+      - text: |
+          ```
+          A
+          C
+          1
+          ```
+        why: "При создании генератора тело ещё не выполняется."
+      - text: |
+          ```
+          C
+          A
+          1
+          B
+          ```
+        why: "После yield 1 генератор замирает до следующего next."
+    explanation: "Генератор выполняет тело лениво — до ближайшего yield при каждом next."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def evens(n):
+          for i in range(0, n, 2):
+              yield i
+
+
+      g = evens(7)
+      print(list(g), list(g), list(evens(3)))
+    options:
+      - text: "`[0, 2, 4, 6] [] [0, 2]`"
+        correct: true
+        why: "Генератор одноразовый, а новый вызов функции создаёт новый генератор."
+      - text: "`[0, 2, 4, 6] [0, 2, 4, 6] [0, 2]`"
+        why: "Второй list получает исчерпанный генератор."
+      - text: "`[0, 2, 4] [] [0]`"
+        why: "range(0, 7, 2) включает 6; range(0, 3, 2) — 0 и 2."
+    explanation: "Каждый вызов генераторной функции — новый одноразовый генератор."
+
+  - id: q3
+    type: find_bug
+    prompt: "Функция должна выдавать все строки без пробелов по краям, но возвращает только первую. Почему?"
+    code: |
+      def clean(lines):
+          for line in lines:
+              return line.strip()
+    options:
+      - text: "return завершает функцию на первой итерации; нужно yield line.strip()"
+        correct: true
+        why: "yield отдаёт значение и продолжает цикл при следующем запросе."
+      - text: "strip нельзя вызывать в цикле"
+        why: "Можно; проблема в return."
+      - text: "Нужно сначала собрать все строки в список"
+        why: "Не обязательно — генератор выдаёт их по одной."
+    explanation: "yield — «отдать и продолжить позже», return — «завершить»."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def until_stop(words):
+          for word in words:
+              if word == "stop":
+                  return
+              yield word.upper()
+
+
+      print(list(until_stop(["a", "b", "stop", "c"])))
+    options:
+      - text: "`['A', 'B']`"
+        correct: true
+        why: "return завершает генератор — элементы после stop не выдаются."
+      - text: "`['A', 'B', 'C']`"
+        why: "return не пропускает элемент, а завершает генератор целиком."
+      - text: "`['A', 'B', None]`"
+        why: "return не выдаёт значения в цикл."
+    explanation: "return в генераторе означает конец перебора."
+
+  - id: q5
+    type: single
+    prompt: "Что возвращает вызов генераторной функции `numbers()`?"
+    options:
+      - text: "Объект-генератор — итератор, который выполнит тело функции по запросу"
+        correct: true
+        why: "Тело ещё не выполнялось."
+      - text: "Список всех значений, выданных yield"
+        why: "Генератор ничего не вычисляет заранее."
+      - text: "Первое значение yield"
+        why: "Первое значение вернёт next(numbers())."
+      - text: "None"
+        why: "Вызов генераторной функции возвращает генератор."
+    explanation: "Генераторная функция — фабрика генераторов."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно про генераторы? Выберите все."
+    options:
+      - text: "Локальные переменные сохраняются между yield"
+        correct: true
+        why: "Функция замораживается вместе с состоянием."
+      - text: "`__iter__` класса можно написать с yield — объект станет многоразово итерируемым"
+        correct: true
+        why: "Каждый вызов __iter__ создаёт новый генератор."
+      - text: "Бесконечный генератор с while True безопасен, если брать из него ограниченное число элементов"
+        correct: true
+        why: "Каждая итерация ждёт запроса на yield."
+      - text: "Генератор можно перебрать сколько угодно раз"
+        why: "Генератор одноразовый."
+    explanation: "Генератор — ленивый одноразовый итератор с сохранённым состоянием."
+
+tasks:
+  - id: t1
+    title: "Генераторы чисел"
+    difficulty: 1
+    statement: |
+      Напишите два генератора:
+
+      - `evens(limit)` — чётные числа от 0 до `limit` включительно;
+      - `squares_of(numbers)` — квадраты элементов любого итерируемого объекта.
+
+      Используйте `yield`.
+    examples:
+      - input: "list(squares_of(evens(6)))"
+        output: "[0, 4, 16, 36]"
+    starter: |
+      def evens(limit):
+          return [n for n in range(limit) if n % 2 == 0]
+
+
+      def squares_of(numbers):
+          pass
+    hints:
+      - "`for n in range(0, limit + 1, 2): yield n`."
+      - "`for n in numbers: yield n * n` — генератор принимает любой итерируемый объект, в том числе другой генератор."
+    solution: |
+      def evens(limit):
+          """Чётные числа от 0 до limit включительно."""
+          for n in range(0, limit + 1, 2):
+              yield n
+
+
+      def squares_of(numbers):
+          """Квадраты элементов."""
+          for n in numbers:
+              yield n * n
+    solution_explanation: "Генераторы соединяются в цепочку: squares_of получает генератор evens и запрашивает у него числа по одному."
+    constraints:
+      require: ["yield"]
+      message: "Используйте yield"
+    tests:
+      - name: "Пример"
+        call: "list(squares_of(evens(6)))"
+        expected: "[0, 4, 16, 36]"
+      - name: "evens"
+        call: "[list(evens(5)), list(evens(0))]"
+        expected: "[[0, 2, 4], [0]]"
+      - name: "Это генераторы"
+        code: |
+          import inspect
+          assert inspect.isgeneratorfunction(evens) and inspect.isgeneratorfunction(squares_of), "Функции должны содержать yield"
+      - name: "Любой итерируемый"
+        call: "list(squares_of((1, -2, 3)))"
+        expected: "[1, 4, 9]"
+      - name: "Ленивость"
+        code: |
+          g = evens(10 ** 12)
+          assert next(g) == 0 and next(g) == 2, "Генератор не должен вычислять всё заранее"
+
+  - id: t2
+    title: "Чанки слов"
+    difficulty: 2
+    statement: |
+      Напишите генератор `chunk_words(text, size)`, который выдаёт строки по `size` слов (слова соединяются одним пробелом; последний чанк может быть короче). `size < 1` → `ValueError` **при первом запросе** элемента (так ведут себя генераторы — тело запускается лениво).
+    examples:
+      - input: "list(chunk_words(\"a b c d e\", 2))"
+        output: "['a b', 'c d', 'e']"
+    starter: |
+      def chunk_words(text, size):
+          words = text.split()
+          return [" ".join(words[i:i + size]) for i in range(0, len(words), size)]
+    hints:
+      - "Проверка size — в начале тела генератора, затем `words = text.split()`."
+      - "`for start in range(0, len(words), size): yield \" \".join(words[start:start + size])`."
+    solution: |
+      def chunk_words(text, size):
+          """Выдавать фрагменты текста по size слов."""
+          if size < 1:
+              raise ValueError("размер чанка должен быть положительным")
+          words = text.split()
+          for start in range(0, len(words), size):
+              yield " ".join(words[start:start + size])
+    solution_explanation: "Генератор выдаёт чанки по запросу. Обратите внимание: проверка size сработает не при вызове chunk_words, а при первом next — тело генератора начинает выполняться только тогда."
+    tests:
+      - name: "Пример"
+        call: "list(chunk_words(\"a b c d e\", 2))"
+        expected: "['a b', 'c d', 'e']"
+      - name: "Лишние пробелы"
+        call: "list(chunk_words(\"  раз  два\\nтри \", 5))"
+        expected: "['раз два три']"
+      - name: "Пустой текст"
+        call: "list(chunk_words(\"\", 3))"
+        expected: "[]"
+      - name: "Генератор"
+        code: |
+          import inspect
+          assert inspect.isgeneratorfunction(chunk_words), "chunk_words должен быть генератором (yield)"
+      - name: "Ошибка размера — при запросе"
+        code: |
+          g = chunk_words("a b", 0)
+          try:
+              next(g)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+
+  - id: t3
+    title: "Последовательность Коллатца"
+    difficulty: 2
+    statement: |
+      Последовательность Коллатца: если число чётное — делим на 2, нечётное — умножаем на 3 и прибавляем 1; останавливаемся на 1.
+
+      - генератор `collatz(n)` выдаёт все числа последовательности, начиная с `n` и заканчивая 1 (`n < 1` → `ValueError` при запросе);
+      - функция `longest_collatz(limit)` — стартовое число от 1 до `limit` с самой длинной последовательностью (при равенстве — меньшее).
+    examples:
+      - input: "list(collatz(6))"
+        output: "[6, 3, 10, 5, 16, 8, 4, 2, 1]"
+    starter: |
+      def collatz(n):
+          while n != 1:
+              n = n // 2 if n % 2 == 0 else 3 * n + 1
+              yield n
+    hints:
+      - "Сначала `yield n`, потом цикл `while n != 1:` с вычислением следующего и `yield`."
+      - "Длина: `sum(1 for _ in collatz(n))` — не нужно хранить список. Самое длинное: `max(range(1, limit + 1), key=...)` возвращает первое (меньшее) из равных."
+    solution: |
+      def collatz(n):
+          """Последовательность Коллатца от n до 1."""
+          if n < 1:
+              raise ValueError("n должно быть натуральным")
+          yield n
+          while n != 1:
+              n = n // 2 if n % 2 == 0 else 3 * n + 1
+              yield n
+
+
+      def longest_collatz(limit):
+          """Старт с самой длинной последовательностью."""
+          return max(range(1, limit + 1), key=lambda n: sum(1 for _ in collatz(n)))
+    solution_explanation: "Длину последовательности считаем, не сохраняя её: sum(1 for _ in ...) перебирает генератор и считает элементы. Память не зависит от длины последовательности."
+    tests:
+      - name: "Пример"
+        call: "list(collatz(6))"
+        expected: "[6, 3, 10, 5, 16, 8, 4, 2, 1]"
+      - name: "Единица"
+        call: "list(collatz(1))"
+        expected: "[1]"
+      - name: "Самая длинная"
+        call: "[longest_collatz(10), longest_collatz(1)]"
+        expected: "[9, 1]"
+      - name: "Неверное n"
+        code: |
+          try:
+              next(collatz(0))
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Длина"
+        call: "sum(1 for _ in collatz(27))"
+        expected: "112"
+
+  - id: t4
+    title: "Слова из потока"
+    difficulty: 3
+    statement: |
+      Ответ модели приходит фрагментами, которые режут слова пополам: `["Прив", "ет, ми", "р! Как", " дела"]`.
+
+      - Генератор `words_from_chunks(chunks)` выдаёт целые слова (разделитель — любые пробельные символы) **как только слово закончилось** — не дожидаясь конца потока. Последнее слово выдаётся в конце.
+      - Функция `stream_stats(chunks)` за **один проход** возвращает `{"words": число_слов, "longest": самое_длинное_слово}` (при равной длине — первое; для пустого потока `longest` = `""`).
+    examples:
+      - input: "list(words_from_chunks([\"Прив\", \"ет, ми\", \"р! Как\", \" дела\"]))"
+        output: "['Привет,', 'мир!', 'Как', 'дела']"
+    starter: |
+      def words_from_chunks(chunks):
+          return "".join(chunks).split()
+
+
+      def stream_stats(chunks):
+          words = list(words_from_chunks(chunks))
+          return {"words": len(words), "longest": max(words, key=len)}
+    hints:
+      - "Держите буфер незаконченного слова. Для каждого фрагмента: `buffer += chunk`, `parts = buffer.split(\" \")`… удобнее: если в буфере есть пробельный символ, всё до последнего пробела — готовые слова (`buffer[:i].split()`), остаток — новый буфер."
+      - "Индекс последнего пробельного символа: `max((i for i, ch in enumerate(buffer) if ch.isspace()), default=-1)`. В stats — обычный цикл по генератору со счётчиком и текущим самым длинным словом."
+    solution: |
+      def words_from_chunks(chunks):
+          """Выдавать целые слова из потока фрагментов текста."""
+          buffer = ""
+          for chunk in chunks:
+              buffer += chunk
+              last_space = max((i for i, ch in enumerate(buffer) if ch.isspace()), default=-1)
+              if last_space >= 0:
+                  yield from buffer[:last_space].split()
+                  buffer = buffer[last_space + 1:]
+          if buffer.strip():
+              yield buffer.strip()
+
+
+      def stream_stats(chunks):
+          """Число слов и самое длинное слово за один проход."""
+          count = 0
+          longest = ""
+          for word in words_from_chunks(chunks):
+              count += 1
+              if len(word) > len(longest):
+                  longest = word
+          return {"words": count, "longest": longest}
+    solution_explanation: "Буфер хранит незаконченное слово между фрагментами — состояние генератора. Всё, что стоит до последнего пробела, уже точно состоит из целых слов и выдаётся сразу. `yield from` выдаёт элементы списка по одному (подробно — в уроке 4); можно написать и цикл с yield."
+    tests:
+      - name: "Пример"
+        call: "list(words_from_chunks([\"Прив\", \"ет, ми\", \"р! Как\", \" дела\"]))"
+        expected: "['Привет,', 'мир!', 'Как', 'дела']"
+      - name: "Пробелы и переводы строк"
+        call: "list(words_from_chunks([\"  a\", \"b\\n\", \"\\nc  \", \"\"]))"
+        expected: "['ab', 'c']"
+      - name: "Статистика"
+        call: "stream_stats([\"один дв\", \"а три четы\", \"ре\"])"
+        expected: "{'words': 4, 'longest': 'четыре'}"
+      - name: "Пустой поток"
+        call: "stream_stats([])"
+        expected: "{'words': 0, 'longest': ''}"
+      - name: "Слова выдаются до конца потока"
+        code: |
+          def stream():
+              yield "первое второе"
+              yield " третье"
+              raise RuntimeError("поток оборвался")
+          g = words_from_chunks(stream())
+          assert next(g) == "первое", "Первое слово нужно выдать сразу, не дожидаясь конца потока"
+          assert next(g) == "второе"

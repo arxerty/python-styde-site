@@ -1,0 +1,381 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      a = {"lr": 0.1}
+      b = a
+      b["lr"] = 0.5
+      print(a["lr"], a is b)
+    options:
+      - text: "`0.5 True`"
+        correct: true
+        why: "b — второе имя того же словаря; изменение видно через a."
+      - text: "`0.1 False`"
+        why: "Присваивание b = a не копирует словарь."
+      - text: "`0.1 True`"
+        why: "Объект один — изменение через b меняет его и для a."
+    explanation: "Присваивание создаёт ещё одну ссылку, а не копию."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      x = [1, 2]
+      y = [1, 2]
+      z = x
+      print(x == y, x is y, x is z)
+    options:
+      - text: "`True False True`"
+        correct: true
+        why: "x и y равны, но разные объекты; z — псевдоним x."
+      - text: "`True True True`"
+        why: "Два списка, созданных отдельно, — разные объекты."
+      - text: "`False False True`"
+        why: "== сравнивает содержимое — оно одинаковое."
+    explanation: "== — равенство значений, is — тождество объектов."
+
+  - id: q3
+    type: find_bug
+    prompt: "Проверка иногда работает, а иногда нет. Почему?"
+    code: |
+      def is_admin(user_id):
+          return user_id is 100500
+    options:
+      - text: "is сравнивает тождество объектов, а не значения; большие числа могут быть разными объектами — нужно =="
+        correct: true
+        why: "Работает только благодаря деталям реализации."
+      - text: "Число нужно взять в кавычки"
+        why: "Проблема в операторе is."
+      - text: "Функция должна возвращать строку"
+        why: "Возврат bool корректен."
+    explanation: "Значения сравнивают через ==; is — для None, True, False, Enum и маркеров."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def f(items):
+          items.append(3)
+          items = [0]
+          items.append(9)
+
+
+      data = [1, 2]
+      f(data)
+      print(data)
+    options:
+      - text: "`[1, 2, 3]`"
+        correct: true
+        why: "append(3) меняет исходный список; после items = [0] имя указывает на новый список."
+      - text: "`[0, 9]`"
+        why: "Переназначение параметра не затрагивает data."
+      - text: "`[1, 2]`"
+        why: "Первый append изменил переданный объект."
+    explanation: "Изменение объекта видно снаружи, переназначение имени — нет."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      s = "ml"
+      t = s
+      s += "ops"
+      nums = [1]
+      alias = nums
+      nums += [2]
+      print(t, alias)
+    options:
+      - text: "`ml [1, 2]`"
+        correct: true
+        why: "Строка неизменяема — += создаёт новую; список меняется на месте."
+      - text: "`mlops [1, 2]`"
+        why: "t указывает на старую строку."
+      - text: "`ml [1]`"
+        why: "+= для списка вызывает extend на том же объекте."
+    explanation: "+= с неизменяемыми создаёт новый объект, с изменяемыми списками — меняет на месте."
+
+  - id: q6
+    type: multiple
+    prompt: "В каких случаях уместно сравнение через `is`? Выберите все."
+    options:
+      - text: "`if result is None:`"
+        correct: true
+        why: "None — синглтон."
+      - text: "`if status is Status.DONE:` (член Enum)"
+        correct: true
+        why: "Члены Enum существуют в одном экземпляре."
+      - text: "`if item is sentinel:` где `sentinel = object()`"
+        correct: true
+        why: "Маркер уникален по построению."
+      - text: "`if name is \"admin\":`"
+        why: "Строки сравнивают через ==."
+    explanation: "is — для объектов-одиночек; значения — через ==."
+
+tasks:
+  - id: t1
+    title: "Функции без побочных эффектов"
+    difficulty: 1
+    statement: |
+      Напишите функции, которые **не изменяют** аргументы и возвращают новые объекты:
+
+      - `with_tag(tags, tag)` — новый список с добавленным тегом (если тег уже есть — копия без изменений);
+      - `scaled(scores, factor)` — новый словарь, где каждое значение умножено на `factor`;
+      - `sorted_desc(values)` — новый список по убыванию.
+    examples:
+      - input: "with_tag([\"nlp\"], \"rag\")"
+        output: "['nlp', 'rag']"
+    starter: |
+      def with_tag(tags, tag):
+          tags.append(tag)
+          return tags
+
+
+      def scaled(scores, factor):
+          for key in scores:
+              scores[key] *= factor
+          return scores
+
+
+      def sorted_desc(values):
+          values.sort(reverse=True)
+          return values
+    hints:
+      - "`list(tags)` создаёт копию списка; `tags + [tag]` — новый список."
+      - "`{key: value * factor for key, value in scores.items()}`; `sorted(values, reverse=True)`."
+    solution: |
+      def with_tag(tags, tag):
+          """Новый список тегов с tag."""
+          if tag in tags:
+              return list(tags)
+          return tags + [tag]
+
+
+      def scaled(scores, factor):
+          """Новый словарь с умноженными значениями."""
+          return {key: value * factor for key, value in scores.items()}
+
+
+      def sorted_desc(values):
+          """Новый список по убыванию."""
+          return sorted(values, reverse=True)
+    solution_explanation: "Каждая функция строит новый объект, поэтому вызывающий код может не бояться, что его данные изменятся. Такие функции проще тестировать и безопасно вызывать повторно."
+    tests:
+      - name: "Пример"
+        call: "with_tag([\"nlp\"], \"rag\")"
+        expected: "['nlp', 'rag']"
+      - name: "with_tag не меняет аргумент"
+        code: |
+          tags = ["a"]
+          result = with_tag(tags, "a")
+          assert tags == ["a"] and result == ["a"] and result is not tags
+          with_tag(tags, "b")
+          assert tags == ["a"]
+      - name: "scaled"
+        code: |
+          scores = {"bert": 0.5, "gpt": 0.25}
+          result = scaled(scores, 2)
+          assert result == {"bert": 1.0, "gpt": 0.5} and scores == {"bert": 0.5, "gpt": 0.25}
+      - name: "sorted_desc"
+        code: |
+          values = [3, 1, 2]
+          assert sorted_desc(values) == [3, 2, 1] and values == [3, 1, 2]
+      - name: "Новые объекты"
+        code: |
+          d = {}
+          assert scaled(d, 3) is not d and sorted_desc([]) == []
+
+  - id: t2
+    title: "Поиск псевдонимов"
+    difficulty: 2
+    statement: |
+      В списке могут оказаться одни и те же объекты несколько раз (через псевдонимы). Напишите:
+
+      - `alias_pairs(items)` — список пар индексов `(i, j)`, `i < j`, где `items[i] is items[j]` (по возрастанию);
+      - `count_distinct_objects(items)` — сколько **разных объектов** в списке (по `id`, а не по равенству).
+    examples:
+      - input: "a = [1]; alias_pairs([a, [1], a])"
+        output: "[(0, 2)]"
+    starter: |
+      def alias_pairs(items):
+          return [(i, j) for i in range(len(items)) for j in range(i + 1, len(items)) if items[i] == items[j]]
+
+
+      def count_distinct_objects(items):
+          return len(items)
+    hints:
+      - "Сравнение тождества — `is`; двойной цикл по `i < j`."
+      - "`len({id(item) for item in items})` — множество идентификаторов."
+    solution: |
+      def alias_pairs(items):
+          """Пары индексов одних и тех же объектов."""
+          return [
+              (i, j)
+              for i in range(len(items))
+              for j in range(i + 1, len(items))
+              if items[i] is items[j]
+          ]
+
+
+      def count_distinct_objects(items):
+          """Число различных объектов в списке."""
+          return len({id(item) for item in items})
+    solution_explanation: "Равные объекты (==) и один и тот же объект (is) — разные вещи: два списка [1] равны, но независимы, а псевдонимы — это один список с разными ярлыками."
+    tests:
+      - name: "Пример"
+        code: |
+          a = [1]
+          assert alias_pairs([a, [1], a]) == [(0, 2)]
+      - name: "Равные, но разные"
+        code: |
+          rows = [{"x": 1}, {"x": 1}, {"x": 1}]
+          assert alias_pairs(rows) == [] and count_distinct_objects(rows) == 3
+      - name: "Ловушка [[]] * 3"
+        code: |
+          grid = [[]] * 3
+          assert alias_pairs(grid) == [(0, 1), (0, 2), (1, 2)] and count_distinct_objects(grid) == 1
+      - name: "Смешанный список"
+        code: |
+          a, b = [], {}
+          items = [a, b, a, b, a]
+          assert count_distinct_objects(items) == 2
+          assert alias_pairs(items) == [(0, 2), (0, 4), (1, 3), (2, 4)]
+      - name: "Пусто"
+        call: "[alias_pairs([]), count_distinct_objects([])]"
+        expected: "[[], 0]"
+
+  - id: t3
+    title: "Истории из шаблона"
+    difficulty: 2
+    statement: |
+      Шаблон диалога — список словарей-сообщений. Напишите `start_history(template, user_message)`: новая история = **копии** всех сообщений шаблона + сообщение `{"role": "user", "content": user_message}`. Ни шаблон, ни его словари не должны меняться при изменении истории.
+    examples:
+      - input: "start_history([{\"role\": \"system\", \"content\": \"Будь краток\"}], \"Привет\")"
+        output: "[{'role': 'system', 'content': 'Будь краток'}, {'role': 'user', 'content': 'Привет'}]"
+    starter: |
+      def start_history(template, user_message):
+          template.append({"role": "user", "content": user_message})
+          return template
+    hints:
+      - "Копия списка `list(template)` не копирует словари внутри — они останутся общими."
+      - "`[dict(message) for message in template]`, затем append нового сообщения."
+    solution: |
+      def start_history(template, user_message):
+          """Новая история диалога на основе шаблона."""
+          history = [dict(message) for message in template]
+          history.append({"role": "user", "content": user_message})
+          return history
+    solution_explanation: "Копируется и список, и каждый словарь внутри. Если скопировать только список, изменение history[0]['content'] изменило бы и шаблон: словари остались бы общими."
+    tests:
+      - name: "Пример"
+        call: "start_history([{\"role\": \"system\", \"content\": \"Будь краток\"}], \"Привет\")"
+        expected: "[{'role': 'system', 'content': 'Будь краток'}, {'role': 'user', 'content': 'Привет'}]"
+      - name: "Шаблон не меняется"
+        code: |
+          template = [{"role": "system", "content": "A"}]
+          history = start_history(template, "x")
+          history.append({"role": "assistant", "content": "y"})
+          history[0]["content"] = "Изменено"
+          assert template == [{"role": "system", "content": "A"}], template
+      - name: "Истории независимы"
+        code: |
+          template = [{"role": "system", "content": "A"}]
+          h1 = start_history(template, "1")
+          h2 = start_history(template, "2")
+          h1[0]["content"] = "B"
+          assert h2[0]["content"] == "A" and h1[0] is not h2[0]
+      - name: "Пустой шаблон"
+        call: "start_history([], \"hi\")"
+        expected: "[{'role': 'user', 'content': 'hi'}]"
+      - name: "Новый объект"
+        code: |
+          template = []
+          assert start_history(template, "x") is not template and template == []
+
+  - id: t4
+    title: "Кэш, который нельзя испортить"
+    difficulty: 3
+    statement: |
+      Создайте класс `SafeCache`:
+
+      - `put(key, value)` — сохраняет **копию** значения: список копируется через `list(...)`, словарь — через `dict(...)`, остальные значения хранятся как есть;
+      - `get(key, default=None)` — возвращает **копию** сохранённого списка или словаря (остальное — как есть);
+      - `len(cache)`.
+
+      Изменение объекта, переданного в `put`, или объекта, полученного из `get`, не должно менять содержимое кэша.
+    examples:
+      - input: "c = SafeCache(); emb = [0.1, 0.2]; c.put(\"кот\", emb); emb.append(9); c.get(\"кот\")"
+        output: "[0.1, 0.2]"
+    starter: |
+      class SafeCache:
+          def __init__(self):
+              self.data = {}
+
+          def put(self, key, value):
+              self.data[key] = value
+
+          def get(self, key, default=None):
+              return self.data.get(key, default)
+    hints:
+      - "Вспомогательный статический метод `_copy(value)`: `if isinstance(value, list): return list(value)`, аналогично для dict."
+      - "Копируйте и в `put`, и в `get`; отсутствующий ключ — `default` как есть."
+    solution: |
+      class SafeCache:
+          """Кэш, защищённый от изменений через внешние ссылки."""
+
+          def __init__(self):
+              self._data = {}
+
+          @staticmethod
+          def _copy(value):
+              if isinstance(value, list):
+                  return list(value)
+              if isinstance(value, dict):
+                  return dict(value)
+              return value
+
+          def put(self, key, value):
+              self._data[key] = self._copy(value)
+
+          def get(self, key, default=None):
+              if key not in self._data:
+                  return default
+              return self._copy(self._data[key])
+
+          def __len__(self):
+              return len(self._data)
+    solution_explanation: "Кэш хранит собственные копии и отдаёт копии: ни у кого снаружи нет ссылки на внутренние объекты, поэтому испортить кэш через псевдоним невозможно. Это тот же приём, что и возврат копий из свойств в блоке 2.1."
+    tests:
+      - name: "Пример"
+        code: |
+          c = SafeCache()
+          emb = [0.1, 0.2]
+          c.put("кот", emb)
+          emb.append(9)
+          assert c.get("кот") == [0.1, 0.2]
+      - name: "Изменение результата get"
+        code: |
+          c = SafeCache()
+          c.put("cfg", {"lr": 0.1})
+          got = c.get("cfg")
+          got["lr"] = 99
+          assert c.get("cfg") == {"lr": 0.1} and c.get("cfg") is not c.get("cfg")
+      - name: "Неизменяемые значения"
+        code: |
+          c = SafeCache()
+          c.put("n", 5)
+          c.put("t", (1, 2))
+          assert c.get("n") == 5 and c.get("t") == (1, 2)
+      - name: "default и len"
+        code: |
+          c = SafeCache()
+          marker = []
+          assert c.get("нет", marker) is marker and len(c) == 0
+          c.put("a", [])
+          c.put("a", [1])
+          assert len(c) == 1 and c.get("a") == [1]
+      - name: "Кэши независимы"
+        code: |
+          a, b = SafeCache(), SafeCache()
+          a.put("x", 1)
+          assert b.get("x") is None

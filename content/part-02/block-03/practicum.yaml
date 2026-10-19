@@ -1,0 +1,666 @@
+title: "Практикум: итераторы и генераторы"
+description: |
+  Вопросы и задачи по всему блоку: протокол итерации, генераторы, ленивые вычисления, конвейеры, itertools и батчинг.
+  Последняя задача — мини-проект «Ленивый обработчик большого лог-файла по батчам».
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      nums = [1, 2, 3]
+      it = iter(nums)
+      print(next(it), list(it), list(nums))
+    options:
+      - text: "`1 [2, 3] [1, 2, 3]`"
+        correct: true
+        why: "Итератор продвинулся, а список остался полным."
+      - text: "`1 [1, 2, 3] [1, 2, 3]`"
+        why: "next уже забрал первый элемент итератора."
+      - text: "`1 [2, 3] [2, 3]`"
+        why: "Список не меняется при переборе его итератора."
+    explanation: "Итерируемый объект порождает независимые итераторы; итератор помнит позицию."
+
+  - id: q2
+    type: single
+    prompt: "Что должен делать `__next__`, когда элементы закончились?"
+    options:
+      - text: "Бросить StopIteration"
+        correct: true
+        why: "Это сигнал для for, list и других потребителей."
+      - text: "Вернуть None"
+        why: "None — обычное значение; цикл станет бесконечным."
+      - text: "Вернуть self"
+        why: "self возвращает __iter__, а не __next__."
+      - text: "Бросить IndexError"
+        why: "IndexError — для запасного протокола через __getitem__."
+    explanation: "StopIteration — стандартный конец итерации."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Bag:
+          def __init__(self, items):
+              self.items = items
+
+          def __iter__(self):
+              for item in self.items:
+                  yield item * 2
+
+
+      bag = Bag([1, 2])
+      print(list(bag), list(bag))
+    options:
+      - text: "`[2, 4] [2, 4]`"
+        correct: true
+        why: "__iter__-генератор при каждом вызове создаёт новый генератор."
+      - text: "`[2, 4] []`"
+        why: "Одноразов генератор, а не объект Bag."
+      - text: "`[1, 2] [1, 2]`"
+        why: "Генератор выдаёт удвоенные значения."
+    explanation: "__iter__ с yield — простой способ сделать многоразовую коллекцию."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def gen():
+          yield 1
+          return
+          yield 2
+
+
+      print(list(gen()))
+    options:
+      - text: "`[1]`"
+        correct: true
+        why: "return завершает генератор; yield 2 недостижим."
+      - text: "`[1, 2]`"
+        why: "После return генератор завершён."
+      - text: "`[]`"
+        why: "Первый yield выполняется до return."
+    explanation: "return в генераторе — конец перебора."
+
+  - id: q5
+    type: find_bug
+    prompt: "Почему вторая статистика всегда равна 0?"
+    code: |
+      scores = (float(line) for line in ["0.9", "0.8", "0.7"])
+      best = max(scores)
+      total = sum(scores)
+    options:
+      - text: "Генераторное выражение исчерпано вызовом max — для двух проходов нужен список"
+        correct: true
+        why: "Генератор одноразовый."
+      - text: "sum не работает с float"
+        why: "Работает."
+      - text: "max изменяет элементы генератора"
+        why: "max только читает, но при этом исчерпывает генератор."
+    explanation: "Генератор — для одного прохода; несколько проходов — список или повторное создание."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      calls = 0
+
+
+      def check(x):
+          global calls
+          calls += 1
+          return x > 10
+
+
+      print(any(check(x) for x in [5, 20, 30, 40]), calls)
+    options:
+      - text: "`True 2`"
+        correct: true
+        why: "any останавливается на первом истинном — на 20."
+      - text: "`True 4`"
+        why: "Так было бы со списком: все проверки до вызова any."
+      - text: "`True 1`"
+        why: "Первая проверка (5) ложна, нужна вторая."
+    explanation: "Генераторное выражение + any/all = ранняя остановка."
+
+  - id: q7
+    type: single
+    prompt: "Какое утверждение о `range(10**12)` верно?"
+    options:
+      - text: "Создаётся мгновенно и почти не занимает памяти; поддерживает len, индексы и in"
+        correct: true
+        why: "range — ленивая многоразовая последовательность."
+      - text: "Занимает около 8 ТБ памяти"
+        why: "range не хранит элементы."
+      - text: "Это одноразовый итератор"
+        why: "range можно перебирать многократно."
+      - text: "Проверка 10**11 in r перебирает элементы"
+        why: "Проверка выполняется арифметикой."
+    explanation: "range вычисляет элементы по формуле."
+
+  - id: q8
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def inner():
+          yield "a"
+          yield "b"
+
+
+      def outer():
+          yield "start"
+          yield from inner()
+          yield "end"
+
+
+      print(list(outer()))
+    options:
+      - text: "`['start', 'a', 'b', 'end']`"
+        correct: true
+        why: "yield from выдаёт элементы вложенного генератора по одному."
+      - text: "`['start', <generator>, 'end']`"
+        why: "yield from раскрывает генератор."
+      - text: "`['start', 'end']`"
+        why: "Элементы inner тоже выдаются."
+    explanation: "yield from — делегирование перебора."
+
+  - id: q9
+    type: multiple
+    prompt: "Что верно про конвейер генераторов `c(b(a(source)))`? Выберите все."
+    options:
+      - text: "Первый элемент проходит все звенья раньше, чем источник прочитает второй"
+        correct: true
+        why: "Элементы проходят конвейер по одному."
+      - text: "Звено с sorted() внутри загрузит весь поток в память"
+        correct: true
+        why: "Сортировка требует всех элементов."
+      - text: "Конвейер можно перебрать повторно"
+        why: "Цепочка генераторов одноразовая."
+      - text: "Каждое звено можно протестировать на маленьком списке"
+        correct: true
+        why: "Звено принимает любой итерируемый объект."
+    explanation: "Конвейер — ленивая композиция маленьких звеньев."
+
+  - id: q10
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from itertools import groupby
+
+      data = sorted(["b1", "a1", "b2", "a2", "a3"])
+      print({k: len(list(g)) for k, g in groupby(data, key=lambda s: s[0])})
+    options:
+      - text: "`{'a': 3, 'b': 2}`"
+        correct: true
+        why: "После сортировки одинаковые ключи идут подряд."
+      - text: "`{'b': 1, 'a': 1}`"
+        why: "Данные отсортированы — группы полные."
+      - text: "`{'a': 1, 'b': 1}`"
+        why: "len(list(g)) считает элементы группы."
+    explanation: "sorted + groupby по одному ключу = группировка всех одинаковых."
+
+  - id: q11
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from itertools import islice, count
+
+      evens = (n for n in count() if n % 2 == 0)
+      print(list(islice(evens, 3)), next(evens))
+    options:
+      - text: "`[0, 2, 4] 6`"
+        correct: true
+        why: "islice забрал три элемента, next продолжает с места остановки."
+      - text: "`[0, 2, 4] 0`"
+        why: "Генератор помнит позицию."
+      - text: "Бесконечный цикл"
+        why: "islice ограничивает перебор."
+    explanation: "islice — ленивый срез, безопасный для бесконечных итераторов."
+
+  - id: q12
+    type: single
+    prompt: "Почему `DataLoader` перемешивает данные в начале каждой эпохи, а не один раз?"
+    options:
+      - text: "Чтобы в каждой эпохе модель видела примеры в новом порядке и не подстраивалась под него"
+        correct: true
+        why: "Разный порядок по эпохам улучшает обучение."
+      - text: "Чтобы ускорить загрузку данных"
+        why: "Перемешивание не ускоряет загрузку."
+      - text: "Так требует random.shuffle"
+        why: "Это решение дизайна загрузчика."
+      - text: "Чтобы уменьшить размер батча"
+        why: "Размер батча не зависит от перемешивания."
+    explanation: "Новый порядок в каждой эпохе — стандарт обучения на мини-батчах."
+
+  - id: q13
+    type: multiple
+    prompt: "Что делает функция collate в загрузчике данных? Выберите все подходящие описания."
+    options:
+      - text: "Превращает список примеров в структуру «по столбцам»"
+        correct: true
+        why: "Список словарей → словарь списков."
+      - text: "Может дополнять последовательности до одной длины (padding)"
+        correct: true
+        why: "И строить маску внимания."
+      - text: "Перемешивает датасет"
+        why: "Это делает загрузчик перед нарезкой на батчи."
+      - text: "Скачивает данные из интернета"
+        why: "collate работает с уже загруженным батчем."
+    explanation: "collate_fn собирает батч в формат, который ждёт модель."
+
+tasks:
+  - id: t1
+    title: "Постраничный вывод"
+    difficulty: 2
+    statement: |
+      Создайте многоразовый итерируемый класс `Paginator(items, page_size)`:
+
+      - перебор выдаёт страницы — списки по `page_size` элементов;
+      - `len(paginator)` — число страниц;
+      - `page(number)` — страница по номеру **с 1**; номер вне диапазона → `IndexError`;
+      - `page_size < 1` → `ValueError`; элементы копируются.
+    examples:
+      - input: "list(Paginator(range(5), 2))"
+        output: "[[0, 1], [2, 3], [4]]"
+    starter: |
+      class Paginator:
+          def __init__(self, items, page_size):
+              self.items = items
+              self.page_size = page_size
+    hints:
+      - "`__iter__` как генератор: `for start in range(0, len(self._items), self.page_size): yield self._items[start:start + self.page_size]`."
+      - "page: `if not 1 <= number <= len(self): raise IndexError(...)`; начало — `(number - 1) * self.page_size`."
+    solution: |
+      class Paginator:
+          """Разбиение коллекции на страницы."""
+
+          def __init__(self, items, page_size):
+              if page_size < 1:
+                  raise ValueError("размер страницы должен быть положительным")
+              self._items = list(items)
+              self.page_size = page_size
+
+          def __len__(self):
+              return (len(self._items) + self.page_size - 1) // self.page_size
+
+          def __iter__(self):
+              for start in range(0, len(self._items), self.page_size):
+                  yield self._items[start:start + self.page_size]
+
+          def page(self, number):
+              if not 1 <= number <= len(self):
+                  raise IndexError(f"страницы {number} нет, всего {len(self)}")
+              start = (number - 1) * self.page_size
+              return self._items[start:start + self.page_size]
+    solution_explanation: "Генератор в __iter__ делает пагинатор многоразовым, а __len__ и page дают произвольный доступ — то, чего нет у обычного итератора."
+    tests:
+      - name: "Пример"
+        call: "list(Paginator(range(5), 2))"
+        expected: "[[0, 1], [2, 3], [4]]"
+      - name: "len и page"
+        code: |
+          p = Paginator("abcdefg", 3)
+          assert len(p) == 3 and p.page(3) == ["g"] and p.page(1) == ["a", "b", "c"]
+      - name: "Многоразовость"
+        code: |
+          p = Paginator([1, 2, 3], 2)
+          assert list(p) == list(p)
+      - name: "Ошибки"
+        code: |
+          p = Paginator([1, 2, 3], 2)
+          for bad in (0, 3):
+              try:
+                  p.page(bad)
+              except IndexError:
+                  pass
+              else:
+                  raise AssertionError(f"page({bad}) должен бросать IndexError")
+          try:
+              Paginator([1], 0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Пустой список"
+        call: "[len(Paginator([], 5)), list(Paginator([], 5))]"
+        expected: "[0, []]"
+
+  - id: t2
+    title: "Скользящее среднее"
+    difficulty: 2
+    statement: |
+      Генератор `moving_average(values, window)` выдаёт среднее последних `window` значений, начиная с момента, когда их накопилось `window` (округление до 4 знаков). Должен работать с потоком: хранить только последние `window` значений. `window < 1` → `ValueError` при первом запросе.
+    examples:
+      - input: "list(moving_average([1, 2, 3, 4, 5], 3))"
+        output: "[2.0, 3.0, 4.0]"
+    starter: |
+      def moving_average(values, window):
+          values = list(values)
+          return [sum(values[i:i + window]) / window for i in range(len(values))]
+    hints:
+      - "Держите список `recent` и текущую сумму `total`: добавляйте новое значение, при превышении окна вычитайте и удаляйте самое старое (`recent.pop(0)`)."
+      - "Выдавайте `round(total / window, 4)`, когда `len(recent) == window`."
+    solution: |
+      def moving_average(values, window):
+          """Скользящее среднее по окну фиксированного размера."""
+          if window < 1:
+              raise ValueError("окно должно быть положительным")
+          recent = []
+          total = 0
+          for value in values:
+              recent.append(value)
+              total += value
+              if len(recent) > window:
+                  total -= recent.pop(0)
+              if len(recent) == window:
+                  yield round(total / window, 4)
+    solution_explanation: "Бегущая сумма избавляет от пересчёта суммы окна на каждом шаге, а в памяти хранится только окно. Скользящее среднее сглаживает «шумные» кривые loss при обучении."
+    tests:
+      - name: "Пример"
+        call: "list(moving_average([1, 2, 3, 4, 5], 3))"
+        expected: "[2.0, 3.0, 4.0]"
+      - name: "Окно 1 и окно больше данных"
+        call: "[list(moving_average([4, 6], 1)), list(moving_average([1, 2], 5))]"
+        expected: "[[4.0, 6.0], []]"
+      - name: "Округление"
+        call: "list(moving_average([1, 2, 2], 3))"
+        expected: "[1.6667]"
+      - name: "Бесконечный поток"
+        code: |
+          from itertools import count
+          g = moving_average(count(), 2)
+          assert [next(g) for _ in range(3)] == [0.5, 1.5, 2.5]
+      - name: "Неверное окно"
+        code: |
+          try:
+              next(moving_average([1], 0))
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+
+  - id: t3
+    title: "Слияние отсортированных потоков"
+    difficulty: 3
+    statement: |
+      Генератор `merge_sorted(a, b)` лениво сливает два **отсортированных** итерируемых объекта в один отсортированный поток (при равенстве первым идёт элемент из `a`). Нельзя превращать входы в списки — они могут быть огромными файлами. Используйте `next` со значением-маркером.
+    examples:
+      - input: "list(merge_sorted([1, 4, 9], [2, 3, 10]))"
+        output: "[1, 2, 3, 4, 9, 10]"
+    starter: |
+      def merge_sorted(a, b):
+          return sorted(list(a) + list(b))
+    hints:
+      - "`it_a, it_b = iter(a), iter(b)`, `end = object()`, `x, y = next(it_a, end), next(it_b, end)`."
+      - "Пока оба не `end`: выдавайте меньший и берите следующий из его потока. Когда один кончился — выдайте текущий элемент другого и `yield from` его остаток."
+    solution: |
+      def merge_sorted(a, b):
+          """Слить два отсортированных потока в один."""
+          end = object()
+          it_a, it_b = iter(a), iter(b)
+          x, y = next(it_a, end), next(it_b, end)
+          while x is not end and y is not end:
+              if y < x:
+                  yield y
+                  y = next(it_b, end)
+              else:
+                  yield x
+                  x = next(it_a, end)
+          if x is not end:
+              yield x
+              yield from it_a
+          if y is not end:
+              yield y
+              yield from it_b
+    solution_explanation: "В памяти — по одному текущему элементу из каждого потока. Так сливают отсортированные куски при внешней сортировке файлов, которые не помещаются в память; в стандартной библиотеке есть готовый heapq.merge."
+    tests:
+      - name: "Пример"
+        call: "list(merge_sorted([1, 4, 9], [2, 3, 10]))"
+        expected: "[1, 2, 3, 4, 9, 10]"
+      - name: "Пустые входы"
+        call: "[list(merge_sorted([], [1, 2])), list(merge_sorted([3], [])), list(merge_sorted([], []))]"
+        expected: "[[1, 2], [3], []]"
+      - name: "Равные элементы — сначала из a"
+        call: "list(merge_sorted([(1, 'a')], [(1, 'b')]))"
+        expected: "[(1, 'a'), (1, 'b')]"
+      - name: "Ленивость"
+        code: |
+          from itertools import count
+          g = merge_sorted(count(0, 2), count(1, 2))
+          assert [next(g) for _ in range(5)] == [0, 1, 2, 3, 4]
+      - name: "Строки"
+        call: "list(merge_sorted(\"aceg\", \"bdf\"))"
+        expected: "['a', 'b', 'c', 'd', 'e', 'f', 'g']"
+
+  - id: t4
+    title: "Дневной отчёт по токенам"
+    difficulty: 2
+    statement: |
+      События — кортежи `(date, user, tokens)`, **отсортированные по дате**. С помощью `itertools`:
+
+      - `daily_report(events)` — список кортежей `(date, число_уникальных_пользователей, сумма_токенов)` по дням (`groupby`);
+      - `running_total(events)` — список накопленной суммы токенов после каждого события (`accumulate`);
+      - `first_over(events, limit)` — дата события, на котором накопленная сумма впервые превысила `limit`, или `None`.
+    examples:
+      - input: "daily_report([(\"05-01\", \"ada\", 100), (\"05-01\", \"alan\", 50), (\"05-01\", \"ada\", 30), (\"05-02\", \"ada\", 70)])"
+        output: "[('05-01', 2, 180), ('05-02', 1, 70)]"
+    starter: |
+      def daily_report(events):
+          report = {}
+          for date, user, tokens in events:
+              report[date] = report.get(date, 0) + tokens
+          return list(report.items())
+    hints:
+      - "`for date, group in groupby(events, key=lambda e: e[0]):` → `rows = list(group)`, пользователи — `{user for _, user, _ in rows}`."
+      - "`list(accumulate(tokens for _, _, tokens in events))`; first_over — `next` по `zip(events, накопленные_суммы)`."
+    solution: |
+      from itertools import accumulate, groupby
+
+
+      def daily_report(events):
+          """Уникальные пользователи и токены по дням."""
+          report = []
+          for date, group in groupby(events, key=lambda event: event[0]):
+              rows = list(group)
+              users = {user for _, user, _ in rows}
+              report.append((date, len(users), sum(tokens for _, _, tokens in rows)))
+          return report
+
+
+      def running_total(events):
+          """Накопленная сумма токенов."""
+          return list(accumulate(tokens for _, _, tokens in events))
+
+
+      def first_over(events, limit):
+          """Дата, когда накопленная сумма впервые превысила limit."""
+          totals = accumulate(tokens for _, _, tokens in events)
+          return next((event[0] for event, total in zip(events, totals) if total > limit), None)
+    solution_explanation: "groupby по отсортированной дате даёт группы дней за один проход. accumulate превращает поток расходов в поток накопленных сумм, а next с генератором находит момент превышения бюджета."
+    tests:
+      - name: "Пример"
+        call: "daily_report([(\"05-01\", \"ada\", 100), (\"05-01\", \"alan\", 50), (\"05-01\", \"ada\", 30), (\"05-02\", \"ada\", 70)])"
+        expected: "[('05-01', 2, 180), ('05-02', 1, 70)]"
+      - name: "running_total"
+        call: "running_total([(\"d1\", \"a\", 10), (\"d1\", \"b\", 5), (\"d2\", \"a\", 7)])"
+        expected: "[10, 15, 22]"
+      - name: "first_over"
+        call: "[first_over([(\"d1\", \"a\", 10), (\"d2\", \"b\", 5), (\"d3\", \"a\", 7)], 12), first_over([(\"d1\", \"a\", 1)], 5)]"
+        expected: "['d2', None]"
+      - name: "Пусто"
+        call: "[daily_report([]), running_total([])]"
+        expected: "[[], []]"
+
+  - id: t5
+    title: "Мини-проект: ленивый обработчик логов"
+    difficulty: 3
+    mini_project: true
+    statement: |
+      Обработайте лог любого размера, не загружая его в память. Строка лога:
+
+      ```
+      2024-05-01T10:00:01 ERROR embed 950 timeout from provider
+      ```
+
+      — время, уровень (`DEBUG`, `INFO`, `WARNING`, `ERROR`), сервис, время ответа в мс (целое), сообщение (может содержать пробелы, может отсутствовать).
+
+      Реализуйте:
+
+      1. `parse_line(line)` — словарь `{"ts", "level", "service", "ms", "message"}` или `None` для некорректной строки (меньше 4 полей, неизвестный уровень, `ms` не число). Сообщение без пробелов по краям (пустая строка, если его нет).
+      2. Генератор `read_lines(path)` — строки файла без символа перевода строки.
+      3. Генератор `parse(lines, levels=None)` — корректные записи; если задан набор `levels`, только с этими уровнями.
+      4. Генератор `batches(records, size)` — списки по `size` записей (последний может быть короче).
+      5. Генератор `process(lines, batch_size, levels=None)` — для каждого батча словарь-сводку:
+         `{"batch": номер с 1, "count": записей, "errors": записей ERROR, "avg_ms": среднее ms с округлением до 1 знака, "slowest": сервис самой медленной записи}`.
+      6. `summarize(summaries)` — итог за **один проход** по сводкам (они могут быть генератором): `{"batches", "records", "errors", "avg_ms"}`, где `avg_ms` — среднее по всем записям (взвешенное по `count`), округлённое до 1 знака; для пустого входа `avg_ms` = `0.0`.
+
+      Обработка должна быть ленивой: первая сводка выдаётся, как только прочитаны строки первого батча.
+    examples:
+      - input: "parse_line(\"2024-05-01T10:00:01 ERROR embed 950 timeout from provider\")"
+        output: "{'ts': '2024-05-01T10:00:01', 'level': 'ERROR', 'service': 'embed', 'ms': 950, 'message': 'timeout from provider'}"
+    starter: |
+      def parse_line(line):
+          ts, level, service, ms, message = line.split()
+          return {"ts": ts, "level": level, "service": service, "ms": int(ms), "message": message}
+
+
+      def process(lines, batch_size, levels=None):
+          records = [parse_line(line) for line in lines]
+          return records
+    hints:
+      - "parse_line: `parts = line.split(maxsplit=4)` — сообщение с пробелами останется одной частью; проверьте `len(parts) >= 4`, уровень в `LEVELS` и `parts[3].isdigit()`."
+      - "process — конвейер: `for number, batch in enumerate(batches(parse(lines, levels), batch_size), start=1): yield {...}`. В summarize копите `records`, `errors` и сумму `avg_ms * count` — взвешенное среднее средних по батчам равно среднему по всем записям."
+    solution: |
+      from itertools import islice
+
+      LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR"}
+
+
+      def parse_line(line):
+          """Разобрать строку лога или вернуть None."""
+          parts = line.split(maxsplit=4)
+          if len(parts) < 4:
+              return None
+          ts, level, service, ms = parts[:4]
+          if level not in LEVELS or not ms.isdigit():
+              return None
+          message = parts[4].strip() if len(parts) == 5 else ""
+          return {"ts": ts, "level": level, "service": service, "ms": int(ms), "message": message}
+
+
+      def read_lines(path):
+          """Строки файла без перевода строки."""
+          with open(path, encoding="utf-8") as file:
+              for line in file:
+                  yield line.rstrip("\n")
+
+
+      def parse(lines, levels=None):
+          """Корректные записи, при необходимости — только заданных уровней."""
+          for line in lines:
+              record = parse_line(line)
+              if record is None:
+                  continue
+              if levels is not None and record["level"] not in levels:
+                  continue
+              yield record
+
+
+      def batches(records, size):
+          """Списки по size записей."""
+          iterator = iter(records)
+          while True:
+              batch = list(islice(iterator, size))
+              if not batch:
+                  return
+              yield batch
+
+
+      def process(lines, batch_size, levels=None):
+          """Сводки по батчам записей."""
+          for number, batch in enumerate(batches(parse(lines, levels), batch_size), start=1):
+              total_ms = sum(record["ms"] for record in batch)
+              slowest = max(batch, key=lambda record: record["ms"])
+              yield {
+                  "batch": number,
+                  "count": len(batch),
+                  "errors": sum(1 for record in batch if record["level"] == "ERROR"),
+                  "avg_ms": round(total_ms / len(batch), 1),
+                  "slowest": slowest["service"],
+              }
+
+
+      def summarize(summaries):
+          """Общий итог по сводкам за один проход."""
+          batches_count = records = errors = 0
+          weighted_ms = 0.0
+          for summary in summaries:
+              batches_count += 1
+              records += summary["count"]
+              errors += summary["errors"]
+              weighted_ms += summary["avg_ms"] * summary["count"]
+          avg_ms = round(weighted_ms / records, 1) if records else 0.0
+          return {"batches": batches_count, "records": records, "errors": errors, "avg_ms": avg_ms}
+    solution_explanation: |
+      Конвейер целиком ленивый: `read_lines` → `parse` → `batches` → `process` → `summarize`. В памяти одновременно — одна строка файла и один батч записей, поэтому обработчик справится и с логом на десятки гигабайт.
+
+      Приёмы из блока:
+
+      - `split(maxsplit=4)` отделяет четыре служебных поля, сохраняя пробелы в сообщении;
+      - `parse` — фильтр-преобразователь, работающий с любым источником строк: файлом, списком в тесте, сетевым потоком;
+      - `batches` — `islice` по одному итератору;
+      - `summarize` — однопроходная агрегация с накопителями, потому что сводки приходят генератором.
+
+      Небольшая неточность: `avg_ms` в сводках округлены, поэтому общий средний — приблизительный. Для точного значения в сводку можно добавить сумму `ms`.
+    tests:
+      - name: "parse_line"
+        call: "parse_line(\"2024-05-01T10:00:01 ERROR embed 950 timeout from provider\")"
+        expected: "{'ts': '2024-05-01T10:00:01', 'level': 'ERROR', 'service': 'embed', 'ms': 950, 'message': 'timeout from provider'}"
+      - name: "Некорректные строки"
+        call: "[parse_line(s) for s in (\"\", \"t INFO api\", \"t FATAL api 10\", \"t INFO api 1.5 x\")]"
+        expected: "[None, None, None, None]"
+      - name: "Без сообщения"
+        call: "parse_line(\"t INFO api 12\")[\"message\"]"
+        expected: "''"
+      - name: "Сводки по батчам"
+        code: |
+          lines = [
+              "t1 INFO chat 100 ok",
+              "t2 ERROR embed 900 timeout",
+              "мусор",
+              "t3 INFO chat 50",
+              "t4 ERROR chat 300 boom",
+              "t5 DEBUG search 10 x",
+          ]
+          result = list(process(lines, 2))
+          assert result == [
+              {"batch": 1, "count": 2, "errors": 1, "avg_ms": 500.0, "slowest": "embed"},
+              {"batch": 2, "count": 2, "errors": 1, "avg_ms": 175.0, "slowest": "chat"},
+              {"batch": 3, "count": 1, "errors": 0, "avg_ms": 10.0, "slowest": "search"},
+          ], result
+      - name: "Фильтр уровней и summarize"
+        code: |
+          lines = ["a ERROR x 100", "b INFO y 1", "c ERROR z 300", "d WARNING w 50"]
+          summary = summarize(process(lines, 10, levels={"ERROR", "WARNING"}))
+          assert summary == {"batches": 1, "records": 3, "errors": 2, "avg_ms": 150.0}, summary
+          assert summarize(iter([])) == {"batches": 0, "records": 0, "errors": 0, "avg_ms": 0.0}
+      - name: "Файл"
+        code: |
+          with open("app.log", "w", encoding="utf-8") as f:
+              f.write("t1 INFO chat 100 hi\nt2 ERROR embed 300 fail\n\nt3 INFO chat 200\n")
+          assert list(read_lines("app.log"))[0] == "t1 INFO chat 100 hi"
+          summary = summarize(process(read_lines("app.log"), 2))
+          assert summary == {"batches": 2, "records": 3, "errors": 1, "avg_ms": 200.0}, summary
+      - name: "Ленивость"
+        code: |
+          def lines():
+              yield "t1 INFO a 10"
+              yield "t2 INFO b 20"
+              raise RuntimeError("обработчик прочитал лишнее")
+          first = next(process(lines(), 2))
+          assert first["count"] == 2 and first["slowest"] == "b"
+      - name: "Генераторы"
+        code: |
+          import inspect
+          for fn in (read_lines, parse, batches, process):
+              assert inspect.isgeneratorfunction(fn), f"{fn.__name__} должен быть генератором"

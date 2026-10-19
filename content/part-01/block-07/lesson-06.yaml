@@ -1,0 +1,308 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import math
+      from math import ceil
+      print(math.floor(2.9), ceil(2.1), math.sqrt(9))
+    options:
+      - text: "`2 3 3.0`"
+        correct: true
+        why: "floor — вниз, ceil — вверх; sqrt возвращает float."
+      - text: "`3 3 3`"
+        why: "floor округляет вниз; sqrt даёт float."
+      - text: "Ошибку: нельзя импортировать модуль дважды разными способами"
+        why: "Можно — оба способа работают с одним закэшированным модулем."
+    explanation: "import m и from m import name можно сочетать."
+
+  - id: q2
+    type: single
+    prompt: "Зачем в ML-экспериментах фиксируют `random.seed(...)`?"
+    options:
+      - text: "Чтобы случайные операции (перемешивание, разбиение, инициализация) повторялись одинаково и эксперимент можно было воспроизвести"
+        correct: true
+        why: "Псевдослучайная последовательность определяется зерном."
+      - text: "Чтобы числа стали по-настоящему случайными"
+        why: "seed делает их как раз предсказуемыми."
+      - text: "Чтобы ускорить обучение"
+        why: "На скорость не влияет."
+      - text: "Чтобы защитить данные от взлома"
+        why: "Для безопасности нужен модуль secrets."
+    explanation: "Без seed нельзя отличить улучшение модели от удачного случайного разбиения."
+
+  - id: q3
+    type: find_bug
+    prompt: "В папке проекта лежит файл `random.py` с вашими экспериментами. Почему в другом файле `import random; random.randint(1, 6)` падает с AttributeError?"
+    code: |
+      import random
+      print(random.randint(1, 6))
+    options:
+      - text: "Python импортирует ваш файл random.py из папки проекта вместо стандартного модуля — в нём нет randint"
+        correct: true
+        why: "Папка скрипта стоит в sys.path раньше стандартной библиотеки. Переименуйте файл."
+      - text: "randint удалили из Python"
+        why: "Функция на месте."
+      - text: "Нужно писать from random import *"
+        why: "Это не решит проблему перекрытия модуля."
+    explanation: "Не называйте свои файлы как модули стандартной библиотеки и популярные пакеты."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from datetime import date, timedelta
+      start = date(2026, 12, 25)
+      end = start + timedelta(days=10)
+      print(end, (end - start).days)
+    options:
+      - text: "`2027-01-04 10`"
+        correct: true
+        why: "timedelta корректно переходит через конец месяца и года."
+      - text: "`2026-12-35 10`"
+        why: "Дата нормализуется — 35 декабря не существует."
+      - text: "`2027-01-05 10`"
+        why: "25 + 10 = 4 января (31 день в декабре)."
+    explanation: "Арифметика дат через timedelta учитывает длину месяцев и годов."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие утверждения о pathlib верны? Выберите все."
+    options:
+      - text: "`Path(\"data\") / \"train.csv\"` собирает путь правильно для любой ОС"
+        correct: true
+        why: "Оператор / — удобная и переносимая склейка путей."
+      - text: "`rglob(\"*.md\")` ищет файлы рекурсивно во всех подпапках"
+        correct: true
+        why: "r — recursive."
+      - text: "`Path(\"a/b.txt\").suffix` равно `\".txt\"`"
+        correct: true
+        why: "suffix — расширение с точкой."
+      - text: "Path — это обычная строка"
+        why: "Это объект с методами; строкой его делает str(path)."
+    explanation: "pathlib — современный способ работы с путями и файлами."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import random
+      a = random.Random(7).random()
+      b = random.Random(7).random()
+      print(a == b)
+    answer: "True"
+    explanation: "Генераторы с одинаковым зерном выдают одинаковые последовательности."
+
+tasks:
+  - id: t1
+    title: "Геометрия с math"
+    difficulty: 1
+    statement: |
+      Напишите `circle_stats(radius)`, возвращающую кортеж `(площадь, длина окружности)`, оба значения округлены до 3 знаков. Используйте `math.pi`. Для отрицательного радиуса бросьте `ValueError`.
+    examples:
+      - input: "circle_stats(2)"
+        output: "(12.566, 12.566)"
+    starter: |
+      def circle_stats(radius):
+          return 3.14 * radius ** 2, 2 * 3.14 * radius
+    hints:
+      - "`import math` в начале файла; площадь — `math.pi * radius ** 2`."
+      - "Охранное условие: `if radius < 0: raise ValueError(...)`."
+    solution: |
+      import math
+
+
+      def circle_stats(radius):
+          """Вернуть (площадь, длина окружности) круга с точностью до тысячных."""
+          if radius < 0:
+              raise ValueError(f"радиус не может быть отрицательным: {radius}")
+          return round(math.pi * radius ** 2, 3), round(2 * math.pi * radius, 3)
+    solution_explanation: "math.pi — точная константа вместо приблизительного 3.14; охранное условие — из урока про raise."
+    tests:
+      - name: "Радиус 2"
+        call: "circle_stats(2)"
+        expected: "(12.566, 12.566)"
+      - name: "Радиус 1"
+        call: "circle_stats(1)"
+        expected: "(3.142, 6.283)"
+      - name: "Ноль"
+        call: "circle_stats(0)"
+        expected: "(0.0, 0.0)"
+      - name: "Дробный"
+        call: "circle_stats(0.5)"
+        expected: "(0.785, 3.142)"
+      - name: "Отрицательный"
+        code: |
+          try:
+              circle_stats(-1)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+
+  - id: t2
+    title: "Воспроизводимое разбиение"
+    difficulty: 2
+    statement: |
+      Напишите `train_test_split(items, test_ratio=0.2, seed=42)`: перемешайте **копию** списка генератором `random.Random(seed)` и верните кортеж `(train, test)`, где в test — первые `ceil(len * test_ratio)` элементов перемешанного списка, в train — остальные. Исходный список не изменять.
+    examples:
+      - input: "train_test_split(list(range(10)))"
+        output: "([2, 8, 5, 6, 9, 4, 0, 1], [7, 3])"
+    starter: |
+      import random
+
+
+      def train_test_split(items, test_ratio=0.2, seed=42):
+          random.shuffle(items)
+          size = int(len(items) * test_ratio)
+          return items[size:], items[:size]
+    hints:
+      - "`rng = random.Random(seed)`, `shuffled = items[:]`, `rng.shuffle(shuffled)`."
+      - "`test_size = math.ceil(len(shuffled) * test_ratio)`."
+    solution: |
+      import math
+      import random
+
+
+      def train_test_split(items, test_ratio=0.2, seed=42):
+          """Перемешать копию items и разделить на (train, test)."""
+          rng = random.Random(seed)
+          shuffled = items[:]
+          rng.shuffle(shuffled)
+          test_size = math.ceil(len(shuffled) * test_ratio)
+          return shuffled[test_size:], shuffled[:test_size]
+    solution_explanation: "Отдельный генератор с seed даёт одинаковое разбиение при каждом запуске и не влияет на глобальный random. Копия защищает данные вызывающего кода."
+    tests:
+      - name: "Пример"
+        call: "train_test_split(list(range(10)))"
+        expected: "([2, 8, 5, 6, 9, 4, 0, 1], [7, 3])"
+      - name: "Исходный список не меняется"
+        code: |
+          data = [1, 2, 3, 4, 5]
+          train_test_split(data)
+          assert data == [1, 2, 3, 4, 5]
+      - name: "Ничего не потеряно"
+        code: |
+          data = list(range(37))
+          train, test = train_test_split(data, 0.3, seed=1)
+          assert sorted(train + test) == data and len(test) == 12
+      - name: "Воспроизводимость"
+        code: |
+          data = list(range(50))
+          assert train_test_split(data, seed=5) == train_test_split(data, seed=5)
+          assert train_test_split(data, seed=5) != train_test_split(data, seed=6)
+      - name: "Маленький датасет — тест не пуст"
+        code: |
+          train, test = train_test_split([1, 2, 3], 0.1)
+          assert len(test) == 1 and len(train) == 2
+
+  - id: t3
+    title: "Дни до дедлайна"
+    difficulty: 2
+    statement: |
+      Напишите `deadline_info(deadline, today)` — обе даты строками в формате `ГГГГ-ММ-ДД`. Вернуть строку:
+
+      - если дедлайн в будущем: `осталось <N> дн., до <день недели>` (день недели по-русски с маленькой буквы: понедельник … воскресенье);
+      - если сегодня: `дедлайн сегодня`;
+      - если прошёл: `просрочено на <N> дн.`.
+    examples:
+      - input: "deadline_info(\"2026-10-20\", \"2026-10-17\")"
+        output: "'осталось 3 дн., до вторник'"
+    starter: |
+      def deadline_info(deadline, today):
+          return int(deadline[-2:]) - int(today[-2:])
+    hints:
+      - "`from datetime import date`, `date.fromisoformat(...)`, разница дат — `(d1 - d2).days`."
+      - "Названия дней — список по индексу `weekday()` (0 — понедельник)."
+    solution: |
+      from datetime import date
+
+      WEEKDAYS = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+
+
+      def deadline_info(deadline, today):
+          """Описать, сколько дней осталось до дедлайна."""
+          end = date.fromisoformat(deadline)
+          now = date.fromisoformat(today)
+          days = (end - now).days
+          if days > 0:
+              return f"осталось {days} дн., до {WEEKDAYS[end.weekday()]}"
+          if days == 0:
+              return "дедлайн сегодня"
+          return f"просрочено на {-days} дн."
+    solution_explanation: "Сравнение дат через срезы строк ломается на переходе месяцев и лет; datetime считает правильно. weekday() — индекс в списке названий."
+    tests:
+      - name: "Через три дня"
+        call: "deadline_info(\"2026-10-20\", \"2026-10-17\")"
+        expected: "'осталось 3 дн., до вторник'"
+      - name: "Сегодня"
+        call: "deadline_info(\"2026-10-17\", \"2026-10-17\")"
+        expected: "'дедлайн сегодня'"
+      - name: "Просрочено"
+        call: "deadline_info(\"2026-10-01\", \"2026-10-17\")"
+        expected: "'просрочено на 16 дн.'"
+      - name: "Через границу года"
+        call: "deadline_info(\"2027-01-02\", \"2026-12-30\")"
+        expected: "'осталось 3 дн., до суббота'"
+      - name: "Високосный год"
+        call: "deadline_info(\"2028-03-01\", \"2028-02-28\")"
+        expected: "'осталось 2 дн., до среда'"
+
+  - id: t4
+    title: "Сбор документов для базы знаний"
+    difficulty: 3
+    statement: |
+      Напишите `collect_documents(folder, extensions=(".md", ".txt"))`: найти рекурсивно в папке все файлы с указанными расширениями (регистр расширения не важен), прочитать их в UTF-8 и вернуть список словарей `{"path": путь относительно folder через "/", "chars": число символов}`, отсортированный по пути. Пустые файлы пропускать. Если папки нет — вернуть пустой список.
+    examples:
+      - input: "collect_documents(\"kb\")"
+        output: "[{'path': 'faq.md', 'chars': 9}, {'path': 'guides/setup.TXT', 'chars': 11}, ...]"
+    files:
+      kb/faq.md: "# Вопросы"
+      kb/guides/setup.TXT: "Установка 1"
+      kb/guides/deep/api.md: "API: ключ"
+      kb/image.png: "не текст"
+      kb/empty.md: ""
+    starter: |
+      def collect_documents(folder, extensions=(".md", ".txt")):
+          return []
+    hints:
+      - "`from pathlib import Path`; `for path in Path(folder).rglob(\"*\")`, фильтр `path.is_file() and path.suffix.lower() in extensions`."
+      - "Относительный путь: `path.relative_to(folder).as_posix()`; текст — `path.read_text(encoding=\"utf-8\")`."
+    solution: |
+      from pathlib import Path
+
+
+      def collect_documents(folder, extensions=(".md", ".txt")):
+          """Найти текстовые документы в папке и вернуть их пути и размеры."""
+          root = Path(folder)
+          if not root.is_dir():
+              return []
+          documents = []
+          for path in root.rglob("*"):
+              if not path.is_file() or path.suffix.lower() not in extensions:
+                  continue
+              text = path.read_text(encoding="utf-8")
+              if text:
+                  documents.append({"path": path.relative_to(root).as_posix(), "chars": len(text)})
+          return sorted(documents, key=lambda doc: doc["path"])
+    solution_explanation: "rglob заменяет рекурсивный обход, suffix.lower() делает фильтр нечувствительным к регистру, as_posix() даёт одинаковые пути со «/» на любой ОС. Это первый шаг загрузки базы знаний в RAG (блок 7.5)."
+    tests:
+      - name: "Сбор документов"
+        call: "collect_documents(\"kb\")"
+        expected: "[{'path': 'faq.md', 'chars': 9}, {'path': 'guides/deep/api.md', 'chars': 9}, {'path': 'guides/setup.TXT', 'chars': 11}]"
+      - name: "Только markdown"
+        call: "[d['path'] for d in collect_documents(\"kb\", (\".md\",))]"
+        expected: "['faq.md', 'guides/deep/api.md']"
+      - name: "Нет папки"
+        call: "collect_documents(\"no_such_folder\")"
+        expected: "[]"
+      - name: "Пустые пропускаются"
+        code: |
+          paths = [d["path"] for d in collect_documents("kb")]
+          assert "empty.md" not in paths and "image.png" not in paths
+      - name: "Своя папка"
+        code: |
+          from pathlib import Path
+          Path("notes").mkdir(exist_ok=True)
+          Path("notes/a.txt").write_text("привет", encoding="utf-8")
+          assert collect_documents("notes") == [{"path": "a.txt", "chars": 6}]

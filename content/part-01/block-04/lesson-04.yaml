@@ -1,0 +1,312 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print("123".isdigit(), "-5".isdigit(), "12.5".isdigit())
+    options:
+      - text: "`True False False`"
+        correct: true
+        why: "Минус и точка — не цифры."
+      - text: "`True True True`"
+        why: "isdigit проверяет каждый символ, а «-» и «.» — не цифры."
+      - text: "`True True False`"
+        why: "Знак минус — не цифра."
+    explanation: "isdigit подходит только для целых неотрицательных чисел без пробелов."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      email = "Mail@Example.com"
+      print("ai" in email, "AI" in email, "example" in email.lower())
+    options:
+      - text: "`True False True`"
+        correct: true
+        why: "«ai» есть в «Mail»; «AI» заглавными нет; после lower() есть «example»."
+      - text: "`False False True`"
+        why: "«Mail» содержит подстроку «ai»."
+      - text: "`True True True`"
+        why: "in чувствителен к регистру: «AI» в строке нет."
+    explanation: "Для поиска без учёта регистра приводите строку к нижнему регистру."
+
+  - id: q3
+    type: single
+    prompt: "Как проверить, что имя файла оканчивается на `.jpg` или `.png`?"
+    options:
+      - text: "`name.endswith((\".jpg\", \".png\"))`"
+        correct: true
+        why: "endswith принимает кортеж вариантов."
+      - text: "`name.endswith(\".jpg\" or \".png\")`"
+        why: "`\".jpg\" or \".png\"` вычисляется в «.jpg» — второй вариант не проверяется."
+      - text: "`name.endswith([\".jpg\", \".png\"])`"
+        why: "Список не подходит — нужен кортеж (TypeError)."
+      - text: "`\".jpg\" or \".png\" in name`"
+        why: "Это всегда истинно: непустая строка «.jpg» — truthy."
+    explanation: "Несколько вариантов — кортежем в круглых скобках."
+
+  - id: q4
+    type: find_bug
+    prompt: "Программа должна требовать хотя бы одну цифру в пароле, но отклоняет «secret42». Почему?"
+    code: |
+      password = input()
+      if password.isdigit():
+          print("OK")
+      else:
+          print("Добавьте цифру")
+    options:
+      - text: "isdigit проверяет, что ВСЕ символы — цифры, а нужно «есть хотя бы одна»"
+        correct: true
+        why: "Нужен цикл с флагом или any(ch.isdigit() for ch in password)."
+      - text: "isdigit не работает с латиницей"
+        why: "Работает с любыми символами."
+      - text: "Нужно преобразовать password в int"
+        why: "int(\"secret42\") вызовет ValueError."
+      - text: "Нужен метод isnumeric"
+        why: "isnumeric тоже проверяет все символы."
+    explanation: "«Все ли» (isdigit) и «есть ли хоть один» (цикл/any) — разные вопросы."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие выражения равны `True`? Выберите все."
+    options:
+      - text: "`\"Привет\".isalpha()`"
+        correct: true
+        why: "Кириллица — тоже буквы."
+      - text: "`\" \\t\\n\".isspace()`"
+        correct: true
+        why: "Пробел, табуляция и перевод строки — пробельные символы."
+      - text: "`\"NASA\".isupper()`"
+        correct: true
+        why: "Все буквы заглавные."
+      - text: "`\"\".isdigit()`"
+        why: "Для пустой строки все is-методы возвращают False."
+      - text: "`\"gpt-4\".isalnum()`"
+        why: "Дефис — не буква и не цифра."
+    explanation: "is-методы требуют, чтобы все символы были нужной категории, и строка была непустой."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      text = "R2-D2 и C-3PO"
+      count = 0
+      for char in text:
+          if char.isdigit():
+              count += 1
+      print(count)
+    answer: "3"
+    explanation: "Цифры: 2 (R2), 2 (D2), 3 (3PO) — всего три."
+
+tasks:
+  - id: t1
+    title: "Проверка ввода числа"
+    difficulty: 1
+    statement: |
+      Программа читает строку. Если это целое неотрицательное число (только цифры, без пробелов), выведите его удвоенное значение. Иначе выведите `Ошибка: нужно целое неотрицательное число`.
+    examples:
+      - input: "21"
+        output: "42"
+      - input: "-3"
+        output: "Ошибка: нужно целое неотрицательное число"
+    starter: |
+      text = input()
+      print(int(text) * 2)
+    hints:
+      - "Проверьте `text.isdigit()` до вызова int()."
+      - "Пустая строка: isdigit() вернёт False — это тоже ошибка."
+    solution: |
+      text = input()
+      if text.isdigit():
+          print(int(text) * 2)
+      else:
+          print("Ошибка: нужно целое неотрицательное число")
+    solution_explanation: "Проверка до преобразования защищает от ValueError. isdigit возвращает False и для пустой строки, и для минуса, и для точки."
+    tests:
+      - name: "21"
+        stdin: "21\n"
+        stdout: "42"
+      - name: "Отрицательное"
+        stdin: "-3\n"
+        stdout: "Ошибка: нужно целое неотрицательное число"
+      - name: "Дробное"
+        stdin: "2.5\n"
+        stdout: "Ошибка: нужно целое неотрицательное число"
+      - name: "Пусто"
+        stdin: "\n"
+        stdout: "Ошибка: нужно целое неотрицательное число"
+      - name: "Ноль"
+        stdin: "0\n"
+        stdout: "0"
+      - name: "Буквы"
+        stdin: "десять\n"
+        stdout: "Ошибка: нужно целое неотрицательное число"
+
+  - id: t2
+    title: "Состав строки"
+    difficulty: 2
+    statement: |
+      Программа читает строку и выводит количество символов каждой категории:
+
+      ```text
+      Букв: <число>
+      Цифр: <число>
+      Пробелов: <число>
+      Прочих: <число>
+      ```
+    examples:
+      - input: "Python 3.12!"
+        output: "Букв: 6\nЦифр: 3\nПробелов: 1\nПрочих: 2"
+    starter: |
+      text = input()
+      letters = 0
+    hints:
+      - "Цепочка if/elif по методам isalpha, isdigit, isspace; остальное — else."
+      - "Четыре накопителя, инициализированные нулём до цикла."
+    solution: |
+      text = input()
+      letters = digits = spaces = other = 0
+      for char in text:
+          if char.isalpha():
+              letters += 1
+          elif char.isdigit():
+              digits += 1
+          elif char.isspace():
+              spaces += 1
+          else:
+              other += 1
+      print("Букв:", letters)
+      print("Цифр:", digits)
+      print("Пробелов:", spaces)
+      print("Прочих:", other)
+    solution_explanation: "Каждый символ попадает ровно в одну категорию благодаря цепочке elif; else собирает всё остальное."
+    tests:
+      - name: "Python 3.12!"
+        stdin: "Python 3.12!\n"
+        stdout: "Букв: 6\nЦифр: 3\nПробелов: 1\nПрочих: 2"
+      - name: "Пусто"
+        stdin: "\n"
+        stdout: "Букв: 0\nЦифр: 0\nПробелов: 0\nПрочих: 0"
+      - name: "Кириллица"
+        stdin: "Привет, мир\n"
+        stdout: "Букв: 9\nЦифр: 0\nПробелов: 1\nПрочих: 1"
+      - name: "Только цифры"
+        stdin: "2026\n"
+        stdout: "Букв: 0\nЦифр: 4\nПробелов: 0\nПрочих: 0"
+      - name: "Смесь"
+        stdin: "a1 b2 ?!\n"
+        stdout: "Букв: 2\nЦифр: 2\nПробелов: 2\nПрочих: 2"
+
+  - id: t3
+    title: "Валидатор пароля"
+    difficulty: 3
+    statement: |
+      Программа читает пароль и проверяет требования. Для каждого нарушенного выведите строку (в этом порядке):
+
+      1. `короче 8 символов`
+      2. `нет цифры`
+      3. `нет заглавной буквы`
+      4. `нет строчной буквы`
+
+      Если нарушений нет — `надёжный`.
+    examples:
+      - input: "qwerty12"
+        output: "нет заглавной буквы"
+      - input: "Secret123"
+        output: "надёжный"
+    starter: |
+      password = input()
+      if password.isdigit():
+          print("надёжный")
+    hints:
+      - "Один проход по символам собирает три флага: has_digit, has_upper, has_lower."
+      - "Затем четыре независимых if для нарушений и флаг (или счётчик), были ли нарушения."
+    solution: |
+      password = input()
+      has_digit = has_upper = has_lower = False
+      for char in password:
+          if char.isdigit():
+              has_digit = True
+          elif char.isupper():
+              has_upper = True
+          elif char.islower():
+              has_lower = True
+      ok = True
+      if len(password) < 8:
+          print("короче 8 символов")
+          ok = False
+      if not has_digit:
+          print("нет цифры")
+          ok = False
+      if not has_upper:
+          print("нет заглавной буквы")
+          ok = False
+      if not has_lower:
+          print("нет строчной буквы")
+          ok = False
+      if ok:
+          print("надёжный")
+    solution_explanation: "Флаги «есть ли хоть один» собираются за один проход. Проверки нарушений независимы — поэтому отдельные if, а не elif."
+    tests:
+      - name: "Нет заглавной"
+        stdin: "qwerty12\n"
+        stdout: "нет заглавной буквы"
+      - name: "Надёжный"
+        stdin: "Secret123\n"
+        stdout: "надёжный"
+      - name: "Всё плохо"
+        stdin: "!!!\n"
+        stdout: "короче 8 символов\nнет цифры\nнет заглавной буквы\nнет строчной буквы"
+      - name: "Только цифры"
+        stdin: "12345678\n"
+        stdout: "нет заглавной буквы\nнет строчной буквы"
+      - name: "Кириллица считается"
+        stdin: "Пароль2026\n"
+        stdout: "надёжный"
+      - name: "Короткий, остальное есть"
+        stdin: "Ab1\n"
+        stdout: "короче 8 символов"
+
+  - id: t4
+    title: "Ссылки на PDF"
+    difficulty: 2
+    statement: |
+      Программа читает `n`, затем `n` строк. Выведите строки (как есть), которые начинаются с `http://` или `https://` и заканчиваются на `.pdf` — регистр букв не важен. В конце выведите `Найдено: <количество>`.
+    examples:
+      - input: "3\nhttps://a.ru/x.pdf\nftp://b.ru/y.pdf\nHTTP://c.ru/Z.PDF"
+        output: "https://a.ru/x.pdf\nHTTP://c.ru/Z.PDF\nНайдено: 2"
+    starter: |
+      n = int(input())
+      found = 0
+      for _ in range(n):
+          line = input()
+    hints:
+      - "Нормализуйте регистр в отдельную переменную: `lowered = line.lower()` — а выводите исходную строку."
+      - "`lowered.startswith((\"http://\", \"https://\")) and lowered.endswith(\".pdf\")`."
+    solution: |
+      n = int(input())
+      found = 0
+      for _ in range(n):
+          line = input()
+          lowered = line.lower()
+          if lowered.startswith(("http://", "https://")) and lowered.endswith(".pdf"):
+              print(line)
+              found += 1
+      print("Найдено:", found)
+    solution_explanation: "Проверки делаем по нормализованной копии, а выводим оригинал. Кортеж в startswith проверяет оба протокола одной проверкой."
+    tests:
+      - name: "Пример"
+        stdin: "3\nhttps://a.ru/x.pdf\nftp://b.ru/y.pdf\nHTTP://c.ru/Z.PDF\n"
+        stdout: "https://a.ru/x.pdf\nHTTP://c.ru/Z.PDF\nНайдено: 2"
+      - name: "Ничего"
+        stdin: "2\nhttps://a.ru/x.png\nfile.pdf\n"
+        stdout: "Найдено: 0"
+      - name: "pdf в середине"
+        stdin: "1\nhttps://a.ru/pdf/index.html\n"
+        stdout: "Найдено: 0"
+      - name: "Ноль строк"
+        stdin: "0\n"
+        stdout: "Найдено: 0"
+      - name: "Все подходят"
+        stdin: "2\nhttp://x.ru/a.pdf\nhttps://y.ru/b.Pdf\n"
+        stdout: "http://x.ru/a.pdf\nhttps://y.ru/b.Pdf\nНайдено: 2"

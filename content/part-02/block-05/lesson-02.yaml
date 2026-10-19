@@ -1,0 +1,372 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def find(words: list[str], start: str) -> str | None:
+          for word in words:
+              if word.startswith(start):
+                  return word
+          return None
+
+
+      result = find(["кот", "кит"], "со")
+      print(result, len(result or ""))
+    options:
+      - text: "`None 0`"
+        correct: true
+        why: "Ничего не найдено — None; `result or \"\"` подставляет пустую строку."
+      - text: "TypeError: object of type 'NoneType' has no len()"
+        why: "len вызывается от пустой строки благодаря `or`."
+      - text: "`кот 3`"
+        why: "Ни одно слово не начинается с «со»."
+    explanation: "Значение типа X | None нужно обработать до использования."
+
+  - id: q2
+    type: find_bug
+    prompt: "Вызов `truncate(text, max_words=0)` возвращает весь текст. Почему?"
+    code: |
+      def truncate(text: str, max_words: int | None = None) -> str:
+          if max_words:
+              return " ".join(text.split()[:max_words])
+          return text
+    options:
+      - text: "0 ложно, поэтому `if max_words:` путает ноль с отсутствием значения; нужно `if max_words is not None:`"
+        correct: true
+        why: "Для «есть ли значение» проверяйте is not None."
+      - text: "Нельзя аннотировать параметр как int | None"
+        why: "Это корректная аннотация."
+      - text: "Срез [:0] не работает"
+        why: "Работает и даёт пустой список, но до него дело не доходит."
+    explanation: "Проверка на None и проверка на истинность — разные вещи."
+
+  - id: q3
+    type: single
+    prompt: "Параметр объявлен как `title: str | None` без значения по умолчанию. Что это значит?"
+    options:
+      - text: "Аргумент обязателен, но можно передать None"
+        correct: true
+        why: "Необязательным параметр делает значение по умолчанию."
+      - text: "Аргумент можно не передавать"
+        why: "Без значения по умолчанию его нужно передать."
+      - text: "Аргумент должен быть строкой, None запрещён"
+        why: "| None явно разрешает None."
+      - text: "Это синтаксическая ошибка"
+        why: "Запись корректна."
+    explanation: "«Может быть None» и «можно не передавать» — разные свойства."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from typing import Literal
+
+
+      def set_mode(mode: Literal["train", "eval"]) -> str:
+          return f"режим: {mode}"
+
+
+      print(set_mode("debug"))
+    options:
+      - text: "`режим: debug`"
+        correct: true
+        why: "Literal, как любая аннотация, не проверяется во время выполнения."
+      - text: "ValueError"
+        why: "Интерпретатор не проверяет аннотации; ошибку найдёт mypy."
+      - text: "TypeError"
+        why: "Никакой проверки при вызове нет."
+    explanation: "Literal ловит ошибки в mypy и в Pydantic, но не в самом Python."
+
+  - id: q5
+    type: single
+    prompt: "Чем `Any` отличается от `object` в аннотации?"
+    options:
+      - text: "С Any анализатор разрешает любые операции без проверки; с object — только то, что умеет любой объект"
+        correct: true
+        why: "Any — «выключатель» проверок, object — строгий «любой тип»."
+      - text: "Ничем, это синонимы"
+        why: "Для анализатора разница принципиальная."
+      - text: "object запрещает передавать числа"
+        why: "Числа — тоже объекты."
+      - text: "Any проверяется во время выполнения"
+        why: "Ни одна аннотация не проверяется интерпретатором."
+    explanation: "Используйте object, когда можно, и Any — когда структура данных действительно неизвестна."
+
+  - id: q6
+    type: multiple
+    prompt: "Какие аннотации описывают функцию, принимающую строку и возвращающую список строк? Выберите все."
+    options:
+      - text: "`Callable[[str], list[str]]`"
+        correct: true
+        why: "Аргументы в списке, результат после."
+      - text: "Псевдоним `type Tokenizer = Callable[[str], list[str]]`"
+        correct: true
+        why: "Псевдоним с той же сигнатурой."
+      - text: "`Callable[str, list[str]]`"
+        why: "Типы аргументов пишутся в квадратных скобках-списке: [[str], ...]."
+      - text: "`Callable[[list[str]], str]`"
+        why: "Это обратная сигнатура."
+    explanation: "Callable[[аргументы], результат]."
+
+tasks:
+  - id: t1
+    title: "Значение или None"
+    difficulty: 1
+    statement: |
+      Напишите аннотированные функции:
+
+      - `find_first(items: list[str], prefix: str) -> str | None` — первый элемент, начинающийся с `prefix`, или `None`;
+      - `get_int(data: dict[str, str], key: str, default: int | None = None) -> int | None` — значение по ключу как целое число; если ключа нет или значение не число — `default`.
+    examples:
+      - input: "get_int({\"epochs\": \"10\"}, \"epochs\")"
+        output: "10"
+    starter: |
+      def find_first(items, prefix):
+          return [item for item in items if item.startswith(prefix)][0]
+
+
+      def get_int(data, key, default=None):
+          return int(data[key])
+    hints:
+      - "find_first: `next((item for item in items if item.startswith(prefix)), None)`."
+      - "get_int: `if key not in data: return default`; `try: return int(data[key])` / `except ValueError: return default`."
+    solution: |
+      def find_first(items: list[str], prefix: str) -> str | None:
+          """Первый элемент с заданным префиксом или None."""
+          return next((item for item in items if item.startswith(prefix)), None)
+
+
+      def get_int(data: dict[str, str], key: str, default: int | None = None) -> int | None:
+          """Целое значение по ключу или default."""
+          if key not in data:
+              return default
+          try:
+              return int(data[key])
+          except ValueError:
+              return default
+    solution_explanation: "Тип str | None честно сообщает, что результата может не быть. Значение по умолчанию None делает параметр default необязательным."
+    tests:
+      - name: "Пример"
+        call: "get_int({\"epochs\": \"10\"}, \"epochs\")"
+        expected: "10"
+      - name: "get_int: нет ключа и не число"
+        call: "[get_int({}, \"x\"), get_int({\"x\": \"abc\"}, \"x\", 5), get_int({\"x\": \"-3\"}, \"x\", 0)]"
+        expected: "[None, 5, -3]"
+      - name: "find_first"
+        call: "[find_first([\"apple\", \"avocado\"], \"av\"), find_first([\"a\"], \"z\")]"
+        expected: "['avocado', None]"
+      - name: "Аннотации"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(find_first) == {"items": list[str], "prefix": str, "return": str | None}
+          hints = get_type_hints(get_int)
+          assert hints["default"] == int | None and hints["return"] == int | None, hints
+      - name: "Пустой список"
+        call: "find_first([], \"a\")"
+        expected: "None"
+
+  - id: t2
+    title: "Одно значение или список"
+    difficulty: 2
+    statement: |
+      - `ensure_list(value: str | list[str] | None) -> list[str]` — `None` → `[]`, строка → список из неё, список → его копия;
+      - `parse_duration(value: int | str) -> int` — длительность в секундах: целое число возвращается как есть; строка — число с необязательным суффиксом `s`, `m` или `h` (`"90"`, `"2m"`, `"1h"`); неверная строка → `ValueError`.
+    examples:
+      - input: "[parse_duration(30), parse_duration(\"2m\"), parse_duration(\"1h\")]"
+        output: "[30, 120, 3600]"
+    starter: |
+      def ensure_list(value):
+          return list(value)
+
+
+      def parse_duration(value):
+          return int(value)
+    hints:
+      - "ensure_list: `if value is None: return []`, `if isinstance(value, str): return [value]`, иначе `list(value)`."
+      - "parse_duration: `if isinstance(value, int): return value`; словарь множителей `{\"s\": 1, \"m\": 60, \"h\": 3600}`; если последний символ — суффикс, отрежьте его. `int(...)` сам бросит ValueError для мусора."
+    solution: |
+      UNITS = {"s": 1, "m": 60, "h": 3600}
+
+
+      def ensure_list(value: str | list[str] | None) -> list[str]:
+          """Привести значение к списку строк."""
+          if value is None:
+              return []
+          if isinstance(value, str):
+              return [value]
+          return list(value)
+
+
+      def parse_duration(value: int | str) -> int:
+          """Длительность в секундах."""
+          if isinstance(value, int):
+              return value
+          text = value.strip().lower()
+          multiplier = 1
+          if text and text[-1] in UNITS:
+              multiplier = UNITS[text[-1]]
+              text = text[:-1]
+          return int(text) * multiplier
+    solution_explanation: "isinstance сужает объединение до конкретного типа, после чего с ним можно работать без сомнений. Нормализация на входе (ensure_list) позволяет остальному коду работать с одним типом."
+    tests:
+      - name: "Пример"
+        call: "[parse_duration(30), parse_duration(\"2m\"), parse_duration(\"1h\")]"
+        expected: "[30, 120, 3600]"
+      - name: "Без суффикса и регистр"
+        call: "[parse_duration(\"90\"), parse_duration(\" 5S \")]"
+        expected: "[90, 5]"
+      - name: "Неверная строка"
+        code: |
+          for bad in ("abc", "m", "1.5h"):
+              try:
+                  parse_duration(bad)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"{bad!r} должен вызывать ValueError")
+      - name: "ensure_list"
+        code: |
+          original = ["a", "b"]
+          copy = ensure_list(original)
+          assert copy == ["a", "b"] and copy is not original, "Список нужно копировать"
+          assert ensure_list(None) == [] and ensure_list("x") == ["x"]
+      - name: "Аннотации"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(parse_duration) == {"value": int | str, "return": int}
+          assert get_type_hints(ensure_list)["value"] == str | list[str] | None
+
+  - id: t3
+    title: "Литеральные режимы с проверкой"
+    difficulty: 2
+    statement: |
+      Объявите псевдоним `Split = Literal["train", "val", "test"]` и функцию `select(items: list[str], split: Split, ratios: tuple[float, float] = (0.8, 0.1)) -> list[str]`: первые `int(n * ratios[0])` элементов — train, следующие `int(n * ratios[1])` — val, остальные — test.
+
+      Аннотации не проверяются Python, поэтому добавьте проверку вручную: если `split` не входит в допустимые значения — `ValueError`. Список допустимых значений получите из самого `Literal` функцией `typing.get_args` (не дублируйте строки).
+    examples:
+      - input: "select(list(\"abcdefghij\"), \"val\")"
+        output: "['i']"
+    starter: |
+      def select(items, split, ratios=(0.8, 0.1)):
+          return items
+    hints:
+      - "`get_args(Literal[\"train\", \"val\", \"test\"])` → `('train', 'val', 'test')`. Если псевдоним объявлен через `type Split = ...`, значение лежит в `Split.__value__`."
+      - "Границы: `train_end = int(n * ratios[0])`, `val_end = train_end + int(n * ratios[1])`; словарь срезов по имени split."
+    solution: |
+      from typing import Literal, get_args
+
+      Split = Literal["train", "val", "test"]
+      SPLITS = get_args(Split)
+
+
+      def select(items: list[str], split: Split, ratios: tuple[float, float] = (0.8, 0.1)) -> list[str]:
+          """Часть выборки по имени."""
+          if split not in SPLITS:
+              raise ValueError(f"split должен быть одним из {SPLITS}, получено {split!r}")
+          n = len(items)
+          train_end = int(n * ratios[0])
+          val_end = train_end + int(n * ratios[1])
+          parts = {"train": items[:train_end], "val": items[train_end:val_end], "test": items[val_end:]}
+          return parts[split]
+    solution_explanation: "get_args достаёт допустимые значения из Literal, поэтому список режимов живёт в одном месте: аннотация служит и для mypy, и для проверки во время выполнения."
+    tests:
+      - name: "Пример"
+        call: "select(list(\"abcdefghij\"), \"val\")"
+        expected: "['i']"
+      - name: "Все части"
+        code: |
+          items = [str(i) for i in range(10)]
+          parts = [select(items, s) for s in ("train", "val", "test")]
+          assert [len(p) for p in parts] == [8, 1, 1] and sum(parts, []) == items
+      - name: "Свои пропорции"
+        call: "select(list(range(10)), \"test\", ratios=(0.5, 0.3))"
+        expected: "[8, 9]"
+      - name: "Неверный split"
+        code: |
+          try:
+              select(["a"], "dev")
+          except ValueError as error:
+              assert "dev" in str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Аннотация split — Literal"
+        code: |
+          from typing import get_args, get_type_hints
+          hint = get_type_hints(select)["split"]
+          hint = getattr(hint, "__value__", hint)
+          assert set(get_args(hint)) == {"train", "val", "test"}, hint
+
+  - id: t4
+    title: "Типизированные метрики"
+    difficulty: 3
+    statement: |
+      Объявите псевдоним `Metric = Callable[[list[int], list[int]], float]` (импорт `Callable` из `collections.abc`) и функции:
+
+      - `accuracy(y_true, y_pred) -> float` — доля совпадений;
+      - `make_fbeta(beta: float) -> Metric` — фабрика метрики F-beta для бинарных меток (положительный класс — 1): `(1 + β²)·P·R / (β²·P + R)`, где P — precision, R — recall; если знаменатель 0 — метрика 0.0;
+      - `evaluate(metrics: dict[str, Metric], y_true: list[int], y_pred: list[int]) -> dict[str, float]` — значения всех метрик, округлённые до 3 знаков.
+    examples:
+      - input: "evaluate({\"acc\": accuracy, \"f1\": make_fbeta(1.0)}, [1, 0, 1, 1], [1, 1, 1, 0])"
+        output: "{'acc': 0.5, 'f1': 0.667}"
+    starter: |
+      def accuracy(y_true, y_pred):
+          return 0.0
+
+
+      def evaluate(metrics, y_true, y_pred):
+          return {}
+    hints:
+      - "В fbeta посчитайте tp, fp, fn через zip; precision = tp / (tp + fp) (0, если знаменатель 0), recall аналогично."
+      - "Фабрика объявляет внутреннюю функцию `def fbeta(y_true: list[int], y_pred: list[int]) -> float:` и возвращает её."
+    solution: |
+      from collections.abc import Callable
+
+      Metric = Callable[[list[int], list[int]], float]
+
+
+      def accuracy(y_true: list[int], y_pred: list[int]) -> float:
+          """Доля верных предсказаний."""
+          return sum(t == p for t, p in zip(y_true, y_pred)) / len(y_true)
+
+
+      def make_fbeta(beta: float) -> Metric:
+          """Фабрика метрики F-beta для положительного класса 1."""
+          def fbeta(y_true: list[int], y_pred: list[int]) -> float:
+              tp = sum(1 for t, p in zip(y_true, y_pred) if t == 1 and p == 1)
+              fp = sum(1 for t, p in zip(y_true, y_pred) if t == 0 and p == 1)
+              fn = sum(1 for t, p in zip(y_true, y_pred) if t == 1 and p == 0)
+              precision = tp / (tp + fp) if tp + fp else 0.0
+              recall = tp / (tp + fn) if tp + fn else 0.0
+              denominator = beta ** 2 * precision + recall
+              if denominator == 0:
+                  return 0.0
+              return (1 + beta ** 2) * precision * recall / denominator
+          return fbeta
+
+
+      def evaluate(metrics: dict[str, Metric], y_true: list[int], y_pred: list[int]) -> dict[str, float]:
+          """Значения всех метрик."""
+          return {name: round(metric(y_true, y_pred), 3) for name, metric in metrics.items()}
+    solution_explanation: "Псевдоним Metric описывает общий интерфейс метрик: и обычная функция accuracy, и функция, созданная фабрикой, подходят под Callable[[list[int], list[int]], float]. evaluate работает с любыми такими функциями."
+    tests:
+      - name: "Пример"
+        call: "evaluate({\"acc\": accuracy, \"f1\": make_fbeta(1.0)}, [1, 0, 1, 1], [1, 1, 1, 0])"
+        expected: "{'acc': 0.5, 'f1': 0.667}"
+      - name: "F2 и F0.5"
+        call: "evaluate({\"f2\": make_fbeta(2.0), \"f05\": make_fbeta(0.5)}, [1, 1, 1, 0], [1, 0, 0, 0])"
+        expected: "{'f2': 0.385, 'f05': 0.714}"
+      - name: "Нет положительных предсказаний"
+        call: "make_fbeta(1.0)([1, 1], [0, 0])"
+        expected: "0.0"
+      - name: "Аннотации"
+        code: |
+          from typing import get_type_hints
+          hints = get_type_hints(make_fbeta)
+          ret = getattr(hints["return"], "__value__", hints["return"])
+          assert ret.__args__ == ([list[int], list[int]], float) or ret.__args__ == (list[int], list[int], float), ret
+          assert get_type_hints(accuracy) == {"y_true": list[int], "y_pred": list[int], "return": float}
+      - name: "Своя метрика"
+        code: |
+          def always_one(y_true, y_pred):
+              return 1.0
+          assert evaluate({"one": always_one}, [0], [1]) == {"one": 1.0}

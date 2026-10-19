@@ -1,0 +1,306 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def power(base, exponent=2):
+          return base ** exponent
+
+
+      print(power(3), power(2, 5), power(exponent=3, base=2))
+    options:
+      - text: "`9 32 8`"
+        correct: true
+        why: "3², 2⁵, 2³ — именованные аргументы можно передавать в любом порядке."
+      - text: "`9 32 9`"
+        why: "base=2, exponent=3 — это 2³ = 8."
+      - text: "Ошибку из-за порядка аргументов"
+        why: "Для именованных аргументов порядок не важен."
+    explanation: "Значение по умолчанию используется, если аргумент не передан; по имени — любой порядок."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def collect(item, bucket=[]):
+          bucket.append(item)
+          return bucket
+
+
+      collect(1)
+      collect(2)
+      print(collect(3))
+    options:
+      - text: "`[1, 2, 3]`"
+        correct: true
+        why: "Значение по умолчанию создаётся один раз при определении — все вызовы работают с одним списком."
+      - text: "`[3]`"
+        why: "Так было бы, если бы список создавался заново при каждом вызове."
+      - text: "Ошибку TypeError"
+        why: "Код корректен синтаксически — ошибка логическая."
+    explanation: "Изменяемые значения по умолчанию разделяются между вызовами. Используйте None."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему этот код не запускается?"
+    code: |
+      def train(epochs=10, model_name):
+          return f"{model_name}: {epochs}"
+    options:
+      - text: "Обязательный параметр стоит после необязательного — SyntaxError"
+        correct: true
+        why: "Параметры без умолчания должны идти первыми: `def train(model_name, epochs=10)`."
+      - text: "f-строки нельзя использовать в return"
+        why: "Можно — return возвращает любое выражение."
+      - text: "У функции не может быть больше одного параметра"
+        why: "Может быть сколько угодно."
+    explanation: "Порядок в определении: обязательные → со значениями по умолчанию."
+
+  - id: q4
+    type: multiple
+    prompt: "Функция определена как `def train(model, *, epochs=10, lr=0.01)`. Какие вызовы корректны? Выберите все."
+    options:
+      - text: "`train(\"cnn\")`"
+        correct: true
+        why: "Обязательный аргумент передан, остальные — по умолчанию."
+      - text: "`train(\"cnn\", epochs=5)`"
+        correct: true
+        why: "epochs передан по имени."
+      - text: "`train(model=\"cnn\", lr=0.1)`"
+        correct: true
+        why: "Обязательный параметр тоже можно передать по имени."
+      - text: "`train(\"cnn\", 5)`"
+        why: "После * параметры только именованные — TypeError."
+      - text: "`train(epochs=5)`"
+        why: "Не передан обязательный model."
+    explanation: "`*` в определении делает следующие параметры только именованными."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def limit(value, maximum=None):
+          if not maximum:
+              maximum = 100
+          return min(value, maximum)
+
+
+      print(limit(500), limit(500, 50), limit(500, 0))
+    options:
+      - text: "`100 50 100`"
+        correct: true
+        why: "`not 0` истинно, поэтому явный 0 заменяется на 100 — это ловушка; правильно `if maximum is None`."
+      - text: "`100 50 0`"
+        why: "Так было бы с проверкой `is None`; `not maximum` считает 0 «не переданным»."
+      - text: "`500 50 0`"
+        why: "Без аргумента maximum становится 100."
+    explanation: "Чтобы отличать «не передано» от 0, проверяйте `is None`."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def greet(name, greeting="Привет", end="!"):
+          return greeting + ", " + name + end
+
+
+      print(greet("Ада", end="."))
+    answer: "Привет, Ада."
+    explanation: "greeting взят по умолчанию, end передан по имени."
+
+tasks:
+  - id: t1
+    title: "Повтор строки"
+    difficulty: 1
+    statement: |
+      Напишите функцию `repeat(text, times=2, sep=" ")`, возвращающую строку `text`, повторённую `times` раз через разделитель `sep`.
+    examples:
+      - input: "repeat(\"ha\")"
+        output: "'ha ha'"
+      - input: "repeat(\"ab\", 3, sep=\"-\")"
+        output: "'ab-ab-ab'"
+    starter: |
+      def repeat(text, times, sep):
+          pass
+    hints:
+      - "Задайте значения по умолчанию в определении: `times=2, sep=\" \"`."
+      - "`sep.join([text] * times)`."
+    solution: |
+      def repeat(text, times=2, sep=" "):
+          return sep.join([text] * times)
+    solution_explanation: "Список из times копий строки и join с разделителем. При times = 0 получится пустая строка."
+    tests:
+      - name: "По умолчанию"
+        call: "repeat(\"ha\")"
+        expected: "'ha ha'"
+      - name: "Три раза через дефис"
+        call: "repeat(\"ab\", 3, sep=\"-\")"
+        expected: "'ab-ab-ab'"
+      - name: "Один раз"
+        call: "repeat(\"x\", 1)"
+        expected: "'x'"
+      - name: "Ноль раз"
+        call: "repeat(\"x\", 0)"
+        expected: "''"
+      - name: "Только sep по имени"
+        call: "repeat(\"да\", sep=\"\")"
+        expected: "'дада'"
+
+  - id: t2
+    title: "Безопасное добавление"
+    difficulty: 2
+    statement: |
+      Напишите функцию `add_message(text, history=None, role="user")`, которая добавляет в историю словарь `{"role": role, "content": text}` и **возвращает** историю.
+
+      Если история не передана — создаётся новая пустая. Вызовы без `history` не должны влиять друг на друга.
+    examples:
+      - input: "add_message(\"Привет\")"
+        output: "[{'role': 'user', 'content': 'Привет'}]"
+    starter: |
+      def add_message(text, history=[], role="user"):
+          history.append({"role": role, "content": text})
+          return history
+    hints:
+      - "Изменяемое значение по умолчанию создаётся один раз — замените его на None."
+      - "`if history is None: history = []`."
+    solution: |
+      def add_message(text, history=None, role="user"):
+          if history is None:
+              history = []
+          history.append({"role": role, "content": text})
+          return history
+    solution_explanation: "None по умолчанию + создание списка внутри функции — стандартное решение ловушки изменяемого умолчания. Иначе история одного пользователя «протекала» бы в следующий вызов — в чат-боте это утечка чужих сообщений."
+    tests:
+      - name: "Новая история"
+        call: "add_message(\"Привет\")"
+        expected: "[{'role': 'user', 'content': 'Привет'}]"
+      - name: "Вызовы независимы"
+        code: |
+          add_message("первый")
+          second = add_message("второй")
+          assert second == [{"role": "user", "content": "второй"}], f"История протекла между вызовами: {second}"
+      - name: "Своя история дополняется"
+        code: |
+          history = [{"role": "system", "content": "Будь кратким"}]
+          result = add_message("Вопрос", history)
+          assert result is history and len(history) == 2
+      - name: "Роль по имени"
+        call: "add_message(\"Ответ\", role=\"assistant\")"
+        expected: "[{'role': 'assistant', 'content': 'Ответ'}]"
+      - name: "Пустой список передан явно"
+        code: |
+          empty = []
+          add_message("x", empty)
+          assert empty == [{"role": "user", "content": "x"}], "Явно переданный пустой список тоже должен дополняться"
+
+  - id: t3
+    title: "Обрезка текста"
+    difficulty: 2
+    statement: |
+      Напишите функцию `truncate(text, max_length=20, *, suffix="…")`. Если текст не длиннее `max_length`, вернуть его без изменений. Иначе — обрезать так, чтобы **вместе с суффиксом** длина была ровно `max_length`. `suffix` передаётся только по имени.
+
+      Если `max_length` меньше длины суффикса — вернуть первые `max_length` символов суффикса.
+    examples:
+      - input: "truncate(\"Машинное обучение меняет мир\")"
+        output: "'Машинное обучение м…'"
+      - input: "truncate(\"Привет\", 10)"
+        output: "'Привет'"
+    starter: |
+      def truncate(text, max_length, suffix):
+          return text[:max_length] + suffix
+    hints:
+      - "Сначала `if len(text) <= max_length: return text`."
+      - "Длина основной части — `max_length - len(suffix)`; учтите случай, когда она отрицательна."
+    solution: |
+      def truncate(text, max_length=20, *, suffix="…"):
+          if len(text) <= max_length:
+              return text
+          keep = max_length - len(suffix)
+          if keep < 0:
+              return suffix[:max_length]
+          return text[:keep] + suffix
+    solution_explanation: "Граничные случаи разобраны ранними возвратами: текст уже короткий; места не хватает даже на суффикс. Суффикс — только именованный, чтобы вызов `truncate(text, 50, \"...\")` не путал читателя."
+    tests:
+      - name: "По умолчанию"
+        call: "truncate(\"Машинное обучение меняет мир\")"
+        expected: "'Машинное обучение м…'"
+      - name: "Короткий текст"
+        call: "truncate(\"Привет\", 10)"
+        expected: "'Привет'"
+      - name: "Ровно лимит"
+        call: "truncate(\"abcde\", 5)"
+        expected: "'abcde'"
+      - name: "Свой суффикс"
+        call: "truncate(\"abcdefghij\", 8, suffix=\"...\")"
+        expected: "'abcde...'"
+      - name: "Суффикс только по имени"
+        code: |
+          try:
+              truncate("abcdef", 3, "!")
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("suffix должен передаваться только по имени (используйте * в определении)")
+      - name: "Лимит меньше суффикса"
+        call: "truncate(\"abcdef\", 2, suffix=\"...\")"
+        expected: "'..'"
+
+  - id: t4
+    title: "Сборка запроса к модели"
+    difficulty: 3
+    statement: |
+      Напишите функцию `build_request(prompt, *, model="small", temperature=0.7, max_tokens=None, system=None)`, которая возвращает словарь:
+
+      - `"model"`, `"temperature"` — как переданы;
+      - `"max_tokens"` — переданное значение или `256`, если не передано (явный `0` сохраняется!);
+      - `"messages"` — список сообщений: если задан `system`, первым идёт `{"role": "system", "content": system}`, затем `{"role": "user", "content": prompt}`.
+
+      Если `temperature` вне диапазона [0, 2] — верните `None`.
+    examples:
+      - input: "build_request(\"Привет\")"
+        output: "{'model': 'small', 'temperature': 0.7, 'max_tokens': 256, 'messages': [{'role': 'user', 'content': 'Привет'}]}"
+    starter: |
+      def build_request(prompt, model="small", temperature=0.7, max_tokens=256, system=""):
+          return {}
+    hints:
+      - "`max_tokens = 256 if max_tokens is None else max_tokens` — не `if not max_tokens`."
+      - "Сообщения: `messages = []`, `if system is not None: messages.append(...)`, затем пользовательское."
+    solution: |
+      def build_request(prompt, *, model="small", temperature=0.7, max_tokens=None, system=None):
+          if not 0 <= temperature <= 2:
+              return None
+          messages = []
+          if system is not None:
+              messages.append({"role": "system", "content": system})
+          messages.append({"role": "user", "content": prompt})
+          return {
+              "model": model,
+              "temperature": temperature,
+              "max_tokens": 256 if max_tokens is None else max_tokens,
+              "messages": messages,
+          }
+    solution_explanation: "Настройки — только именованные (после *), умолчания — для частого случая, None — как маркер «не передано». Проверка `is None` сохраняет явный max_tokens=0. Такие обёртки над API есть в каждом LLM-приложении."
+    tests:
+      - name: "Минимальный вызов"
+        call: "build_request(\"Привет\")"
+        expected: "{'model': 'small', 'temperature': 0.7, 'max_tokens': 256, 'messages': [{'role': 'user', 'content': 'Привет'}]}"
+      - name: "С системным сообщением"
+        call: "build_request(\"Вопрос\", system=\"Будь кратким\")['messages']"
+        expected: "[{'role': 'system', 'content': 'Будь кратким'}, {'role': 'user', 'content': 'Вопрос'}]"
+      - name: "Явный ноль токенов"
+        call: "build_request(\"x\", max_tokens=0)['max_tokens']"
+        expected: "0"
+      - name: "Некорректная температура"
+        call: "build_request(\"x\", temperature=3)"
+        expected: "None"
+      - name: "Граница температуры"
+        call: "build_request(\"x\", temperature=0)['temperature']"
+        expected: "0"
+      - name: "Настройки только по имени"
+        code: |
+          try:
+              build_request("x", "large")
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("model и остальные настройки должны передаваться только по имени")

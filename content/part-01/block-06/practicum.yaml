@@ -1,0 +1,543 @@
+title: "Практикум: функции"
+description: |
+  Вопросы и задачи по всему блоку: def и return, аргументы, *args/**kwargs, области видимости, lambda, рекурсия и структура программы.
+  Последняя задача — мини-проект «Библиотека функций для обработки оценок студентов».
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def check(x):
+          if x > 0:
+              return "плюс"
+          print("не плюс")
+
+
+      print(check(-1))
+    options:
+      - text: |
+          ```
+          не плюс
+          None
+          ```
+        correct: true
+        why: "Для −1 печатается сообщение, а затем функция доходит до конца и возвращает None."
+      - text: "`не плюс`"
+        why: "Внешний print выводит результат вызова — None."
+      - text: "`минус`"
+        why: "Такой ветки в функции нет."
+    explanation: "Без return функция возвращает None."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def f(a, b=2, *args, c=3, **kwargs):
+          return a + b + c + len(args) + len(kwargs)
+
+
+      print(f(1), f(1, 1, 9, 9, c=0, d=5))
+    options:
+      - text: "`6 5`"
+        correct: true
+        why: "f(1): 1+2+3+0+0 = 6. f(1,1,9,9,c=0,d=5): 1+1+0+2+1 = 5."
+      - text: "`6 23`"
+        why: "Элементы args не суммируются — считается их количество len(args)."
+      - text: "Ошибку TypeError"
+        why: "Все аргументы распределяются корректно."
+    explanation: "Позиционные → a, b, затем *args; c — только по имени; лишние именованные → **kwargs."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему каждый следующий вызов `new_session()` возвращает историю с сообщениями прошлых сессий?"
+    code: |
+      def new_session(first_message, history=[]):
+          history.append(first_message)
+          return history
+    options:
+      - text: "Изменяемое значение по умолчанию создаётся один раз при определении и разделяется между вызовами"
+        correct: true
+        why: "Нужно `history=None` и `if history is None: history = []` внутри."
+      - text: "append нельзя вызывать для параметров"
+        why: "Можно — проблема в общем объекте."
+      - text: "Нужно объявить history как global"
+        why: "Наоборот, проблема в разделяемом состоянии."
+    explanation: "Никогда не используйте [], {} или set() как значения по умолчанию."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      x = 1
+
+
+      def outer():
+          x = 2
+
+          def inner():
+              return x * 10
+
+          return inner()
+
+
+      print(outer(), x)
+    options:
+      - text: "`20 1`"
+        correct: true
+        why: "inner находит x во охватывающей функции (E в LEGB) — 2; глобальная x не меняется."
+      - text: "`10 1`"
+        why: "Ближайшая область с x — outer, а не модуль."
+      - text: "`20 2`"
+        why: "Присваивание в outer создаёт локальную x, глобальная остаётся 1."
+    explanation: "Поиск имени: Local → Enclosing → Global → Built-in."
+
+  - id: q5
+    type: find_bug
+    prompt: "Почему код падает с `UnboundLocalError`?"
+    code: |
+      calls = 0
+
+
+      def track():
+          calls += 1
+          return calls
+    options:
+      - text: "`calls += 1` делает calls локальной, а читается она до присваивания"
+        correct: true
+        why: "Нужно передавать состояние явно, использовать замыкание или (в крайнем случае) global."
+      - text: "Нельзя называть переменную calls"
+        why: "Имя допустимое."
+      - text: "Функция без параметров не может возвращать значение"
+        why: "Может."
+    explanation: "Присваивание внутри функции делает имя локальным во всей функции."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      pairs = [("b", 2), ("a", 2), ("c", 1)]
+      print(sorted(pairs, key=lambda p: (-p[1], p[0])))
+    options:
+      - text: "`[('a', 2), ('b', 2), ('c', 1)]`"
+        correct: true
+        why: "По убыванию числа, при равенстве — по букве."
+      - text: "`[('c', 1), ('a', 2), ('b', 2)]`"
+        why: "Минус делает сортировку чисел убывающей."
+      - text: "`[('b', 2), ('a', 2), ('c', 1)]`"
+        why: "Второй элемент ключа сортирует равные по букве."
+    explanation: "Кортеж в ключе — несколько признаков; минус меняет направление для чисел."
+
+  - id: q7
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print(list(map(len, filter(None, ["", "ab", "c", ""]))))
+    options:
+      - text: "`[2, 1]`"
+        correct: true
+        why: "filter(None, ...) убирает пустые строки, map(len, ...) берёт длины."
+      - text: "`[0, 2, 1, 0]`"
+        why: "Пустые строки отфильтрованы до map."
+      - text: "`['ab', 'c']`"
+        why: "map применяет len к оставшимся строкам."
+    explanation: "filter(None, seq) оставляет truthy-элементы."
+
+  - id: q8
+    type: multiple
+    prompt: "Какие утверждения о lambda верны? Выберите все."
+    options:
+      - text: "Тело lambda — одно выражение без return"
+        correct: true
+        why: "Значение выражения возвращается автоматически."
+      - text: "Главное применение — аргумент функций вроде sorted(key=...)"
+        correct: true
+        why: "Для одноразовых коротких функций."
+      - text: "lambda может содержать цикл for"
+        why: "Только выражение; цикл — инструкция (comprehension внутри lambda допустим, но это выражение)."
+      - text: "Если функции нужно имя, лучше использовать def"
+        correct: true
+        why: "PEP 8 не рекомендует `f = lambda ...`."
+    explanation: "lambda — короткая анонимная функция для места использования."
+
+  - id: q9
+    type: single
+    prompt: "Что произойдёт при вызове рекурсивной функции без базового случая?"
+    options:
+      - text: "RecursionError после примерно 1000 вложенных вызовов"
+        correct: true
+        why: "Python ограничивает глубину стека вызовов."
+      - text: "Программа зависнет навсегда"
+        why: "Предел глубины останавливает рекурсию ошибкой."
+      - text: "Функция вернёт None"
+        why: "До возврата дело не дойдёт."
+      - text: "Python сам добавит базовый случай"
+        why: "Не добавит."
+    explanation: "Базовый случай обязателен; глубокие линейные задачи лучше решать циклом."
+
+  - id: q10
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def count(data):
+          if isinstance(data, list):
+              return sum(count(item) for item in data)
+          return 1
+
+
+      print(count([1, [2, 3], [[4], []]]))
+    options:
+      - text: "`4`"
+        correct: true
+        why: "Считаются только не-списки: 1, 2, 3, 4. Пустой список даёт сумму 0."
+      - text: "`5`"
+        why: "Пустой список — это список, и элементов в нём нет: sum пустой последовательности — 0."
+      - text: "`3`"
+        why: "Внешний список содержит три элемента, но функция считает элементы на всех уровнях."
+    explanation: "Рекурсия по структуре данных: список — сумма по элементам, остальное — 1."
+
+  - id: q11
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def make_adder(n):
+          return lambda x: x + n
+
+
+      add5 = make_adder(5)
+      print(add5(10), make_adder(-1)(10))
+    options:
+      - text: "`15 9`"
+        correct: true
+        why: "Каждая lambda запоминает своё n — замыкание."
+      - text: "`15 15`"
+        why: "Второй вызов make_adder создаёт новую функцию с n = −1."
+      - text: "Ошибку: lambda нельзя возвращать"
+        why: "Функции — объекты, их можно возвращать."
+    explanation: "Функции, возвращающие функции, — фабрики на основе замыканий."
+
+  - id: q12
+    type: multiple
+    prompt: "Какие практики делают функцию удобной для переиспользования и тестов? Выберите все."
+    options:
+      - text: "Возвращать результат вместо печати"
+        correct: true
+        why: "Результатом можно распорядиться где угодно."
+      - text: "Получать данные через параметры, а не из глобальных переменных"
+        correct: true
+        why: "Чистые функции предсказуемы."
+      - text: "Одна функция — одна задача"
+        correct: true
+        why: "Короткие функции легко понять и проверить."
+      - text: "Читать данные через input() внутри вычисляющей функции"
+        why: "Ввод-вывод лучше держать на «краю» программы."
+    explanation: "Отделяйте логику от ввода-вывода и передавайте состояние явно."
+
+  - id: q13
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def apply(func, *values, **options):
+          return func(*values, **options)
+
+
+      print(apply(round, 3.14159, ndigits=2), apply(max, 4, 9, 2))
+    answer: "3.14 9"
+    explanation: "Обёртка с *args/**kwargs передаёт аргументы дальше без изменений."
+
+tasks:
+  - id: t1
+    title: "Нормализация телефона"
+    difficulty: 2
+    statement: |
+      Напишите `normalize_phone(phone)`: из строки с российским номером в любом формате (`8 (900) 123-45-67`, `+7 900 1234567`, `9001234567`) получить `+7XXXXXXXXXX`. Оставьте только цифры; если их 11 и первая `7` или `8` — берите последние 10; если их 10 — берите все. Иначе верните `None`.
+    examples:
+      - input: "normalize_phone(\"8 (900) 123-45-67\")"
+        output: "'+79001234567'"
+    starter: |
+      def normalize_phone(phone):
+          return "+7" + phone
+    hints:
+      - "Цифры: `\"\".join(ch for ch in phone if ch.isdigit())`."
+      - "Ранние возвраты для каждого случая длины."
+    solution: |
+      def normalize_phone(phone):
+          """Привести российский номер к формату +7XXXXXXXXXX или вернуть None."""
+          digits = "".join(ch for ch in phone if ch.isdigit())
+          if len(digits) == 11 and digits[0] in "78":
+              return "+7" + digits[1:]
+          if len(digits) == 10:
+              return "+7" + digits
+          return None
+    solution_explanation: "Сначала нормализуем вход (только цифры), затем разбираем случаи ранними возвратами. Такие функции очистки — частая задача подготовки данных."
+    tests:
+      - name: "С восьмёркой и скобками"
+        call: "normalize_phone(\"8 (900) 123-45-67\")"
+        expected: "'+79001234567'"
+      - name: "С +7"
+        call: "normalize_phone(\"+7 900 1234567\")"
+        expected: "'+79001234567'"
+      - name: "Десять цифр"
+        call: "normalize_phone(\"9001234567\")"
+        expected: "'+79001234567'"
+      - name: "Слишком коротко"
+        call: "normalize_phone(\"12345\")"
+        expected: "None"
+      - name: "11 цифр с другой первой"
+        call: "normalize_phone(\"19001234567\")"
+        expected: "None"
+      - name: "Пусто"
+        call: "normalize_phone(\"\")"
+        expected: "None"
+
+  - id: t2
+    title: "Композиция функций"
+    difficulty: 2
+    statement: |
+      Напишите `compose(*funcs)`, возвращающую **функцию одного аргумента**, которая применяет `funcs` по очереди слева направо: `compose(f, g, h)(x) == h(g(f(x)))`. Без функций — тождественная функция (возвращает аргумент без изменений).
+    examples:
+      - input: "compose(str.strip, str.lower)(\"  ПРИВЕТ \")"
+        output: "'привет'"
+    starter: |
+      def compose(*funcs):
+          return funcs[0]
+    hints:
+      - "Верните вложенную функцию `def pipeline(value):`, которая в цикле делает `value = func(value)`."
+      - "Если funcs пуст, цикл просто не выполнится — value вернётся как есть."
+    solution: |
+      def compose(*funcs):
+          """Вернуть функцию, последовательно применяющую funcs слева направо."""
+          def pipeline(value):
+              for func in funcs:
+                  value = func(value)
+              return value
+          return pipeline
+    solution_explanation: "*funcs собирает функции, замыкание pipeline запоминает их. Так строят конвейеры предобработки: compose(strip, lower, remove_punctuation)."
+    tests:
+      - name: "Строковый конвейер"
+        call: "compose(str.strip, str.lower)(\"  ПРИВЕТ \")"
+        expected: "'привет'"
+      - name: "Порядок слева направо"
+        call: "compose(lambda x: x + 1, lambda x: x * 10)(2)"
+        expected: "30"
+      - name: "Без функций"
+        call: "compose()(42)"
+        expected: "42"
+      - name: "Одна функция"
+        call: "compose(len)(\"abc\")"
+        expected: "3"
+      - name: "Переиспользование"
+        code: |
+          clean = compose(str.strip, str.upper)
+          assert clean(" a ") == "A" and clean("b ") == "B"
+
+  - id: t3
+    title: "Подсчёт по ключу"
+    difficulty: 2
+    statement: |
+      Напишите универсальную `count_by(items, key)`: возвращает словарь `key(item) → количество` в порядке первого появления ключей.
+    examples:
+      - input: "count_by([\"кот\", \"кит\", \"слон\"], len)"
+        output: "{3: 2, 4: 1}"
+      - input: "count_by([1, 2, 3, 4, 5], lambda n: n % 2 == 0)"
+        output: "{False: 3, True: 2}"
+    starter: |
+      def count_by(items, key):
+          return {}
+    hints:
+      - "Перебирайте элементы, вычисляйте `k = key(item)` и считайте через `counts.get(k, 0) + 1`."
+      - "Функция key передаётся без скобок — вызывайте её внутри."
+    solution: |
+      def count_by(items, key):
+          """Посчитать элементы, сгруппированные по значению функции key."""
+          counts = {}
+          for item in items:
+              k = key(item)
+              counts[k] = counts.get(k, 0) + 1
+          return counts
+    solution_explanation: "Функция высшего порядка: шаблон подсчёта один, а признак группировки передаётся снаружи. Так устроены groupby в pandas и itertools."
+    tests:
+      - name: "По длине"
+        call: "count_by([\"кот\", \"кит\", \"слон\"], len)"
+        expected: "{3: 2, 4: 1}"
+      - name: "По чётности"
+        call: "count_by([1, 2, 3, 4, 5], lambda n: n % 2 == 0)"
+        expected: "{False: 3, True: 2}"
+      - name: "Пусто"
+        call: "count_by([], len)"
+        expected: "{}"
+      - name: "По первой букве"
+        call: "count_by([\"ada\", \"alan\", \"bill\"], lambda s: s[0])"
+        expected: "{'a': 2, 'b': 1}"
+      - name: "Порядок появления"
+        code: |
+          result = count_by(["b", "a", "b"], str.upper)
+          assert list(result) == ["B", "A"]
+
+  - id: t4
+    title: "Сумма во вложенной структуре"
+    difficulty: 3
+    statement: |
+      Напишите рекурсивную `nested_sum(data)`: сумма всех чисел (int и float, но не bool) во вложенной структуре из списков, кортежей и словарей (для словарей — по значениям). Строки и прочие значения игнорируются.
+    examples:
+      - input: "nested_sum([1, {\"a\": 2, \"b\": [3, \"x\"]}, (4.5,)])"
+        output: "10.5"
+    starter: |
+      def nested_sum(data):
+          return sum(data)
+    hints:
+      - "Случаи: bool → 0 (проверьте до чисел, ведь bool — подтип int); число → само число; list/tuple → сумма по элементам; dict → сумма по values(); иначе 0."
+      - "`isinstance(data, (int, float))`, `isinstance(data, (list, tuple))`, `isinstance(data, dict)`."
+    solution: |
+      def nested_sum(data):
+          """Вернуть сумму всех чисел во вложенной структуре."""
+          if isinstance(data, bool):
+              return 0
+          if isinstance(data, (int, float)):
+              return data
+          if isinstance(data, (list, tuple)):
+              return sum(nested_sum(item) for item in data)
+          if isinstance(data, dict):
+              return sum(nested_sum(value) for value in data.values())
+          return 0
+    solution_explanation: "Ветки функции повторяют возможные формы данных. Проверка bool стоит первой: True — это 1 для isinstance(..., int)."
+    tests:
+      - name: "Пример"
+        call: "nested_sum([1, {\"a\": 2, \"b\": [3, \"x\"]}, (4.5,)])"
+        expected: "10.5"
+      - name: "Число"
+        call: "nested_sum(7)"
+        expected: "7"
+      - name: "bool не считается"
+        call: "nested_sum([True, 2, False])"
+        expected: "2"
+      - name: "Пустые"
+        call: "nested_sum([[], {}, ()])"
+        expected: "0"
+      - name: "Глубокая вложенность"
+        call: "nested_sum({\"a\": {\"b\": {\"c\": [10, [20]]}}})"
+        expected: "30"
+      - name: "Строки игнорируются"
+        call: "nested_sum([\"5\", None, 1])"
+        expected: "1"
+
+  - id: t5
+    title: "Библиотека для обработки оценок"
+    mini_project: true
+    difficulty: 3
+    statement: |
+      **Мини-проект.** Напишите библиотеку функций для журнала оценок. Тесты проверяют каждую функцию отдельно.
+
+      1. `parse_gradebook(text)` — разбирает многострочный текст, где каждая непустая строка имеет вид `Имя: 5, 4, 3` (пробелы вокруг произвольные), и возвращает словарь `имя → список оценок int`. Строки из одних пробелов пропускаются. Если у студента нет оценок (`Имя:`), список пустой.
+      2. `student_average(grades)` — среднее, округлённое до 2 знаков, или `None` для пустого списка.
+      3. `letter(average)` — буквенная оценка: `≥ 4.5` → `"A"`, `≥ 3.5` → `"B"`, `≥ 3` → `"C"`, ниже → `"F"`, `None` → `"—"`.
+      4. `class_report(gradebook)` — словарь:
+         - `"averages"`: `имя → среднее` (через student_average);
+         - `"best"`: имя с наибольшим средним (студенты без оценок не участвуют; при равенстве — первый; если участников нет — `None`);
+         - `"failing"`: отсортированный список имён со средним ниже 3 (без оценок — не попадают);
+         - `"distribution"`: словарь `оценка → сколько раз встречается` по всем студентам, ключи по возрастанию.
+    examples:
+      - input: "class_report(parse_gradebook(\"Ада: 5, 5, 4\\nАлан: 3, 2\"))"
+        output: "{'averages': {'Ада': 4.67, 'Алан': 2.5}, 'best': 'Ада', 'failing': ['Алан'], 'distribution': {2: 1, 3: 1, 4: 1, 5: 2}}"
+    starter: |
+      def parse_gradebook(text):
+          pass
+
+
+      def student_average(grades):
+          pass
+
+
+      def letter(average):
+          pass
+
+
+      def class_report(gradebook):
+          pass
+    hints:
+      - "parse_gradebook: `for line in text.splitlines()`, пропуск пустых, `name, _, rest = line.partition(\":\")`, оценки — `[int(x) for x in rest.split(\",\") if x.strip()]`."
+      - "class_report: соберите averages comprehension'ом, best — max по участникам с key=averages.get, distribution — подсчёт по всем оценкам и `dict(sorted(counts.items()))`."
+    solution: |
+      """Функции для обработки журнала оценок."""
+
+
+      def parse_gradebook(text):
+          """Разобрать строки «Имя: 5, 4, 3» в словарь имя → список оценок."""
+          gradebook = {}
+          for line in text.splitlines():
+              if not line.strip():
+                  continue
+              name, _, rest = line.partition(":")
+              gradebook[name.strip()] = [int(x) for x in rest.split(",") if x.strip()]
+          return gradebook
+
+
+      def student_average(grades):
+          """Вернуть средний балл с точностью до сотых или None для пустого списка."""
+          if not grades:
+              return None
+          return round(sum(grades) / len(grades), 2)
+
+
+      def letter(average):
+          """Перевести средний балл в буквенную оценку."""
+          if average is None:
+              return "—"
+          if average >= 4.5:
+              return "A"
+          if average >= 3.5:
+              return "B"
+          if average >= 3:
+              return "C"
+          return "F"
+
+
+      def class_report(gradebook):
+          """Собрать отчёт по группе: средние, лучший, неуспевающие, распределение оценок."""
+          averages = {name: student_average(grades) for name, grades in gradebook.items()}
+          graded = [name for name, avg in averages.items() if avg is not None]
+          best = max(graded, key=averages.get) if graded else None
+          failing = sorted(name for name in graded if averages[name] < 3)
+          counts = {}
+          for grades in gradebook.values():
+              for grade in grades:
+                  counts[grade] = counts.get(grade, 0) + 1
+          return {
+              "averages": averages,
+              "best": best,
+              "failing": failing,
+              "distribution": dict(sorted(counts.items())),
+          }
+    solution_explanation: |
+      Библиотека — набор маленьких функций, каждая решает одну задачу и строится на других:
+
+      - `parse_gradebook` отвечает только за формат текста. `partition(":")` безопасно делит строку даже без оценок, `if x.strip()` пропускает пустые куски.
+      - `student_average` и `letter` — чистые функции с явной обработкой граничных случаев (`None`).
+      - `class_report` собирается из готовых кирпичиков: comprehension для средних, `max` с `key=averages.get` (возвращает первый из равных), `sorted` для неуспевающих, шаблон подсчёта для распределения.
+
+      Никакого `print` и `input` внутри: библиотеку можно использовать в консольной программе, веб-сервисе или ноутбуке. Именно так в проекте части 1 вы будете строить менеджер задач — из функций с понятными контрактами.
+    tests:
+      - name: "Разбор журнала"
+        call: "parse_gradebook(\"Ада: 5, 5, 4\\n\\n  Алан :3,2  \\nГрейс:\")"
+        expected: "{'Ада': [5, 5, 4], 'Алан': [3, 2], 'Грейс': []}"
+      - name: "Среднее"
+        call: "(student_average([5, 5, 4]), student_average([]))"
+        expected: "(4.67, None)"
+      - name: "Буквенные оценки"
+        call: "[letter(a) for a in [5, 4.5, 4.49, 3.5, 3, 2.99, None]]"
+        expected: "['A', 'A', 'B', 'B', 'C', 'F', '—']"
+      - name: "Отчёт"
+        call: "class_report(parse_gradebook(\"Ада: 5, 5, 4\\nАлан: 3, 2\"))"
+        expected: "{'averages': {'Ада': 4.67, 'Алан': 2.5}, 'best': 'Ада', 'failing': ['Алан'], 'distribution': {2: 1, 3: 1, 4: 1, 5: 2}}"
+      - name: "Студент без оценок"
+        call: "class_report({\"А\": [], \"Б\": [4]})"
+        expected: "{'averages': {'А': None, 'Б': 4.0}, 'best': 'Б', 'failing': [], 'distribution': {4: 1}}"
+      - name: "Пустой журнал"
+        call: "class_report({})"
+        expected: "{'averages': {}, 'best': None, 'failing': [], 'distribution': {}}"
+      - name: "Равные средние — первый"
+        call: "class_report({\"Б\": [5], \"А\": [5]})['best']"
+        expected: "'Б'"
+      - name: "Неуспевающие по алфавиту"
+        call: "class_report({\"Я\": [2], \"Б\": [2, 3], \"В\": [5]})['failing']"
+        expected: "['Б', 'Я']"

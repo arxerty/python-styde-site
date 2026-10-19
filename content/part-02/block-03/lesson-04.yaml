@@ -1,0 +1,403 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def a():
+          yield [1, 2]
+
+
+      def b():
+          yield from [1, 2]
+
+
+      print(list(a()), list(b()))
+    options:
+      - text: "`[[1, 2]] [1, 2]`"
+        correct: true
+        why: "yield выдаёт список одним элементом, yield from — его элементы по одному."
+      - text: "`[1, 2] [1, 2]`"
+        why: "yield не раскрывает список."
+      - text: "`[[1, 2]] [[1, 2]]`"
+        why: "yield from раскрывает итерируемый объект."
+    explanation: "yield from делегирует перебор: выдаёт элементы, а не сам объект."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def flat(items):
+          for item in items:
+              if isinstance(item, tuple):
+                  yield from flat(item)
+              else:
+                  yield item
+
+
+      print(list(flat((1, (2, (3,)), 4))))
+    options:
+      - text: "`[1, 2, 3, 4]`"
+        correct: true
+        why: "Рекурсия с yield from раскрывает кортежи любой глубины."
+      - text: "`[1, (2, (3,)), 4]`"
+        why: "Вложенные кортежи разворачиваются рекурсивным вызовом."
+      - text: "`[1, 2, (3,), 4]`"
+        why: "Рекурсия проходит все уровни."
+    explanation: "Рекурсивный генератор + yield from = обход дерева любой глубины."
+
+  - id: q3
+    type: find_bug
+    prompt: "Генератор теряет все вложенные элементы. Почему?"
+    code: |
+      def flatten(items):
+          for item in items:
+              if isinstance(item, list):
+                  flatten(item)
+              else:
+                  yield item
+    options:
+      - text: "Рекурсивный вызов создаёт генератор, но его элементы не выдаются; нужно yield from flatten(item)"
+        correct: true
+        why: "Генератор, который никто не перебирает, ничего не делает."
+      - text: "Рекурсия в генераторах запрещена"
+        why: "Разрешена — с yield from."
+      - text: "isinstance не работает со списками"
+        why: "Работает."
+    explanation: "Результат рекурсивного вызова генератора нужно передать наверх через yield from."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def src():
+          for x in "ab":
+              print("читаю", x)
+              yield x
+
+
+      def up(items):
+          for x in items:
+              print("обрабатываю", x)
+              yield x.upper()
+
+
+      print(next(up(src())))
+    options:
+      - text: |
+          ```
+          читаю a
+          обрабатываю a
+          A
+          ```
+        correct: true
+        why: "Конвейер ленив: обработан ровно один элемент."
+      - text: |
+          ```
+          читаю a
+          читаю b
+          обрабатываю a
+          A
+          ```
+        why: "Источник не читает следующий элемент, пока его не попросят."
+      - text: "`A`"
+        why: "Отладочные print выполняются по мере прохождения элемента."
+    explanation: "Элементы проходят конвейер по одному и по запросу."
+
+  - id: q5
+    type: single
+    prompt: "Какое звено разрушит ленивость конвейера?"
+    options:
+      - text: "`def sort_lines(lines): yield from sorted(lines)`"
+        correct: true
+        why: "sorted должен прочитать весь поток в память, прежде чем выдать первый элемент."
+      - text: "`def strip(lines): return (l.strip() for l in lines)`"
+        why: "Генераторное выражение ленивое."
+      - text: "`def skip_empty(lines): yield from (l for l in lines if l)`"
+        why: "Ленивый фильтр."
+      - text: "`def upper(lines):` с циклом и `yield line.upper()`"
+        why: "Обычный ленивый преобразователь."
+    explanation: "Сортировка и list() внутри звена загружают весь поток в память."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно про конвейеры генераторов? Выберите все."
+    options:
+      - text: "Каждое звено можно протестировать отдельно на небольшом списке"
+        correct: true
+        why: "Звено принимает любой итерируемый объект."
+      - text: "Память почти не зависит от размера входного потока"
+        correct: true
+        why: "Элементы проходят по одному (если звенья не накапливают состояние)."
+      - text: "Готовый конвейер можно перебрать дважды"
+        why: "Цепочка генераторов одноразовая."
+      - text: "Источником может быть открытый файл"
+        correct: true
+        why: "Файл — ленивый итератор строк."
+    explanation: "Конвейер — композиция маленьких ленивых звеньев."
+
+tasks:
+  - id: t1
+    title: "Склейка и разворачивание"
+    difficulty: 1
+    statement: |
+      Напишите генераторы с `yield from`:
+
+      - `chain_all(*sources)` — все элементы всех источников по порядку;
+      - `flatten_once(nested)` — разворачивает один уровень вложенности: `[[1, 2], [3]]` → `1, 2, 3`;
+      - `with_header(header, rows)` — сначала `header`, затем все элементы `rows`.
+    examples:
+      - input: "list(chain_all([1], \"ab\", range(2)))"
+        output: "[1, 'a', 'b', 0, 1]"
+    starter: |
+      def chain_all(*sources):
+          result = []
+          for source in sources:
+              result += list(source)
+          return result
+    hints:
+      - "`for source in sources: yield from source`."
+      - "with_header: `yield header`, затем `yield from rows`."
+    solution: |
+      def chain_all(*sources):
+          """Все элементы всех источников."""
+          for source in sources:
+              yield from source
+
+
+      def flatten_once(nested):
+          """Развернуть один уровень вложенности."""
+          for inner in nested:
+              yield from inner
+
+
+      def with_header(header, rows):
+          """Заголовок, затем строки."""
+          yield header
+          yield from rows
+    solution_explanation: "yield from заменяет внутренний цикл for … yield и сохраняет ленивость: элементы источников не копируются в список."
+    constraints:
+      require: ["yield from"]
+      message: "Используйте yield from"
+    tests:
+      - name: "Пример"
+        call: "list(chain_all([1], \"ab\", range(2)))"
+        expected: "[1, 'a', 'b', 0, 1]"
+      - name: "flatten_once"
+        call: "list(flatten_once([[1, 2], [], (3, [4])]))"
+        expected: "[1, 2, 3, [4]]"
+      - name: "with_header"
+        call: "list(with_header(\"id,name\", [\"1,ada\", \"2,alan\"]))"
+        expected: "['id,name', '1,ada', '2,alan']"
+      - name: "Ленивость"
+        code: |
+          def endless():
+              n = 0
+              while True:
+                  yield n
+                  n += 1
+          g = chain_all([10], endless())
+          assert [next(g), next(g), next(g)] == [10, 0, 1]
+      - name: "Без источников"
+        call: "list(chain_all())"
+        expected: "[]"
+
+  - id: t2
+    title: "Плоская конфигурация"
+    difficulty: 2
+    statement: |
+      Напишите рекурсивный генератор `flatten_config(tree, prefix="")`, который превращает вложенную структуру из словарей и списков в пары `(путь, значение)`:
+
+      - ключи словаря добавляются через точку: `model.name`;
+      - элементы списка — через точку с индексом: `layers.0.size`;
+      - листья (всё, что не `dict` и не `list`) выдаются как значения.
+
+      Функция `to_flat_dict(tree)` — словарь из этих пар.
+    examples:
+      - input: "list(flatten_config({\"a\": {\"b\": 1}, \"c\": [10, 20]}))"
+        output: "[('a.b', 1), ('c.0', 10), ('c.1', 20)]"
+    starter: |
+      def flatten_config(tree, prefix=""):
+          for key, value in tree.items():
+              yield key, value
+    hints:
+      - "Для словаря пары `(key, value)` берите из `.items()`, для списка — из `enumerate(tree)`; путь — `f\"{prefix}.{key}\" if prefix else str(key)`."
+      - "Если значение — dict или list, `yield from flatten_config(value, path)`, иначе `yield path, value`."
+    solution: |
+      def flatten_config(tree, prefix=""):
+          """Пары (путь, значение) для всех листьев вложенной структуры."""
+          pairs = tree.items() if isinstance(tree, dict) else enumerate(tree)
+          for key, value in pairs:
+              path = f"{prefix}.{key}" if prefix else str(key)
+              if isinstance(value, (dict, list)):
+                  yield from flatten_config(value, path)
+              else:
+                  yield path, value
+
+
+      def to_flat_dict(tree):
+          """Плоский словарь путь → значение."""
+          return dict(flatten_config(tree))
+    solution_explanation: "Словари и списки обрабатываются одинаково, если свести их к парам (ключ, значение): items() и enumerate(). Рекурсия с yield from проходит любую глубину, а dict(...) собирает поток пар в словарь."
+    tests:
+      - name: "Пример"
+        call: "list(flatten_config({\"a\": {\"b\": 1}, \"c\": [10, 20]}))"
+        expected: "[('a.b', 1), ('c.0', 10), ('c.1', 20)]"
+      - name: "Глубокая вложенность"
+        call: "to_flat_dict({\"model\": {\"layers\": [{\"size\": 64}, {\"size\": 32}]}, \"lr\": 0.01})"
+        expected: "{'model.layers.0.size': 64, 'model.layers.1.size': 32, 'lr': 0.01}"
+      - name: "Пустые контейнеры"
+        call: "list(flatten_config({\"a\": {}, \"b\": [], \"c\": None}))"
+        expected: "[('c', None)]"
+      - name: "Корень — список"
+        call: "list(flatten_config([1, [2]]))"
+        expected: "[('0', 1), ('1.0', 2)]"
+      - name: "Генератор"
+        code: |
+          import inspect
+          assert inspect.isgeneratorfunction(flatten_config)
+
+  - id: t3
+    title: "Конвейер очистки текста"
+    difficulty: 2
+    statement: |
+      Напишите звенья-генераторы:
+
+      - `strip_lines(lines)` — убирает пробелы по краям, пропускает пустые строки;
+      - `drop_comments(lines, prefix="#")` — пропускает строки, начинающиеся с `prefix`;
+      - `normalize_spaces(lines)` — заменяет любые последовательности пробельных символов внутри строки одним пробелом;
+      - `unique_ci(lines)` — убирает повторы без учёта регистра (оставляет первое вхождение как есть).
+
+      Функция `clean_text(lines)` соединяет их в конвейер (в этом порядке) и возвращает **генератор**.
+    examples:
+      - input: "list(clean_text([\"# комментарий\", \"  Привет   мир \", \"\", \"привет мир\", \"Пока\"]))"
+        output: "['Привет мир', 'Пока']"
+    starter: |
+      def clean_text(lines):
+          result = []
+          for line in lines:
+              line = line.strip()
+              if line and line not in result:
+                  result.append(line)
+          return result
+    hints:
+      - "normalize_spaces: `\" \".join(line.split())` — split без аргументов делит по любым пробельным символам."
+      - "clean_text: `return unique_ci(normalize_spaces(drop_comments(strip_lines(lines))))`."
+    solution: |
+      def strip_lines(lines):
+          for line in lines:
+              line = line.strip()
+              if line:
+                  yield line
+
+
+      def drop_comments(lines, prefix="#"):
+          for line in lines:
+              if not line.startswith(prefix):
+                  yield line
+
+
+      def normalize_spaces(lines):
+          for line in lines:
+              yield " ".join(line.split())
+
+
+      def unique_ci(lines):
+          seen = set()
+          for line in lines:
+              key = line.lower()
+              if key not in seen:
+                  seen.add(key)
+                  yield line
+
+
+      def clean_text(lines):
+          """Конвейер очистки строк."""
+          return unique_ci(normalize_spaces(drop_comments(strip_lines(lines))))
+    solution_explanation: "Каждое звено делает одно дело и работает с любым потоком строк. Порядок важен: комментарии отбрасываются после strip, иначе строка «  # x» не была бы распознана как комментарий."
+    tests:
+      - name: "Пример"
+        call: "list(clean_text([\"# комментарий\", \"  Привет   мир \", \"\", \"привет мир\", \"Пока\"]))"
+        expected: "['Привет мир', 'Пока']"
+      - name: "Отступ перед комментарием"
+        call: "list(clean_text([\"   # x\", \"a\\tb\"]))"
+        expected: "['a b']"
+      - name: "Звенья по отдельности"
+        code: |
+          assert list(drop_comments(["//a", "b"], prefix="//")) == ["b"]
+          assert list(unique_ci(["A", "a", "B"])) == ["A", "B"]
+          assert list(normalize_spaces(["a \n  b"])) == ["a b"]
+      - name: "Возвращается генератор"
+        code: |
+          import types
+          assert isinstance(clean_text([]), types.GeneratorType), "clean_text должен возвращать генератор"
+      - name: "Ленивость"
+        code: |
+          def endless():
+              n = 0
+              while True:
+                  n += 1
+                  yield f" строка   {n} "
+          g = clean_text(endless())
+          assert next(g) == "строка 1" and next(g) == "строка 2"
+
+  - id: t4
+    title: "Обход дерева файлов"
+    difficulty: 3
+    statement: |
+      Файловая система задана вложенным словарём: папка — словарь, файл — его размер в байтах:
+
+      ```
+      {"src": {"main.py": 120, "utils": {"io.py": 40}}, "README.md": 10}
+      ```
+
+      - генератор `walk_files(tree, path="")` выдаёт пары `(путь, размер)` для всех файлов; путь — имена через `/` (`src/utils/io.py`);
+      - `total_size(tree, ext=None)` — суммарный размер файлов (если задано `ext`, например `".py"`, — только с таким окончанием);
+      - `largest(tree, n)` — пути `n` самых больших файлов по убыванию размера (при равенстве — по алфавиту).
+    examples:
+      - input: "list(walk_files({\"src\": {\"main.py\": 120, \"utils\": {\"io.py\": 40}}, \"README.md\": 10}))"
+        output: "[('src/main.py', 120), ('src/utils/io.py', 40), ('README.md', 10)]"
+    starter: |
+      def walk_files(tree, path=""):
+          for name, value in tree.items():
+              yield name, value
+    hints:
+      - "Путь элемента: `f\"{path}/{name}\" if path else name`. Если значение — dict, `yield from walk_files(value, full_path)`."
+      - "total_size: `sum(size for p, size in walk_files(tree) if ext is None or p.endswith(ext))`. largest: `sorted(walk_files(tree), key=lambda item: (-item[1], item[0]))[:n]`."
+    solution: |
+      def walk_files(tree, path=""):
+          """Все файлы дерева: пары (путь, размер)."""
+          for name, value in tree.items():
+              full_path = f"{path}/{name}" if path else name
+              if isinstance(value, dict):
+                  yield from walk_files(value, full_path)
+              else:
+                  yield full_path, value
+
+
+      def total_size(tree, ext=None):
+          """Суммарный размер файлов (с фильтром по окончанию)."""
+          return sum(size for path, size in walk_files(tree) if ext is None or path.endswith(ext))
+
+
+      def largest(tree, n):
+          """Пути n самых больших файлов."""
+          ranked = sorted(walk_files(tree), key=lambda item: (-item[1], item[0]))
+          return [path for path, _ in ranked[:n]]
+    solution_explanation: "Рекурсивный генератор превращает дерево в плоский поток файлов, а остальные функции — обычные потребители этого потока. Так же устроен os.walk и загрузчики документов, обходящие папки базы знаний."
+    tests:
+      - name: "Пример"
+        call: "list(walk_files({\"src\": {\"main.py\": 120, \"utils\": {\"io.py\": 40}}, \"README.md\": 10}))"
+        expected: "[('src/main.py', 120), ('src/utils/io.py', 40), ('README.md', 10)]"
+      - name: "total_size"
+        call: "[total_size({\"a\": {\"x.py\": 5, \"y.txt\": 7}, \"z.py\": 1}), total_size({\"a\": {\"x.py\": 5, \"y.txt\": 7}, \"z.py\": 1}, \".py\")]"
+        expected: "[13, 6]"
+      - name: "largest"
+        call: "largest({\"d\": {\"b\": 50, \"a\": 50}, \"c\": 70, \"e\": 1}, 3)"
+        expected: "['c', 'd/a', 'd/b']"
+      - name: "Пустые папки"
+        call: "[list(walk_files({\"empty\": {}, \"deep\": {\"x\": {}}})), total_size({})]"
+        expected: "[[], 0]"
+      - name: "Генератор"
+        code: |
+          import inspect
+          assert inspect.isgeneratorfunction(walk_files), "walk_files должен быть генератором"

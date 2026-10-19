@@ -1,0 +1,444 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Counter:
+          def __init__(self):
+              self.value = 0
+
+          def increment(self):
+              self.value += 1
+
+
+      a = Counter()
+      b = Counter()
+      a.increment()
+      a.increment()
+      b.increment()
+      print(a.value, b.value)
+    options:
+      - text: "`2 1`"
+        correct: true
+        why: "У каждого объекта свой атрибут value."
+      - text: "`3 3`"
+        why: "value — атрибут экземпляра, созданный в __init__; объекты не делят его."
+      - text: "`1 1`"
+        why: "У объекта a increment вызван дважды."
+    explanation: "Атрибуты, заданные через self в __init__, у каждого объекта свои."
+
+  - id: q2
+    type: find_bug
+    prompt: "Вызов `Dog(\"Рекс\").bark()` падает с ошибкой. Почему?"
+    code: |
+      class Dog:
+          def __init__(self, name):
+              self.name = name
+
+          def bark():
+              return "Гав!"
+    options:
+      - text: "У метода bark нет параметра self, а Python передаёт объект первым аргументом"
+        correct: true
+        why: "TypeError: bark() takes 0 positional arguments but 1 was given."
+      - text: "Метод не может возвращать строку"
+        why: "Методы возвращают что угодно, как обычные функции."
+      - text: "В __init__ нужно написать return self"
+        why: "__init__ ничего не возвращает."
+      - text: "Атрибут name не используется в bark"
+        why: "Это не ошибка — метод может и не использовать атрибуты."
+    explanation: "obj.method() превращается в Class.method(obj) — первый параметр нужен всегда."
+
+  - id: q3
+    type: single
+    prompt: "Что происходит при выполнении `account = BankAccount(\"Ада\", 100)`?"
+    options:
+      - text: "Создаётся новый объект, вызывается `__init__(объект, \"Ада\", 100)`, объект присваивается `account`"
+        correct: true
+        why: "Именно так: создание, инициализация, возврат объекта."
+      - text: "Вызывается `__init__`, и то, что он вернул через return, попадает в `account`"
+        why: "__init__ возвращает None; вызов класса возвращает сам объект."
+      - text: "`account` становится ссылкой на класс BankAccount"
+        why: "Вызов класса (со скобками) создаёт экземпляр."
+      - text: "Атрибуты создаются, только если вызвать `account.__init__()` вручную"
+        why: "__init__ вызывается автоматически при создании."
+    explanation: "Вызов класса = создание объекта + автоматический __init__."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Point:
+          def __init__(self, x, y):
+              self.x = x
+              self.y = y
+
+          def __str__(self):
+              return f"({self.x}, {self.y})"
+
+          def __repr__(self):
+              return f"Point({self.x}, {self.y})"
+
+
+      points = [Point(1, 2), Point(3, 4)]
+      print(points[0])
+      print(points)
+    options:
+      - text: |
+          ```
+          (1, 2)
+          [Point(1, 2), Point(3, 4)]
+          ```
+        correct: true
+        why: "print объекта использует __str__, а список показывает элементы через __repr__."
+      - text: |
+          ```
+          (1, 2)
+          [(1, 2), (3, 4)]
+          ```
+        why: "Внутри списка используется __repr__, а не __str__."
+      - text: |
+          ```
+          Point(1, 2)
+          [Point(1, 2), Point(3, 4)]
+          ```
+        why: "Для print одного объекта есть __str__ — он и используется."
+    explanation: "__str__ — для пользователя (print), __repr__ — для разработчика (списки, консоль, отладка)."
+
+  - id: q5
+    type: find_bug
+    prompt: "После `user = User(\"ada\")` обращение `user.name` даёт AttributeError. Где ошибка?"
+    code: |
+      class User:
+          def __init__(self, name):
+              name = name
+              self.active = True
+    options:
+      - text: "`name = name` создаёт локальную переменную; нужно `self.name = name`"
+        correct: true
+        why: "Без self. атрибут у объекта не появляется."
+      - text: "Атрибут active нужно объявить до name"
+        why: "Порядок присваиваний не важен."
+      - text: "Параметр нельзя называть так же, как атрибут"
+        why: "Можно и принято: self.name = name."
+    explanation: "Атрибут объекта создаётся только присваиванием через self."
+
+  - id: q6
+    type: multiple
+    prompt: "В каких случаях класс уместнее набора функций? Выберите все."
+    options:
+      - text: "Нужно состояние, живущее между вызовами (история диалога, счётчик)"
+        correct: true
+        why: "Объект хранит состояние в атрибутах."
+      - text: "Много однотипных сущностей с одинаковыми операциями (счета, документы)"
+        correct: true
+        why: "Класс задаёт общий чертёж и набор методов."
+      - text: "Данные и операции над ними всегда используются вместе"
+        correct: true
+        why: "Это и есть главная идея ООП."
+      - text: "Нужно одно вычисление «вход → результат» без состояния"
+        why: "Здесь достаточно функции; класс с одним методом без состояния — лишний."
+    explanation: "Класс оправдан, когда есть состояние или связка «данные + поведение»."
+
+tasks:
+  - id: t1
+    title: "Точка на плоскости"
+    difficulty: 1
+    statement: |
+      Создайте класс `Point`:
+
+      - `__init__(self, x, y)` сохраняет координаты в атрибутах `x` и `y`;
+      - `distance_to(other)` возвращает расстояние до другой точки: √((x₁−x₂)² + (y₁−y₂)²);
+      - `move(dx, dy)` сдвигает точку (меняет её координаты) и ничего не возвращает;
+      - `__repr__` возвращает строку вида `Point(3, 4)`.
+    examples:
+      - input: "Point(0, 0).distance_to(Point(3, 4))"
+        output: "5.0"
+    starter: |
+      class Point:
+          def __init__(self, x, y):
+              pass
+    hints:
+      - "В `__init__`: `self.x = x` и `self.y = y`."
+      - "Расстояние: `((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5`."
+    solution: |
+      class Point:
+          """Точка на плоскости."""
+
+          def __init__(self, x, y):
+              self.x = x
+              self.y = y
+
+          def distance_to(self, other):
+              """Вернуть расстояние до другой точки."""
+              return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
+
+          def move(self, dx, dy):
+              """Сдвинуть точку на (dx, dy)."""
+              self.x += dx
+              self.y += dy
+
+          def __repr__(self):
+              return f"Point({self.x}, {self.y})"
+    solution_explanation: "Метод distance_to получает второй объект как обычный аргумент и читает его атрибуты так же, как свои. move меняет состояние объекта — поэтому ничего не возвращает."
+    tests:
+      - name: "Расстояние 3-4-5"
+        call: "Point(0, 0).distance_to(Point(3, 4))"
+        expected: "5.0"
+      - name: "Расстояние до себя"
+        call: "Point(2, -1).distance_to(Point(2, -1))"
+        expected: "0.0"
+      - name: "Атрибуты x и y"
+        code: |
+          p = Point(7, -2)
+          assert p.x == 7 and p.y == -2, "Координаты должны храниться в атрибутах x и y"
+      - name: "move меняет точку"
+        code: |
+          p = Point(1, 1)
+          result = p.move(2, -3)
+          assert result is None, "move ничего не возвращает"
+          assert (p.x, p.y) == (3, -2), f"После move получилось ({p.x}, {p.y})"
+      - name: "repr"
+        call: "repr(Point(3, 4))"
+        expected: "'Point(3, 4)'"
+      - name: "Точки независимы"
+        code: |
+          a = Point(0, 0)
+          b = Point(0, 0)
+          a.move(5, 5)
+          assert (b.x, b.y) == (0, 0), "Сдвиг одной точки не должен менять другую"
+
+  - id: t2
+    title: "Счётчик с шагом"
+    difficulty: 1
+    statement: |
+      Создайте класс `Counter`:
+
+      - `Counter(start=0)` — начальное значение хранится в атрибуте `value`;
+      - `increment(step=1)` увеличивает `value` на `step` и возвращает новое значение;
+      - `reset()` возвращает `value` к начальному значению (тому, что передали при создании).
+    examples:
+      - input: "c = Counter(10); c.increment(); c.increment(5)"
+        output: "16"
+    starter: |
+      class Counter:
+          def __init__(self, start=0):
+              self.value = start
+
+          def increment(self, step=1):
+              self.value += step
+    hints:
+      - "Чтобы reset знал начальное значение, сохраните его в отдельный атрибут: `self.start = start`."
+      - "`increment` должен заканчиваться `return self.value`."
+    solution: |
+      class Counter:
+          """Счётчик с настраиваемым шагом."""
+
+          def __init__(self, start=0):
+              self.start = start
+              self.value = start
+
+          def increment(self, step=1):
+              """Увеличить значение на step и вернуть его."""
+              self.value += step
+              return self.value
+
+          def reset(self):
+              """Вернуть значение к начальному."""
+              self.value = self.start
+    solution_explanation: "Объект хранит два атрибута: текущее значение и начальное. Без сохранения start метод reset не знал бы, к чему возвращаться, — это состояние, которое живёт между вызовами."
+    tests:
+      - name: "Пример"
+        code: |
+          c = Counter(10)
+          c.increment()
+          assert c.increment(5) == 16
+      - name: "По умолчанию с нуля"
+        code: |
+          c = Counter()
+          assert c.value == 0
+          assert c.increment() == 1
+      - name: "reset к начальному"
+        code: |
+          c = Counter(3)
+          c.increment(4)
+          c.reset()
+          assert c.value == 3, f"После reset value = {c.value}, ожидалось 3"
+      - name: "Счётчики независимы"
+        code: |
+          a = Counter()
+          b = Counter()
+          a.increment(10)
+          assert b.value == 0
+      - name: "Отрицательный шаг"
+        code: |
+          c = Counter(5)
+          assert c.increment(-2) == 3
+
+  - id: t3
+    title: "Сообщение для LLM"
+    difficulty: 2
+    statement: |
+      Создайте класс `Message`:
+
+      - `Message(role, content)`; допустимые роли — `"system"`, `"user"`, `"assistant"`. Для другой роли бросайте `ValueError` с сообщением, содержащим роль. Пустой (или из одних пробелов) `content` — тоже `ValueError`;
+      - атрибуты `role` и `content`;
+      - `to_dict()` возвращает `{"role": ..., "content": ...}`;
+      - `__str__` возвращает `"role: content"`.
+    examples:
+      - input: "Message(\"user\", \"Привет\").to_dict()"
+        output: "{'role': 'user', 'content': 'Привет'}"
+    starter: |
+      class Message:
+          def __init__(self, role, content):
+              self.role = role
+              self.content = content
+    hints:
+      - "Проверки — в начале `__init__`: `if role not in (\"system\", \"user\", \"assistant\"): raise ValueError(...)`."
+      - "Пустой текст: `if not content.strip(): raise ValueError(\"пустое сообщение\")`."
+    solution: |
+      ROLES = ("system", "user", "assistant")
+
+
+      class Message:
+          """Одно сообщение диалога с языковой моделью."""
+
+          def __init__(self, role, content):
+              if role not in ROLES:
+                  raise ValueError(f"неизвестная роль: {role}")
+              if not content.strip():
+                  raise ValueError("пустое сообщение")
+              self.role = role
+              self.content = content
+
+          def to_dict(self):
+              """Вернуть сообщение в формате API."""
+              return {"role": self.role, "content": self.content}
+
+          def __str__(self):
+              return f"{self.role}: {self.content}"
+    solution_explanation: "Проверка в __init__ гарантирует: если объект Message существует, он корректен. Это главное преимущество класса перед «голым» словарём — некорректное сообщение невозможно создать."
+    tests:
+      - name: "to_dict"
+        call: "Message(\"user\", \"Привет\").to_dict()"
+        expected: "{'role': 'user', 'content': 'Привет'}"
+      - name: "str"
+        call: "str(Message(\"assistant\", \"Готово\"))"
+        expected: "'assistant: Готово'"
+      - name: "Неизвестная роль"
+        code: |
+          try:
+              Message("admin", "текст")
+          except ValueError as error:
+              assert "admin" in str(error), "Сообщение должно содержать роль"
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Пустой текст"
+        code: |
+          try:
+              Message("user", "   ")
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Атрибуты"
+        code: |
+          m = Message("system", "Ты помощник")
+          assert m.role == "system" and m.content == "Ты помощник"
+
+  - id: t4
+    title: "История диалога"
+    difficulty: 3
+    statement: |
+      Создайте класс `Conversation`:
+
+      - `Conversation(system_prompt=None)` — атрибут `messages` (список словарей `{"role", "content"}`); если передан `system_prompt`, первым идёт системное сообщение;
+      - `add(role, content)` добавляет сообщение (роли — только `"user"` и `"assistant"`, иначе `ValueError`);
+      - `last(n)` возвращает список последних `n` сообщений **без** системного;
+      - `token_estimate()` — грубая оценка токенов: суммарная длина всех `content` (включая системное), делённая на 4 с округлением **вверх**;
+      - `__len__` возвращает число сообщений без системного.
+    examples:
+      - input: "c = Conversation(\"Будь краток\"); c.add(\"user\", \"Привет\"); len(c)"
+        output: "1"
+    starter: |
+      class Conversation:
+          def __init__(self, system_prompt=None):
+              self.messages = []
+
+          def add(self, role, content):
+              self.messages.append({"role": role, "content": content})
+    hints:
+      - "Сообщения без системного: `[m for m in self.messages if m[\"role\"] != \"system\"]` — вынесите это во вспомогательный метод."
+      - "Округление вверх без math: `(total + 3) // 4`. Последние n: срез `[-n:]`, но при n = 0 он вернёт весь список — обработайте отдельно."
+    solution: |
+      class Conversation:
+          """История диалога с языковой моделью."""
+
+          def __init__(self, system_prompt=None):
+              self.messages = []
+              if system_prompt:
+                  self.messages.append({"role": "system", "content": system_prompt})
+
+          def add(self, role, content):
+              """Добавить сообщение пользователя или ассистента."""
+              if role not in ("user", "assistant"):
+                  raise ValueError(f"неизвестная роль: {role}")
+              self.messages.append({"role": role, "content": content})
+
+          def _dialog(self):
+              """Сообщения без системного."""
+              return [m for m in self.messages if m["role"] != "system"]
+
+          def last(self, n):
+              """Вернуть последние n сообщений диалога."""
+              if n <= 0:
+                  return []
+              return self._dialog()[-n:]
+
+          def token_estimate(self):
+              """Грубо оценить число токенов: символы / 4, вверх."""
+              total = sum(len(m["content"]) for m in self.messages)
+              return (total + 3) // 4
+
+          def __len__(self):
+              return len(self._dialog())
+    solution_explanation: "Вспомогательный метод `_dialog` убирает дублирование: и last, и __len__ работают с сообщениями без системного. Ловушка среза: `lst[-0:]` — это весь список, поэтому n <= 0 обрабатывается отдельно. `__len__` позволяет вызывать `len(chat)` — специальные методы подробно разберём в блоке 2.2."
+    tests:
+      - name: "Системное сообщение первым"
+        code: |
+          c = Conversation("Будь краток")
+          c.add("user", "Привет")
+          assert c.messages[0] == {"role": "system", "content": "Будь краток"}
+          assert len(c) == 1, "len не учитывает системное сообщение"
+      - name: "Без системного промпта"
+        code: |
+          c = Conversation()
+          assert c.messages == [] and len(c) == 0
+      - name: "last(n)"
+        code: |
+          c = Conversation("sys")
+          for i in range(4):
+              c.add("user" if i % 2 == 0 else "assistant", f"m{i}")
+          assert c.last(2) == [{"role": "user", "content": "m2"}, {"role": "assistant", "content": "m3"}]
+          assert len(c.last(10)) == 4, "last не должен возвращать системное сообщение"
+          assert c.last(0) == [], "last(0) — пустой список"
+      - name: "Оценка токенов"
+        code: |
+          c = Conversation("abcd")
+          c.add("user", "abcde")
+          assert c.token_estimate() == 3, f"9 символов / 4 вверх = 3, получено {c.token_estimate()}"
+      - name: "Недопустимая роль"
+        code: |
+          c = Conversation()
+          try:
+              c.add("system", "ещё один системный")
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Истории независимы"
+        code: |
+          a = Conversation()
+          b = Conversation()
+          a.add("user", "x")
+          assert len(b) == 0, "У каждого объекта должен быть свой список messages"

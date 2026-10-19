@@ -1,0 +1,462 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import asyncio
+
+
+      async def compute():
+          print("считаю")
+          return 42
+
+
+      c = compute()
+      print(type(c).__name__)
+      print(asyncio.run(c))
+    options:
+      - text: |
+          ```
+          coroutine
+          считаю
+          42
+          ```
+        correct: true
+        why: "Вызов async-функции создаёт корутину; тело выполняется при asyncio.run."
+      - text: |
+          ```
+          считаю
+          coroutine
+          42
+          ```
+        why: "При вызове compute() тело ещё не выполняется."
+      - text: |
+          ```
+          считаю
+          int
+          42
+          ```
+        why: "compute() возвращает корутину, а не число."
+    explanation: "Корутину нужно запустить: await или asyncio.run."
+
+  - id: q2
+    type: find_bug
+    prompt: "Функция возвращает `<coroutine object ...>` вместо текста. Почему?"
+    code: |
+      import asyncio
+
+
+      async def fetch_text():
+          await asyncio.sleep(0.1)
+          return "данные"
+
+
+      async def process():
+          text = fetch_text()
+          return f"получено: {text}"
+    options:
+      - text: "Забыт await: `text = await fetch_text()`"
+        correct: true
+        why: "Без await в text попадает сама корутина."
+      - text: "fetch_text должна быть обычной функцией"
+        why: "Она ждёт sleep — значит, асинхронная."
+      - text: "f-строки не работают в async-функциях"
+        why: "Работают."
+    explanation: "Результат корутины получают только через await."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import asyncio
+
+      log = []
+
+
+      async def task(name):
+          log.append(name + "1")
+          await asyncio.sleep(0)
+          log.append(name + "2")
+
+
+      async def main():
+          await asyncio.gather(task("x"), task("y"))
+
+
+      asyncio.run(main())
+      print(log)
+    options:
+      - text: "`['x1', 'y1', 'x2', 'y2']`"
+        correct: true
+        why: "На await asyncio.sleep(0) каждая задача уступает управление другой."
+      - text: "`['x1', 'x2', 'y1', 'y2']`"
+        why: "Так было бы без await внутри задачи."
+      - text: "`['y1', 'x1', 'y2', 'x2']`"
+        why: "gather запускает задачи в порядке аргументов."
+    explanation: "Задачи переключаются в точках await."
+
+  - id: q4
+    type: single
+    prompt: "Как выполняются строки `a = await f()` и `b = await g()`, стоящие подряд?"
+    options:
+      - text: "Последовательно: g() начнётся только после завершения f()"
+        correct: true
+        why: "await ждёт результата прежде чем идти дальше."
+      - text: "Одновременно — await запускает их параллельно"
+        why: "Для одновременности нужны gather или create_task."
+      - text: "В случайном порядке"
+        why: "Порядок строгий."
+      - text: "g() выполнится в отдельном потоке"
+        why: "asyncio не создаёт потоков."
+    explanation: "await — «дождаться», а не «запустить в фоне»."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import asyncio
+
+
+      async def numbers(n):
+          for i in range(n):
+              await asyncio.sleep(0)
+              yield i * i
+
+
+      async def main():
+          return [x async for x in numbers(4)]
+
+
+      print(asyncio.run(main()))
+    options:
+      - text: "`[0, 1, 4, 9]`"
+        correct: true
+        why: "Асинхронное списковое включение перебирает асинхронный генератор."
+      - text: "TypeError: 'async_generator' object is not iterable"
+        why: "Используется async for — это корректно."
+      - text: "`[0, 1, 2, 3]`"
+        why: "Генератор выдаёт квадраты."
+    explanation: "Асинхронные генераторы перебирают через async for (в том числе во включениях)."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно? Выберите все."
+    options:
+      - text: "await можно использовать только внутри async def"
+        correct: true
+        why: "Иначе SyntaxError (кроме top-level await в Jupyter)."
+      - text: "asyncio.run обычно вызывается один раз — как точка входа"
+        correct: true
+        why: "Он создаёт и закрывает цикл событий."
+      - text: "Асинхронная функция может вызывать обычные функции"
+        correct: true
+        why: "Если они быстрые и не блокируют цикл."
+      - text: "Обычная функция может написать await внутри"
+        why: "Это синтаксическая ошибка."
+    explanation: "async «заражает» вызывающий код вверх по цепочке."
+
+tasks:
+  - id: t1
+    title: "Цепочка корутин"
+    difficulty: 1
+    statement: |
+      «База данных» — словари `USERS` и `ORDERS` из setup. Каждое обращение к ней — корутина с ожиданием `asyncio.sleep(0)`.
+
+      - `async def get_user(user_id)` — словарь пользователя или `None`;
+      - `async def get_orders(user_id)` — список заказов (пустой, если нет);
+      - `async def summary(user_id)` — строка `"<имя>: <число> заказ(ов) на <сумма> руб."`, а для неизвестного пользователя — `"пользователь <id> не найден"`.
+    examples:
+      - input: "asyncio.run(summary(1))"
+        output: "'Ада: 2 заказ(ов) на 1500 руб.'"
+    setup: |
+      import asyncio
+
+      USERS = {1: {"name": "Ада"}, 2: {"name": "Алан"}}
+      ORDERS = {1: [{"total": 1000}, {"total": 500}]}
+    starter: |
+      def summary(user_id):
+          user = USERS[user_id]
+          return user["name"]
+    hints:
+      - "`async def get_user(user_id): await asyncio.sleep(0); return USERS.get(user_id)`."
+      - "В summary: `user = await get_user(user_id)`, затем `orders = await get_orders(user_id)`."
+    solution: |
+      import asyncio
+
+
+      async def get_user(user_id):
+          await asyncio.sleep(0)
+          return USERS.get(user_id)
+
+
+      async def get_orders(user_id):
+          await asyncio.sleep(0)
+          return ORDERS.get(user_id, [])
+
+
+      async def summary(user_id):
+          """Сводка по пользователю."""
+          user = await get_user(user_id)
+          if user is None:
+              return f"пользователь {user_id} не найден"
+          orders = await get_orders(user_id)
+          total = sum(order["total"] for order in orders)
+          return f"{user['name']}: {len(orders)} заказ(ов) на {total} руб."
+    solution_explanation: "Каждая функция, которая ждёт результат корутины, сама становится корутиной: summary ждёт get_user и get_orders."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(summary(1))"
+        expected: "'Ада: 2 заказ(ов) на 1500 руб.'"
+      - name: "Без заказов"
+        call: "asyncio.run(summary(2))"
+        expected: "'Алан: 0 заказ(ов) на 0 руб.'"
+      - name: "Нет пользователя"
+        call: "asyncio.run(summary(99))"
+        expected: "'пользователь 99 не найден'"
+      - name: "Корутины"
+        code: |
+          import inspect
+          for fn in (get_user, get_orders, summary):
+              assert inspect.iscoroutinefunction(fn), f"{fn.__name__} должна быть async def"
+      - name: "get_orders"
+        call: "asyncio.run(get_orders(1))"
+        expected: "[{'total': 1000}, {'total': 500}]"
+
+  - id: t2
+    title: "Стриминг слов"
+    difficulty: 2
+    statement: |
+      - асинхронный генератор `stream_words(text, delay=0)` — выдаёт слова текста по одному, ожидая `delay` перед каждым;
+      - `async def collect(stream, limit=None)` — собирает элементы асинхронного потока в список; если задан `limit`, останавливается после `limit` элементов;
+      - `async def first_long_word(stream, min_length)` — первое слово длиной не меньше `min_length` или `None`.
+    examples:
+      - input: "asyncio.run(collect(stream_words(\"раз два три\"), limit=2))"
+        output: "['раз', 'два']"
+    setup: |
+      import asyncio
+    starter: |
+      def stream_words(text, delay=0):
+          return text.split()
+    hints:
+      - "`async def stream_words(text, delay=0): for word in text.split(): await asyncio.sleep(delay); yield word`."
+      - "collect: `async for item in stream:` с проверкой `if limit is not None and len(items) >= limit: break`."
+    solution: |
+      import asyncio
+
+
+      async def stream_words(text, delay=0):
+          """Поток слов с задержкой."""
+          for word in text.split():
+              await asyncio.sleep(delay)
+              yield word
+
+
+      async def collect(stream, limit=None):
+          """Собрать элементы асинхронного потока."""
+          items = []
+          async for item in stream:
+              items.append(item)
+              if limit is not None and len(items) >= limit:
+                  break
+          return items
+
+
+      async def first_long_word(stream, min_length):
+          """Первое достаточно длинное слово."""
+          async for word in stream:
+              if len(word) >= min_length:
+                  return word
+          return None
+    solution_explanation: "Асинхронный генератор выдаёт значения с ожиданием между ними — так выглядит стриминг ответа модели. Потребители перебирают его через async for и могут остановиться раньше, не дожидаясь конца потока."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(collect(stream_words(\"раз два три\"), limit=2))"
+        expected: "['раз', 'два']"
+      - name: "Без лимита"
+        call: "asyncio.run(collect(stream_words(\"a b c\")))"
+        expected: "['a', 'b', 'c']"
+      - name: "first_long_word"
+        call: "[asyncio.run(first_long_word(stream_words(\"я учу асинхронность\"), 5)), asyncio.run(first_long_word(stream_words(\"да нет\"), 5))]"
+        expected: "['асинхронность', None]"
+      - name: "Ранняя остановка"
+        code: |
+          produced = []
+          async def tracked():
+              for i in range(100):
+                  produced.append(i)
+                  yield i
+          assert asyncio.run(collect(tracked(), limit=3)) == [0, 1, 2]
+          assert len(produced) == 3, "Поток не должен читаться дальше лимита"
+      - name: "Асинхронный генератор"
+        code: |
+          import inspect
+          assert inspect.isasyncgenfunction(stream_words)
+
+  - id: t3
+    title: "Асинхронная сессия"
+    difficulty: 2
+    statement: |
+      Напишите асинхронный контекстный менеджер `session(name, log)` (через `contextlib.asynccontextmanager`):
+
+      - при входе добавляет в список `log` строку `"open <name>"` (после `await asyncio.sleep(0)`) и отдаёт объект `Session`;
+      - при выходе — **в том числе при исключении** — добавляет `"close <name> (<число запросов>)"`;
+      - класс `Session(name)`: асинхронный метод `query(q)` возвращает `"<name>:<q>"` и увеличивает счётчик `count`.
+    examples:
+      - input: "log = []\nasync def main():\n    async with session(\"db\", log) as s:\n        return await s.query(\"x\")\n\nasyncio.run(main()), log"
+        output: "('db:x', ['open db', 'close db (1)'])"
+    setup: |
+      import asyncio
+    starter: |
+      class Session:
+          def __init__(self, name):
+              self.name = name
+
+          def query(self, q):
+              return f"{self.name}:{q}"
+    hints:
+      - "`@asynccontextmanager async def session(name, log):` — `s = Session(name)`, запись в log, `try: yield s` / `finally:` запись о закрытии."
+      - "`async def query(self, q): await asyncio.sleep(0); self.count += 1; return ...`."
+    solution: |
+      import asyncio
+      from contextlib import asynccontextmanager
+
+
+      class Session:
+          def __init__(self, name):
+              self.name = name
+              self.count = 0
+
+          async def query(self, q):
+              await asyncio.sleep(0)
+              self.count += 1
+              return f"{self.name}:{q}"
+
+
+      @asynccontextmanager
+      async def session(name, log):
+          """Открыть сессию и гарантированно закрыть её."""
+          await asyncio.sleep(0)
+          current = Session(name)
+          log.append(f"open {name}")
+          try:
+              yield current
+          finally:
+              log.append(f"close {name} ({current.count})")
+    solution_explanation: "asynccontextmanager — асинхронный вариант contextmanager из блока 2.4: вход и выход могут ждать. try/finally гарантирует закрытие сессии даже при ошибке внутри блока."
+    tests:
+      - name: "Пример"
+        code: |
+          log = []
+          async def main():
+              async with session("db", log) as s:
+                  return await s.query("x")
+          assert asyncio.run(main()) == "db:x" and log == ["open db", "close db (1)"]
+      - name: "Закрытие при ошибке"
+        code: |
+          log = []
+          async def main():
+              async with session("api", log) as s:
+                  await s.query("a")
+                  await s.query("b")
+                  raise RuntimeError("сбой")
+          try:
+              asyncio.run(main())
+          except RuntimeError:
+              pass
+          else:
+              raise AssertionError("Исключение должно пробрасываться")
+          assert log == ["open api", "close api (2)"], log
+      - name: "Без запросов"
+        code: |
+          log = []
+          async def main():
+              async with session("x", log):
+                  pass
+          asyncio.run(main())
+          assert log == ["open x", "close x (0)"]
+      - name: "query — корутина"
+        code: |
+          import inspect
+          assert inspect.iscoroutinefunction(Session.query)
+      - name: "Вложенные сессии"
+        code: |
+          log = []
+          async def main():
+              async with session("a", log):
+                  async with session("b", log):
+                      pass
+          asyncio.run(main())
+          assert log == ["open a", "open b", "close b (0)", "close a (0)"]
+
+  - id: t4
+    title: "Свой мини-цикл событий"
+    difficulty: 3
+    statement: |
+      Чтобы понять, как работает цикл событий, напишите его упрощённую модель **без asyncio**. «Задачи» — обычные генераторы: `yield` означает «уступить управление» (как `await`).
+
+      `run_round_robin(tasks)` — `tasks`: словарь `{имя: генератор}`. Цикл по очереди продвигает каждую задачу на один шаг (`next`) в порядке словаря, затем снова по кругу; завершившиеся задачи удаляются из очереди. Возвращает:
+
+      - `"trace"` — список пар `(имя, выданное значение)` в порядке выполнения;
+      - `"results"` — словарь `{имя: значение, возвращённое генератором через return}` (из `StopIteration.value`).
+    examples:
+      - input: "def t(n):\n    for i in range(n):\n        yield i\n    return n\n\nrun_round_robin({\"a\": t(2), \"b\": t(1)})"
+        output: "{'trace': [('a', 0), ('b', 0), ('a', 1)], 'results': {'b': 1, 'a': 2}}"
+    starter: |
+      def run_round_robin(tasks):
+          trace = []
+          for name, gen in tasks.items():
+              for value in gen:
+                  trace.append((name, value))
+          return {"trace": trace, "results": {}}
+    hints:
+      - "Очередь — `collections.deque(tasks.items())`. Берите задачу слева (`popleft`), делайте `next(gen)`; если успешно — запишите в trace и верните задачу в конец (`append`)."
+      - "`except StopIteration as stop: results[name] = stop.value` — задача завершилась и в очередь не возвращается."
+    solution: |
+      from collections import deque
+
+
+      def run_round_robin(tasks):
+          """Модель цикла событий: генераторы по кругу."""
+          queue = deque(tasks.items())
+          trace = []
+          results = {}
+          while queue:
+              name, gen = queue.popleft()
+              try:
+                  value = next(gen)
+              except StopIteration as stop:
+                  results[name] = stop.value
+                  continue
+              trace.append((name, value))
+              queue.append((name, gen))
+          return {"trace": trace, "results": results}
+    solution_explanation: "Это и есть суть цикла событий: очередь готовых задач, шаг до точки, где задача уступает управление, и возврат её в очередь. Настоящий asyncio дополнительно умеет «усыплять» задачи до наступления событий (ответ сети, таймер) и будить их. Исторически корутины в Python и выросли из генераторов."
+    tests:
+      - name: "Пример"
+        code: |
+          def t(n):
+              for i in range(n):
+                  yield i
+              return n
+          out = run_round_robin({"a": t(2), "b": t(1)})
+          assert out == {"trace": [("a", 0), ("b", 0), ("a", 1)], "results": {"b": 1, "a": 2}}, out
+      - name: "Чередование трёх задач"
+        code: |
+          def word(w):
+              for ch in w:
+                  yield ch
+              return w.upper()
+          out = run_round_robin({"x": word("ab"), "y": word("cde"), "z": word("")})
+          assert "".join(v for _, v in out["trace"]) == "acbde"
+          assert out["results"] == {"z": "", "x": "AB", "y": "CDE"}, out["results"]
+      - name: "Пусто"
+        call: "run_round_robin({})"
+        expected: "{'trace': [], 'results': {}}"
+      - name: "Генератор без return"
+        code: |
+          def g():
+              yield 1
+          assert run_round_robin({"g": g()})["results"] == {"g": None}
+      - name: "Без asyncio"
+        code: |
+          assert "asyncio" not in __source__

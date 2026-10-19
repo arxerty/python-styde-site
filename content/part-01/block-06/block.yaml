@@ -1,0 +1,18 @@
+title: "Функции"
+description: "Собственные функции: параметры и return, аргументы по умолчанию, *args/**kwargs, области видимости, lambda, рекурсия и структура программы."
+mini_project: "Библиотека функций для обработки оценок студентов"
+lessons:
+  - id: lesson-01
+    title: "def, параметры, return и None"
+  - id: lesson-02
+    title: "Аргументы по умолчанию и именованные аргументы"
+  - id: lesson-03
+    title: "*args и **kwargs"
+  - id: lesson-04
+    title: "Области видимости: local, global, LEGB"
+  - id: lesson-05
+    title: "lambda, map, filter и sorted с key"
+  - id: lesson-06
+    title: "Рекурсия"
+  - id: lesson-07
+    title: "Docstrings и разбиение программы на функции"

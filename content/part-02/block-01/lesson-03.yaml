@@ -1,0 +1,560 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Box:
+          def __init__(self, width, height):
+              self.width = width
+              self.height = height
+
+          @property
+          def area(self):
+              return self.width * self.height
+
+
+      box = Box(2, 5)
+      box.height = 3
+      print(box.area)
+    options:
+      - text: "`6`"
+        correct: true
+        why: "Свойство вычисляется заново при каждом чтении."
+      - text: "`10`"
+        why: "area не хранится — она считается из текущих width и height."
+      - text: "Ошибка: area вызвана без скобок"
+        why: "Свойства читаются без скобок."
+    explanation: "Вычисляемое свойство всегда согласовано с текущим состоянием объекта."
+
+  - id: q2
+    type: find_bug
+    prompt: "При создании `Price(100)` программа падает с RecursionError. Почему?"
+    code: |
+      class Price:
+          def __init__(self, value):
+              self.value = value
+
+          @property
+          def value(self):
+              return self.value
+
+          @value.setter
+          def value(self, new):
+              if new < 0:
+                  raise ValueError("цена не может быть отрицательной")
+              self.value = new
+    options:
+      - text: "Геттер и сеттер обращаются к self.value — то есть к самому свойству; хранить нужно в self._value"
+        correct: true
+        why: "Каждое обращение снова вызывает свойство — бесконечная рекурсия."
+      - text: "В __init__ нельзя присваивать значение свойству"
+        why: "Можно и нужно — так работает проверка при создании."
+      - text: "Сеттер должен возвращать новое значение"
+        why: "Сеттер ничего не возвращает."
+    explanation: "Свойство x хранит данные во внутреннем атрибуте с другим именем, обычно _x."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Secret:
+          def __init__(self):
+              self.__code = 42
+
+
+      s = Secret()
+      print(hasattr(s, "__code"), hasattr(s, "_Secret__code"))
+    options:
+      - text: "`False True`"
+        correct: true
+        why: "Имя с двумя подчёркиваниями искажается в _ИмяКласса__имя."
+      - text: "`True False`"
+        why: "Внутри класса имя __code переименовывается."
+      - text: "`False False`"
+        why: "Атрибут существует под искажённым именем."
+    explanation: "Name mangling не прячет данные, а переименовывает их — защита от конфликтов при наследовании."
+
+  - id: q4
+    type: find_bug
+    prompt: "Сеттер запрещает отрицательный возраст, но `Person(-5)` создаётся без ошибки. Почему?"
+    code: |
+      class Person:
+          def __init__(self, age):
+              self._age = age
+
+          @property
+          def age(self):
+              return self._age
+
+          @age.setter
+          def age(self, value):
+              if value < 0:
+                  raise ValueError("возраст не может быть отрицательным")
+              self._age = value
+    options:
+      - text: "В __init__ значение пишется прямо в _age, минуя сеттер; нужно self.age = age"
+        correct: true
+        why: "Проверка срабатывает только при присваивании через свойство."
+      - text: "Сеттер нужно объявить раньше геттера"
+        why: "Сначала объявляется @property, затем @age.setter."
+      - text: "ValueError нельзя бросать из сеттера"
+        why: "Можно — это обычный метод."
+    explanation: "Присваивайте через свойство в __init__, чтобы проверка была в одном месте."
+
+  - id: q5
+    type: single
+    prompt: "Что произойдёт при `account.balance = 500`, если у свойства `balance` есть только геттер?"
+    options:
+      - text: "AttributeError: у свойства нет сеттера"
+        correct: true
+        why: "Свойство без сеттера доступно только для чтения."
+      - text: "Создастся атрибут экземпляра balance, затеняющий свойство"
+        why: "Свойство — особый атрибут класса, он перехватывает присваивание."
+      - text: "Значение запишется в _balance"
+        why: "Python не знает, где хранится значение, — это решает сеттер."
+      - text: "Ничего не произойдёт"
+        why: "Будет исключение."
+    explanation: "Свойство только для чтения — способ разрешить менять значение лишь через методы с проверками."
+
+  - id: q6
+    type: multiple
+    prompt: "Что лучше сделать свойством (`obj.x`), а не методом? Выберите все."
+    options:
+      - text: "`is_empty` — пуста ли очередь"
+        correct: true
+        why: "Быстрая характеристика без побочных эффектов."
+      - text: "`full_name` — имя и фамилия через пробел"
+        correct: true
+        why: "Простое вычисление из атрибутов."
+      - text: "`fetch_weather` — запрос погоды по сети"
+        why: "Долгое действие с внешним миром — метод."
+      - text: "`save` — запись объекта в файл"
+        why: "Действие с побочным эффектом — метод."
+    explanation: "Свойство — быстрая характеристика; действие или долгая операция — метод."
+
+tasks:
+  - id: t1
+    title: "Температура в двух шкалах"
+    difficulty: 1
+    statement: |
+      Создайте класс `Temperature(celsius)`:
+
+      - свойство `celsius` с сеттером: значение ниже −273.15 → `ValueError`;
+      - свойство `fahrenheit` — вычисляется: `celsius * 9 / 5 + 32`;
+      - сеттер `fahrenheit` переводит значение обратно в Цельсий (`(f - 32) * 5 / 9`) и сохраняет через `celsius` (чтобы сработала проверка).
+
+      Проверка должна работать и при создании объекта.
+    examples:
+      - input: "Temperature(100).fahrenheit"
+        output: "212.0"
+    starter: |
+      class Temperature:
+          def __init__(self, celsius):
+              self.celsius = celsius
+    hints:
+      - "Значение храните в `self._celsius`; в `__init__` присваивайте через `self.celsius = celsius` — так сработает сеттер."
+      - "Сеттер fahrenheit: `self.celsius = (value - 32) * 5 / 9`."
+    solution: |
+      class Temperature:
+          """Температура с проверкой абсолютного нуля."""
+
+          ABSOLUTE_ZERO = -273.15
+
+          def __init__(self, celsius):
+              self.celsius = celsius
+
+          @property
+          def celsius(self):
+              return self._celsius
+
+          @celsius.setter
+          def celsius(self, value):
+              if value < self.ABSOLUTE_ZERO:
+                  raise ValueError(f"ниже абсолютного нуля: {value}")
+              self._celsius = value
+
+          @property
+          def fahrenheit(self):
+              return self.celsius * 9 / 5 + 32
+
+          @fahrenheit.setter
+          def fahrenheit(self, value):
+              self.celsius = (value - 32) * 5 / 9
+    solution_explanation: "Хранится только одно значение — в Цельсиях; Фаренгейт вычисляется. Сеттер fahrenheit не дублирует проверку, а переиспользует сеттер celsius."
+    tests:
+      - name: "Пример"
+        call: "Temperature(100).fahrenheit"
+        expected: "212.0"
+      - name: "Сеттер Фаренгейта"
+        code: |
+          t = Temperature(0)
+          t.fahrenheit = 50
+          assert abs(t.celsius - 10) < 1e-9, f"celsius = {t.celsius}"
+      - name: "Проверка при создании"
+        code: |
+          try:
+              Temperature(-300)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Проверка при присваивании"
+        code: |
+          t = Temperature(20)
+          try:
+              t.celsius = -274
+          except ValueError:
+              assert t.celsius == 20, "Неверное значение не должно сохраниться"
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Проверка через Фаренгейт"
+        code: |
+          t = Temperature(20)
+          try:
+              t.fahrenheit = -500
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("−500 °F ниже абсолютного нуля")
+      - name: "celsius — свойство"
+        code: |
+          assert isinstance(Temperature.__dict__.get("celsius"), property), "celsius должен быть @property"
+
+  - id: t2
+    title: "Защищённый счёт"
+    difficulty: 2
+    statement: |
+      Создайте класс `Account(owner, balance=0)`:
+
+      - `balance` — свойство **только для чтения**; отрицательный начальный баланс → `ValueError`;
+      - `deposit(amount)` и `withdraw(amount)`: сумма ≤ 0 → `ValueError`, снятие больше баланса → `ValueError`;
+      - свойство `history` — **кортеж** операций вида `("deposit", 100)` / `("withdraw", 30)` в порядке выполнения (начальный баланс операцией не считается).
+
+      Изменить историю снаружи должно быть невозможно.
+    examples:
+      - input: "a = Account(\"Ада\"); a.deposit(100); a.withdraw(30); a.balance, a.history"
+        output: "(70, (('deposit', 100), ('withdraw', 30)))"
+    starter: |
+      class Account:
+          def __init__(self, owner, balance=0):
+              self.owner = owner
+              self.balance = balance
+              self.history = []
+
+          def deposit(self, amount):
+              self.balance += amount
+              self.history.append(("deposit", amount))
+
+          def withdraw(self, amount):
+              self.balance -= amount
+              self.history.append(("withdraw", amount))
+    hints:
+      - "Храните `self._balance` и `self._history = []`; свойство `history` возвращает `tuple(self._history)`."
+      - "Общую проверку суммы вынесите во внутренний метод `_check_amount(amount)`."
+    solution: |
+      class Account:
+          """Банковский счёт с защищённым балансом."""
+
+          def __init__(self, owner, balance=0):
+              if balance < 0:
+                  raise ValueError("начальный баланс не может быть отрицательным")
+              self.owner = owner
+              self._balance = balance
+              self._history = []
+
+          @property
+          def balance(self):
+              return self._balance
+
+          @property
+          def history(self):
+              return tuple(self._history)
+
+          def _check_amount(self, amount):
+              if amount <= 0:
+                  raise ValueError(f"сумма должна быть положительной, получено {amount}")
+
+          def deposit(self, amount):
+              """Пополнить счёт."""
+              self._check_amount(amount)
+              self._balance += amount
+              self._history.append(("deposit", amount))
+
+          def withdraw(self, amount):
+              """Снять деньги со счёта."""
+              self._check_amount(amount)
+              if amount > self._balance:
+                  raise ValueError("недостаточно средств")
+              self._balance -= amount
+              self._history.append(("withdraw", amount))
+    solution_explanation: "Баланс и история скрыты за `_`, наружу — свойства без сеттеров. История отдаётся кортежем-копией: внешний код не может ни присвоить её, ни дописать операцию в обход методов."
+    tests:
+      - name: "Пример"
+        code: |
+          a = Account("Ада")
+          a.deposit(100)
+          a.withdraw(30)
+          assert a.balance == 70
+          assert a.history == (("deposit", 100), ("withdraw", 30)), f"history = {a.history}"
+      - name: "balance только для чтения"
+        code: |
+          a = Account("Ада", 10)
+          try:
+              a.balance = 1000
+          except AttributeError:
+              pass
+          else:
+              raise AssertionError("Присваивание balance должно вызывать AttributeError")
+      - name: "История не меняется снаружи"
+        code: |
+          a = Account("Ада")
+          a.deposit(5)
+          assert isinstance(a.history, tuple), "history должен быть кортежем"
+          try:
+              a.history = ()
+          except AttributeError:
+              pass
+          else:
+              raise AssertionError("history должен быть только для чтения")
+      - name: "Недостаточно средств"
+        code: |
+          a = Account("Ада", 50)
+          try:
+              a.withdraw(80)
+          except ValueError:
+              assert a.balance == 50 and a.history == ()
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Неположительная сумма"
+        code: |
+          a = Account("Ада", 50)
+          for bad in (0, -5):
+              for method in (a.deposit, a.withdraw):
+                  try:
+                      method(bad)
+                  except ValueError:
+                      pass
+                  else:
+                      raise AssertionError(f"{method.__name__}({bad}) должен бросать ValueError")
+      - name: "Отрицательный начальный баланс"
+        code: |
+          try:
+              Account("Ада", -1)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+
+  - id: t3
+    title: "Журнал с лимитом"
+    difficulty: 2
+    statement: |
+      Создайте класс `MessageLog(limit)` — журнал, хранящий только последние `limit` сообщений:
+
+      - `add(text)` — добавить сообщение (самые старые вытесняются);
+      - свойство `messages` — кортеж сообщений от старых к новым;
+      - свойство `limit` с сеттером: только `int` ≥ 1, иначе `ValueError`; при уменьшении лимита лишние **старые** сообщения сразу удаляются.
+
+      Проверка лимита работает и при создании.
+    examples:
+      - input: "log = MessageLog(2); log.add(\"a\"); log.add(\"b\"); log.add(\"c\"); log.messages"
+        output: "('b', 'c')"
+    starter: |
+      class MessageLog:
+          def __init__(self, limit):
+              self.limit = limit
+              self.messages = []
+
+          def add(self, text):
+              self.messages.append(text)
+    hints:
+      - "В `__init__` сначала создайте `self._messages = []`, потом `self.limit = limit` — сеттер уже может обращаться к списку."
+      - "Обрезку вынесите во внутренний `_trim()`: `self._messages = self._messages[-self._limit:]`; вызывайте её в add и в сеттере."
+    solution: |
+      class MessageLog:
+          """Журнал последних сообщений с ограничением размера."""
+
+          def __init__(self, limit):
+              self._messages = []
+              self.limit = limit
+
+          @property
+          def limit(self):
+              return self._limit
+
+          @limit.setter
+          def limit(self, value):
+              if not isinstance(value, int) or value < 1:
+                  raise ValueError(f"лимит должен быть целым числом от 1, получено {value!r}")
+              self._limit = value
+              self._trim()
+
+          @property
+          def messages(self):
+              return tuple(self._messages)
+
+          def _trim(self):
+              self._messages = self._messages[-self._limit:]
+
+          def add(self, text):
+              """Добавить сообщение, вытеснив самые старые."""
+              self._messages.append(text)
+              self._trim()
+    solution_explanation: "Сеттер не только проверяет значение, но и поддерживает инвариант «сообщений не больше лимита» — поэтому сразу обрезает список. Порядок в __init__ важен: список должен существовать до первого вызова сеттера."
+    tests:
+      - name: "Пример"
+        code: |
+          log = MessageLog(2)
+          for text in ("a", "b", "c"):
+              log.add(text)
+          assert log.messages == ("b", "c"), f"messages = {log.messages}"
+      - name: "Уменьшение лимита"
+        code: |
+          log = MessageLog(5)
+          for text in "abcde":
+              log.add(text)
+          log.limit = 2
+          assert log.messages == ("d", "e"), f"messages = {log.messages}"
+      - name: "Увеличение лимита"
+        code: |
+          log = MessageLog(1)
+          log.add("x")
+          log.limit = 3
+          log.add("y")
+          assert log.messages == ("x", "y")
+      - name: "Неверный лимит при создании"
+        code: |
+          for bad in (0, -1, 2.5, "3"):
+              try:
+                  MessageLog(bad)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"MessageLog({bad!r}) должен бросать ValueError")
+      - name: "Неверный лимит при присваивании"
+        code: |
+          log = MessageLog(3)
+          try:
+              log.limit = 0
+          except ValueError:
+              assert log.limit == 3
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "messages — кортеж"
+        code: |
+          log = MessageLog(2)
+          log.add("a")
+          assert isinstance(log.messages, tuple), "messages должен быть кортежем"
+
+  - id: t4
+    title: "Параметры генерации"
+    difficulty: 3
+    statement: |
+      Создайте класс `GenerationConfig(temperature=0.7, max_tokens=256, stop=None)`:
+
+      - `temperature` — свойство с сеттером: число (`int`/`float`, но не `bool`) от 0 до 2, иначе `ValueError`;
+      - `max_tokens` — свойство с сеттером: `int` (не `bool`) от 1 до 4096, иначе `ValueError`;
+      - `stop` — свойство только для чтения: кортеж стоп-строк (из переданного списка; `None` → пустой кортеж);
+      - `to_dict()` — словарь `{"temperature": ..., "max_tokens": ...}`, а ключ `"stop"` (со списком) добавляется, только если стоп-строки есть;
+      - `__repr__` — `GenerationConfig(temperature=0.7, max_tokens=256)`.
+    examples:
+      - input: "GenerationConfig(0.2, 100, [\"###\"]).to_dict()"
+        output: "{'temperature': 0.2, 'max_tokens': 100, 'stop': ['###']}"
+    starter: |
+      class GenerationConfig:
+          def __init__(self, temperature=0.7, max_tokens=256, stop=None):
+              self.temperature = temperature
+              self.max_tokens = max_tokens
+              self.stop = stop
+    hints:
+      - "Проверка «число, но не bool»: `isinstance(value, bool) or not isinstance(value, (int, float))` → ошибка."
+      - "В `__init__`: `self._stop = tuple(stop) if stop else ()`; в to_dict — `list(self._stop)`."
+    solution: |
+      class GenerationConfig:
+          """Параметры генерации текста с проверкой значений."""
+
+          def __init__(self, temperature=0.7, max_tokens=256, stop=None):
+              self.temperature = temperature
+              self.max_tokens = max_tokens
+              self._stop = tuple(stop) if stop else ()
+
+          @property
+          def temperature(self):
+              return self._temperature
+
+          @temperature.setter
+          def temperature(self, value):
+              if isinstance(value, bool) or not isinstance(value, (int, float)):
+                  raise ValueError(f"temperature должна быть числом, получено {value!r}")
+              if not 0 <= value <= 2:
+                  raise ValueError(f"temperature должна быть от 0 до 2, получено {value}")
+              self._temperature = value
+
+          @property
+          def max_tokens(self):
+              return self._max_tokens
+
+          @max_tokens.setter
+          def max_tokens(self, value):
+              if isinstance(value, bool) or not isinstance(value, int):
+                  raise ValueError(f"max_tokens должен быть целым, получено {value!r}")
+              if not 1 <= value <= 4096:
+                  raise ValueError(f"max_tokens должен быть от 1 до 4096, получено {value}")
+              self._max_tokens = value
+
+          @property
+          def stop(self):
+              return self._stop
+
+          def to_dict(self):
+              """Параметры в формате запроса к API."""
+              result = {"temperature": self.temperature, "max_tokens": self.max_tokens}
+              if self._stop:
+                  result["stop"] = list(self._stop)
+              return result
+
+          def __repr__(self):
+              return f"GenerationConfig(temperature={self.temperature}, max_tokens={self.max_tokens})"
+    solution_explanation: "Каждое свойство отвечает за свой инвариант, и проверка срабатывает при любом присваивании, включая __init__. Стоп-строки хранятся кортежем, чтобы их нельзя было изменить снаружи, а в to_dict превращаются в список — формат, который ждёт API. Позже Pydantic (блок 2.5) позволит описать то же самое в несколько строк."
+    tests:
+      - name: "Пример"
+        call: "GenerationConfig(0.2, 100, [\"###\"]).to_dict()"
+        expected: "{'temperature': 0.2, 'max_tokens': 100, 'stop': ['###']}"
+      - name: "Без stop"
+        call: "GenerationConfig().to_dict()"
+        expected: "{'temperature': 0.7, 'max_tokens': 256}"
+      - name: "repr"
+        call: "repr(GenerationConfig(1, 50))"
+        expected: "'GenerationConfig(temperature=1, max_tokens=50)'"
+      - name: "Неверная temperature"
+        code: |
+          for bad in (-0.1, 2.5, "0.5", True):
+              try:
+                  GenerationConfig(temperature=bad)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"temperature={bad!r} должна вызывать ValueError")
+      - name: "Неверный max_tokens"
+        code: |
+          c = GenerationConfig()
+          for bad in (0, 5000, 10.0, False):
+              try:
+                  c.max_tokens = bad
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"max_tokens={bad!r} должен вызывать ValueError")
+          assert c.max_tokens == 256
+      - name: "stop только для чтения"
+        code: |
+          words = ["END"]
+          c = GenerationConfig(stop=words)
+          words.append("STOP")
+          assert c.stop == ("END",), "Изменение исходного списка не должно влиять на конфиг"
+          try:
+              c.stop = ("x",)
+          except AttributeError:
+              pass
+          else:
+              raise AssertionError("stop должен быть только для чтения")

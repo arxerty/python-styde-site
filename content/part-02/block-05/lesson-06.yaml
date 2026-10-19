@@ -1,0 +1,465 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from pydantic import BaseModel
+
+
+      class Point(BaseModel):
+          x: int
+          y: int
+
+
+      p = Point.model_validate_json('{"x": "3", "y": 4}')
+      print(p.x + p.y, p.model_dump_json())
+    options:
+      - text: "`7 {\"x\":3,\"y\":4}`"
+        correct: true
+        why: "\"3\" приведено к int; model_dump_json выдаёт компактный JSON."
+      - text: "`34 {\"x\":\"3\",\"y\":4}`"
+        why: "Pydantic приводит x к int — это не строка."
+      - text: "ValidationError"
+        why: "Строка из цифр в нестрогом режиме допустима для int."
+    explanation: "model_validate_json разбирает JSON и проверяет данные одним вызовом."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from pydantic import BaseModel, Field
+
+
+      class Hit(BaseModel):
+          doc_id: str = Field(alias="docId")
+
+
+      hit = Hit.model_validate({"docId": "d7"})
+      print(hit.doc_id, hit.model_dump(), hit.model_dump(by_alias=True))
+    options:
+      - text: "`d7 {'doc_id': 'd7'} {'docId': 'd7'}`"
+        correct: true
+        why: "Внутри — имя поля Python, by_alias=True возвращает имена из API."
+      - text: "`d7 {'docId': 'd7'} {'docId': 'd7'}`"
+        why: "По умолчанию model_dump использует имена полей, а не псевдонимы."
+      - text: "ValidationError: поле doc_id не передано"
+        why: "Входные данные проверяются по псевдониму docId."
+    explanation: "alias — имя ключа во внешних данных."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from pydantic import BaseModel, ValidationError
+
+
+      class Answer(BaseModel):
+          label: str
+          confidence: float
+
+
+      for raw in ['{"label": "spam"}', "{label: spam}"]:
+          try:
+              Answer.model_validate_json(raw)
+          except ValidationError as error:
+              print(error.errors()[0]["type"])
+    options:
+      - text: |
+          ```
+          missing
+          json_invalid
+          ```
+        correct: true
+        why: "В первом нет confidence, второй — не JSON (ключи без кавычек)."
+      - text: |
+          ```
+          missing
+          missing
+          ```
+        why: "Вторая строка вообще не разбирается как JSON."
+      - text: |
+          ```
+          json_invalid
+          json_invalid
+          ```
+        why: "Первая строка — корректный JSON без одного поля."
+    explanation: "Разные коды ошибок позволяют по-разному реагировать на битый JSON и на неполные данные."
+
+  - id: q4
+    type: single
+    prompt: "Зачем в модели для LLM-классификатора поле `category: Literal[\"billing\", \"bug\", \"other\"]`, а не `category: str`?"
+    options:
+      - text: "Ответ с придуманной моделью категорией не пройдёт проверку, а схема подскажет модели допустимые значения"
+        correct: true
+        why: "Literal попадает в JSON-схему как enum и проверяется Pydantic."
+      - text: "Literal ускоряет генерацию ответа"
+        why: "Скорость не меняется."
+      - text: "str нельзя использовать в structured output"
+        why: "Можно, но тогда допустим любой текст."
+      - text: "Literal автоматически исправляет неверные категории"
+        why: "Неверное значение отвергается, а не исправляется."
+    explanation: "Чем строже схема, тем надёжнее код, который использует ответ модели."
+
+  - id: q5
+    type: find_bug
+    prompt: "API отвечает ошибкой «unknown field max_tokens». Что не так?"
+    code: |
+      from pydantic import BaseModel, Field
+
+
+      class Request(BaseModel):
+          prompt: str
+          max_tokens: int = Field(alias="maxTokens")
+
+
+      req = Request(prompt="Привет", maxTokens=100)
+      payload = req.model_dump()
+      # payload отправляется в API, которое ждёт ключ maxTokens
+    options:
+      - text: "model_dump() выдаёт имена полей Python; для API нужно model_dump(by_alias=True)"
+        correct: true
+        why: "Тогда ключ будет maxTokens."
+      - text: "Псевдоним должен совпадать с именем поля"
+        why: "Псевдоним как раз позволяет им различаться."
+      - text: "Объект нужно создавать через max_tokens=100"
+        why: "По умолчанию при создании используется псевдоним — maxTokens."
+    explanation: "by_alias=True — вывод в формате внешнего API."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно про structured output с Pydantic? Выберите все."
+    options:
+      - text: "model_json_schema() даёт JSON-схему, которую можно передать модели"
+        correct: true
+        why: "Включая Literal, ограничения и description."
+      - text: "Ответ модели нужно проверять, даже если в промпте была схема"
+        correct: true
+        why: "Модель может ошибиться в формате."
+      - text: "Текст ошибок валидации можно отправить модели при повторном запросе"
+        correct: true
+        why: "Так модель исправит конкретные поля."
+      - text: "Если схема передана модели, ValidationError невозможен"
+        why: "Модель всё равно может нарушить схему, особенно при передаче в промпте."
+    explanation: "Схема → ответ → проверка → повтор с ошибками."
+
+tasks:
+  - id: t1
+    title: "Разбор ответа LLM API"
+    difficulty: 2
+    statement: |
+      Ответ API имеет вид:
+
+      ```json
+      {"id": "msg_1", "stop_reason": "end_turn",
+       "content": [{"type": "text", "text": "Привет"}, {"type": "text", "text": ", мир"}],
+       "usage": {"input_tokens": 10, "output_tokens": 4}}
+      ```
+
+      Опишите модели `TextBlock` (`type: Literal["text"]`, `text: str`), `Usage` (два неотрицательных целых) и `ApiResponse` (`id: str`, `stop_reason: Literal["end_turn", "max_tokens"]`, `content: list[TextBlock]`, `usage: Usage`).
+
+      Функция `parse_response(raw: str) -> tuple[str, int]` возвращает склеенный текст всех блоков и общее число токенов; если ответ не проходит проверку — `ValueError` с сообщением, перечисляющим коды ошибок через запятую.
+    examples:
+      - input: "parse_response('{\"id\": \"m\", \"stop_reason\": \"end_turn\", \"content\": [{\"type\": \"text\", \"text\": \"Привет\"}, {\"type\": \"text\", \"text\": \", мир\"}], \"usage\": {\"input_tokens\": 10, \"output_tokens\": 4}}')"
+        output: "('Привет, мир', 14)"
+    starter: |
+      import json
+
+
+      def parse_response(raw):
+          data = json.loads(raw)
+          return data["content"][0]["text"], 0
+    hints:
+      - "`input_tokens: int = Field(ge=0)`; вложенные модели проверяются автоматически."
+      - "`try: response = ApiResponse.model_validate_json(raw)` / `except ValidationError as error: raise ValueError(\", \".join(e[\"type\"] for e in error.errors())) from None`."
+    solution: |
+      from typing import Literal
+
+      from pydantic import BaseModel, Field, ValidationError
+
+
+      class TextBlock(BaseModel):
+          type: Literal["text"]
+          text: str
+
+
+      class Usage(BaseModel):
+          input_tokens: int = Field(ge=0)
+          output_tokens: int = Field(ge=0)
+
+
+      class ApiResponse(BaseModel):
+          id: str
+          stop_reason: Literal["end_turn", "max_tokens"]
+          content: list[TextBlock]
+          usage: Usage
+
+
+      def parse_response(raw: str) -> tuple[str, int]:
+          """Текст ответа и общее число токенов."""
+          try:
+              response = ApiResponse.model_validate_json(raw)
+          except ValidationError as error:
+              raise ValueError(", ".join(item["type"] for item in error.errors())) from None
+          text = "".join(block.text for block in response.content)
+          return text, response.usage.input_tokens + response.usage.output_tokens
+    solution_explanation: "Модели описывают формат ответа целиком, включая вложенные блоки. После проверки код работает с атрибутами (response.usage.input_tokens), не опасаясь отсутствующих ключей."
+    tests:
+      - name: "Пример"
+        call: "parse_response('{\"id\": \"m\", \"stop_reason\": \"end_turn\", \"content\": [{\"type\": \"text\", \"text\": \"Привет\"}, {\"type\": \"text\", \"text\": \", мир\"}], \"usage\": {\"input_tokens\": 10, \"output_tokens\": 4}}')"
+        expected: "('Привет, мир', 14)"
+      - name: "Пустой content"
+        call: "parse_response('{\"id\": \"m\", \"stop_reason\": \"max_tokens\", \"content\": [], \"usage\": {\"input_tokens\": 1, \"output_tokens\": 0}}')"
+        expected: "('', 1)"
+      - name: "Неизвестная причина остановки"
+        code: |
+          try:
+              parse_response('{"id": "m", "stop_reason": "refusal", "content": [], "usage": {"input_tokens": 1, "output_tokens": 0}}')
+          except ValueError as error:
+              assert "literal_error" in str(error), str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Битый JSON и отрицательные токены"
+        code: |
+          for raw, code in (("{oops", "json_invalid"), ('{"id": "m", "stop_reason": "end_turn", "content": [], "usage": {"input_tokens": -1, "output_tokens": 0}}', "greater_than_equal")):
+              try:
+                  parse_response(raw)
+              except ValueError as error:
+                  assert code in str(error), str(error)
+              else:
+                  raise AssertionError("Ожидался ValueError")
+      - name: "Вложенные модели"
+        code: |
+          response = ApiResponse.model_validate({"id": "x", "stop_reason": "end_turn", "content": [{"type": "text", "text": "a"}], "usage": {"input_tokens": 1, "output_tokens": 2}})
+          assert isinstance(response.content[0], TextBlock) and isinstance(response.usage, Usage)
+
+  - id: t2
+    title: "Погода из чужого API"
+    difficulty: 2
+    statement: |
+      API погоды отдаёт массив объектов с ключами `city`, `tempC`, `windKph`, `isRaining`. Опишите модель `Weather` с полями `city: str`, `temp_c: float`, `wind_kph: float` (не меньше 0), `is_raining: bool` и псевдонимами для ключей API.
+
+      - `parse_many(raw: str) -> list[Weather]` — разбор JSON-массива через `TypeAdapter`, результат отсортирован по убыванию температуры;
+      - `to_api(item: Weather) -> dict` — словарь с ключами в формате API.
+    examples:
+      - input: "[w.city for w in parse_many('[{\"city\": \"Москва\", \"tempC\": 5, \"windKph\": 10, \"isRaining\": true}, {\"city\": \"Сочи\", \"tempC\": \"18.5\", \"windKph\": 3, \"isRaining\": false}]')]"
+        output: "['Сочи', 'Москва']"
+    starter: |
+      import json
+
+
+      def parse_many(raw):
+          return json.loads(raw)
+    hints:
+      - "`temp_c: float = Field(alias=\"tempC\")` и так далее; `wind_kph: float = Field(alias=\"windKph\", ge=0)`."
+      - "`items = TypeAdapter(list[Weather]).validate_json(raw)`; `sorted(items, key=lambda w: w.temp_c, reverse=True)`; to_api — `item.model_dump(by_alias=True)`."
+    solution: |
+      from pydantic import BaseModel, Field, TypeAdapter
+
+
+      class Weather(BaseModel):
+          city: str
+          temp_c: float = Field(alias="tempC")
+          wind_kph: float = Field(alias="windKph", ge=0)
+          is_raining: bool = Field(alias="isRaining")
+
+
+      WEATHER_LIST = TypeAdapter(list[Weather])
+
+
+      def parse_many(raw: str) -> list[Weather]:
+          """Разобрать массив наблюдений, самые тёплые — первыми."""
+          return sorted(WEATHER_LIST.validate_json(raw), key=lambda w: w.temp_c, reverse=True)
+
+
+      def to_api(item: Weather) -> dict:
+          """Наблюдение в формате API."""
+          return item.model_dump(by_alias=True)
+    solution_explanation: "Псевдонимы отделяют стиль внешнего API от кода на Python, а TypeAdapter проверяет весь массив разом. Адаптер создаётся один раз на уровне модуля — это дешевле, чем создавать его при каждом вызове."
+    tests:
+      - name: "Пример"
+        call: "[w.city for w in parse_many('[{\"city\": \"Москва\", \"tempC\": 5, \"windKph\": 10, \"isRaining\": true}, {\"city\": \"Сочи\", \"tempC\": \"18.5\", \"windKph\": 3, \"isRaining\": false}]')]"
+        expected: "['Сочи', 'Москва']"
+      - name: "Типы и имена полей"
+        code: |
+          item = parse_many('[{"city": "Казань", "tempC": "-3", "windKph": 7, "isRaining": false}]')[0]
+          assert item.temp_c == -3.0 and isinstance(item.temp_c, float) and item.is_raining is False
+      - name: "to_api"
+        code: |
+          item = parse_many('[{"city": "Омск", "tempC": 1, "windKph": 2, "isRaining": true}]')[0]
+          assert to_api(item) == {"city": "Омск", "tempC": 1.0, "windKph": 2.0, "isRaining": True}, to_api(item)
+      - name: "Ошибки"
+        code: |
+          from pydantic import ValidationError
+          for raw in ('[{"city": "X", "tempC": 1, "windKph": -5, "isRaining": false}]', '{"city": "X"}', "[{"):
+              try:
+                  parse_many(raw)
+              except ValidationError:
+                  pass
+              else:
+                  raise AssertionError(f"{raw!r} должен вызывать ValidationError")
+      - name: "Пустой массив"
+        call: "parse_many(\"[]\")"
+        expected: "[]"
+
+  - id: t3
+    title: "JSON из ответа модели"
+    difficulty: 2
+    statement: |
+      - `extract_json(text: str) -> str` — если в тексте есть markdown-блок ```` ```json ... ``` ```` (или ```` ``` ... ``` ````) с объектом — вернуть содержимое блока; иначе — подстроку от первой `{` до последней `}`; если скобок нет — вернуть текст как есть.
+      - Модель `Entities`: `people: list[str]`, `orgs: list[str]`, `sentiment: Literal["positive", "negative", "neutral"]`.
+      - `parse_entities(text: str) -> Entities | None` — извлечь JSON и проверить; при любой ошибке — `None`.
+    examples:
+      - input: "parse_entities('Ответ:\\n```json\\n{\"people\": [\"Ада\"], \"orgs\": [], \"sentiment\": \"positive\"}\\n```').people"
+        output: "['Ада']"
+    starter: |
+      import json
+
+
+      def parse_entities(text):
+          return json.loads(text)
+    hints:
+      - "`re.search(r\"```(?:json)?\\s*(\\{.*?\\})\\s*```\", text, re.DOTALL)` находит блок; иначе `text.find(\"{\")` и `text.rfind(\"}\")`."
+      - "parse_entities: `try: return Entities.model_validate_json(extract_json(text))` / `except ValidationError: return None`."
+    solution: |
+      import re
+      from typing import Literal
+
+      from pydantic import BaseModel, ValidationError
+
+
+      class Entities(BaseModel):
+          people: list[str]
+          orgs: list[str]
+          sentiment: Literal["positive", "negative", "neutral"]
+
+
+      def extract_json(text: str) -> str:
+          """Найти JSON-объект в ответе модели."""
+          fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+          if fenced:
+              return fenced.group(1)
+          start, end = text.find("{"), text.rfind("}")
+          if start != -1 and end > start:
+              return text[start:end + 1]
+          return text
+
+
+      def parse_entities(text: str) -> Entities | None:
+          """Сущности из ответа модели или None."""
+          try:
+              return Entities.model_validate_json(extract_json(text))
+          except ValidationError:
+              return None
+    solution_explanation: "Модели часто окружают JSON пояснениями и markdown-разметкой. Извлечение — отдельная функция, проверка — Pydantic; вместе они превращают свободный текст в надёжную структуру или явный отказ."
+    tests:
+      - name: "Пример"
+        call: "parse_entities('Ответ:\\n```json\\n{\"people\": [\"Ада\"], \"orgs\": [], \"sentiment\": \"positive\"}\\n```').people"
+        expected: "['Ада']"
+      - name: "JSON внутри текста"
+        call: "extract_json('Конечно! {\"a\": {\"b\": 1}} Надеюсь, помог.')"
+        expected: "'{\"a\": {\"b\": 1}}'"
+      - name: "Без скобок"
+        call: "extract_json(\"нет данных\")"
+        expected: "'нет данных'"
+      - name: "Неверные ответы"
+        call: "[parse_entities('{\"people\": [], \"orgs\": [], \"sentiment\": \"angry\"}'), parse_entities(\"не знаю\"), parse_entities('{\"people\": \"Ада\", \"orgs\": [], \"sentiment\": \"neutral\"}')]"
+        expected: "[None, None, None]"
+      - name: "Блок без метки json"
+        code: |
+          result = parse_entities('```\n{"people": [], "orgs": ["OpenAI"], "sentiment": "neutral"}\n```')
+          assert result is not None and result.orgs == ["OpenAI"]
+
+  - id: t4
+    title: "Классификация с повтором по ошибкам"
+    difficulty: 3
+    statement: |
+      Модель `Ticket`: `category: Literal["billing", "bug", "feature", "other"]`, `urgency: int` (от 1 до 3), `reason: str` (не короче 3 символов).
+
+      Функция `classify(ask, text, max_attempts=3) -> Ticket | None`, где `ask(prompt: str) -> str` — функция обращения к модели:
+
+      1. Первый промпт: `"Классифицируй обращение. Ответь JSON по схеме:\n<схема>\nОбращение: <text>"`, где схема — `json.dumps(Ticket.model_json_schema(), ensure_ascii=False)`.
+      2. Ответ проверяется через `Ticket.model_validate_json`. Успех — вернуть `Ticket`.
+      3. При ошибке следующий промпт — **исходный промпт** плюс строка `"\nПредыдущий ответ не прошёл проверку: <ошибки>"`, где ошибки — пары `"<loc через точку>: <type>"` через `"; "` (для ошибки без поля, например битого JSON, вместо пути пишется `json`).
+      4. После `max_attempts` неудачных попыток — `None`.
+    examples:
+      - input: "classify(lambda p: '{\"category\": \"bug\", \"urgency\": 2, \"reason\": \"падает\"}', \"Ошибка при входе\").category"
+        output: "'bug'"
+    starter: |
+      def classify(ask, text, max_attempts=3):
+          return ask(text)
+    hints:
+      - "Сохраните `base_prompt` и меняйте только `prompt = base_prompt + feedback` на каждой попытке."
+      - "Путь ошибки: `\".\".join(str(part) for part in item[\"loc\"]) or \"json\"`."
+    solution: |
+      import json
+      from collections.abc import Callable
+      from typing import Literal
+
+      from pydantic import BaseModel, Field, ValidationError
+
+
+      class Ticket(BaseModel):
+          category: Literal["billing", "bug", "feature", "other"]
+          urgency: int = Field(ge=1, le=3)
+          reason: str = Field(min_length=3)
+
+
+      def _describe(error: ValidationError) -> str:
+          parts = []
+          for item in error.errors():
+              path = ".".join(str(part) for part in item["loc"]) or "json"
+              parts.append(f"{path}: {item['type']}")
+          return "; ".join(parts)
+
+
+      def classify(ask: Callable[[str], str], text: str, max_attempts: int = 3) -> Ticket | None:
+          """Классифицировать обращение, повторяя запрос с текстом ошибок."""
+          schema = json.dumps(Ticket.model_json_schema(), ensure_ascii=False)
+          base_prompt = f"Классифицируй обращение. Ответь JSON по схеме:\n{schema}\nОбращение: {text}"
+          prompt = base_prompt
+          for _ in range(max_attempts):
+              answer = ask(prompt)
+              try:
+                  return Ticket.model_validate_json(answer)
+              except ValidationError as error:
+                  prompt = base_prompt + f"\nПредыдущий ответ не прошёл проверку: {_describe(error)}"
+          return None
+    solution_explanation: "Функция ask передаётся параметром — в тестах это фейк, в продакшене — вызов API. Схема из модели Pydantic попадает в промпт, а ошибки валидации превращаются в короткую обратную связь для следующей попытки. Это ядро библиотек structured output."
+    tests:
+      - name: "Пример"
+        call: "classify(lambda p: '{\"category\": \"bug\", \"urgency\": 2, \"reason\": \"падает\"}', \"Ошибка при входе\").category"
+        expected: "'bug'"
+      - name: "Промпт со схемой"
+        code: |
+          prompts = []
+          def ask(prompt):
+              prompts.append(prompt)
+              return '{"category": "other", "urgency": 1, "reason": "вопрос"}'
+          classify(ask, "Как сменить тариф?")
+          assert prompts[0].startswith("Классифицируй обращение. Ответь JSON по схеме:\n")
+          assert '"billing"' in prompts[0] and prompts[0].endswith("\nОбращение: Как сменить тариф?")
+      - name: "Повтор с ошибками"
+        code: |
+          answers = iter(['{"category": "complaint", "urgency": 5, "reason": "ок"}', '{"category": "billing", "urgency": 3, "reason": "двойное списание"}'])
+          prompts = []
+          def ask(prompt):
+              prompts.append(prompt)
+              return next(answers)
+          ticket = classify(ask, "Списали дважды")
+          assert ticket is not None and ticket.category == "billing" and len(prompts) == 2
+          assert prompts[1] == prompts[0] + "\nПредыдущий ответ не прошёл проверку: category: literal_error; urgency: less_than_equal; reason: string_too_short", prompts[1][-120:]
+      - name: "Битый JSON"
+        code: |
+          prompts = []
+          def ask(prompt):
+              prompts.append(prompt)
+              return "не JSON" if len(prompts) == 1 else '{"category": "feature", "urgency": 1, "reason": "добавьте тёмную тему"}'
+          assert classify(ask, "x").category == "feature"
+          assert prompts[1].endswith("\nПредыдущий ответ не прошёл проверку: json: json_invalid")
+      - name: "Все попытки неудачны"
+        code: |
+          calls = []
+          def ask(prompt):
+              calls.append(prompt)
+              return "{}"
+          assert classify(ask, "x", max_attempts=2) is None and len(calls) == 2

@@ -1,0 +1,374 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      try:
+          print("A")
+          x = int("abc")
+          print("B")
+      except ValueError:
+          print("C")
+      print("D")
+    options:
+      - text: |
+          ```
+          A
+          C
+          D
+          ```
+        correct: true
+        why: "После ошибки в int остаток try (print B) пропускается, выполняется except, затем код после конструкции."
+      - text: |
+          ```
+          A
+          B
+          C
+          D
+          ```
+        why: "Строка после ошибки внутри try не выполняется."
+      - text: |
+          ```
+          A
+          C
+          ```
+        why: "После обработки исключения программа продолжает работу."
+    explanation: "Исключение прерывает блок try и передаёт управление подходящему except."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      try:
+          value = 10 / 2
+      except ZeroDivisionError:
+          print("ошибка")
+      else:
+          print("успех", value)
+      finally:
+          print("конец")
+    options:
+      - text: |
+          ```
+          успех 5.0
+          конец
+          ```
+        correct: true
+        why: "Ошибки нет: выполняется else, затем finally."
+      - text: "`конец`"
+        why: "else выполняется, когда в try не было исключения."
+      - text: |
+          ```
+          ошибка
+          конец
+          ```
+        why: "10 / 2 не вызывает ошибку."
+    explanation: "else — при успехе, finally — всегда."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему сообщение «Не число» никогда не печатается?"
+    code: |
+      try:
+          n = int(input())
+      except Exception:
+          print("Что-то пошло не так")
+      except ValueError:
+          print("Не число")
+    options:
+      - text: "Срабатывает первый подходящий обработчик; Exception — родитель ValueError и стоит раньше"
+        correct: true
+        why: "Конкретные исключения ставят раньше общих."
+      - text: "ValueError нельзя перехватить"
+        why: "Можно — это обычное исключение."
+      - text: "Нужно два блока try"
+        why: "Одного достаточно, если обработчики в правильном порядке."
+    explanation: "Порядок except — от конкретного к общему."
+
+  - id: q4
+    type: multiple
+    prompt: "Какие исключения перехватит `except LookupError:`? Выберите все."
+    options:
+      - text: "`IndexError`"
+        correct: true
+        why: "Потомок LookupError."
+      - text: "`KeyError`"
+        correct: true
+        why: "Потомок LookupError."
+      - text: "`ValueError`"
+        why: "Не связан с LookupError."
+      - text: "`ZeroDivisionError`"
+        why: "Это ArithmeticError."
+    explanation: "except ловит указанный класс и всех его потомков."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def f():
+          try:
+              return "из try"
+          finally:
+              print("finally")
+
+
+      print(f())
+    options:
+      - text: |
+          ```
+          finally
+          из try
+          ```
+        correct: true
+        why: "finally выполняется перед тем, как функция фактически вернёт значение."
+      - text: "`из try`"
+        why: "finally выполняется всегда, даже при return."
+      - text: |
+          ```
+          из try
+          finally
+          ```
+        why: "Значение печатает внешний print — после завершения функции, а finally срабатывает внутри."
+    explanation: "finally гарантированно выполняется — подходит для освобождения ресурсов."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      results = []
+      for text in ["1", "x", "3"]:
+          try:
+              results.append(int(text))
+          except ValueError:
+              results.append(0)
+      print(results)
+    answer: "[1, 0, 3]"
+    explanation: "Ошибка в одном элементе обрабатывается, цикл продолжается."
+
+tasks:
+  - id: t1
+    title: "Безопасное преобразование в число"
+    difficulty: 1
+    statement: |
+      Напишите `to_float(text, default=None)`: убрать пробелы по краям, заменить запятую на точку и вернуть `float`. Если преобразовать нельзя — вернуть `default`. Используйте try/except, а не проверку символов.
+    examples:
+      - input: "to_float(\" 3,14 \")"
+        output: "3.14"
+      - input: "to_float(\"abc\", 0.0)"
+        output: "0.0"
+    starter: |
+      def to_float(text, default=None):
+          return float(text)
+    hints:
+      - "Оберните `float(...)` в try и перехватите ValueError."
+      - "Нормализация до преобразования: `text.strip().replace(\",\", \".\")`."
+    solution: |
+      def to_float(text, default=None):
+          """Преобразовать строку в float или вернуть default."""
+          try:
+              return float(text.strip().replace(",", "."))
+          except ValueError:
+              return default
+    solution_explanation: "EAFP: проверить, что строка — корректное число со знаком, точкой и экспонентой, сложнее, чем просто попробовать float(). Ловим только ValueError — другие ошибки (например, передали не строку) не скрываются."
+    tests:
+      - name: "Запятая и пробелы"
+        call: "to_float(\" 3,14 \")"
+        expected: "3.14"
+      - name: "Не число — default"
+        call: "to_float(\"abc\", 0.0)"
+        expected: "0.0"
+      - name: "Не число без default"
+        call: "to_float(\"\")"
+        expected: "None"
+      - name: "Отрицательное и экспонента"
+        call: "(to_float(\"-2.5\"), to_float(\"1e-3\"))"
+        expected: "(-2.5, 0.001)"
+      - name: "Две точки"
+        call: "to_float(\"1.2.3\", -1)"
+        expected: "-1"
+
+  - id: t2
+    title: "Безопасный доступ по пути"
+    difficulty: 2
+    statement: |
+      Напишите `safe_get(data, *path, default=None)`, которая проходит по вложенной структуре по ключам и индексам из `path` и возвращает значение или `default`, если по пути пройти нельзя (нет ключа, индекс вне диапазона, элемент не поддерживает обращение).
+    examples:
+      - input: "safe_get({\"choices\": [{\"text\": \"hi\"}]}, \"choices\", 0, \"text\")"
+        output: "'hi'"
+      - input: "safe_get({\"a\": [1]}, \"a\", 5, default=\"нет\")"
+        output: "'нет'"
+    starter: |
+      def safe_get(data, *path, default=None):
+          for key in path:
+              data = data[key]
+          return data
+    hints:
+      - "Оберните цикл в try и перехватите кортеж исключений."
+      - "`except (KeyError, IndexError, TypeError):` — нет ключа, индекс вне диапазона, обращение к числу или None."
+    solution: |
+      def safe_get(data, *path, default=None):
+          """Вернуть значение по пути из ключей и индексов или default."""
+          try:
+              for key in path:
+                  data = data[key]
+          except (KeyError, IndexError, TypeError):
+              return default
+          return data
+    solution_explanation: "Один try охватывает весь проход; три типа исключений покрывают все способы «не дойти» по пути. Возврат значения — в отдельной строке после try, чтобы не перехватывать лишнего."
+    tests:
+      - name: "Ответ API"
+        call: "safe_get({\"choices\": [{\"text\": \"hi\"}]}, \"choices\", 0, \"text\")"
+        expected: "'hi'"
+      - name: "Индекс вне диапазона"
+        call: "safe_get({\"a\": [1]}, \"a\", 5, default=\"нет\")"
+        expected: "'нет'"
+      - name: "Нет ключа"
+        call: "safe_get({\"a\": 1}, \"b\")"
+        expected: "None"
+      - name: "Обращение к числу"
+        call: "safe_get({\"a\": 1}, \"a\", \"b\", default=0)"
+        expected: "0"
+      - name: "Пустой путь"
+        call: "safe_get([1, 2])"
+        expected: "[1, 2]"
+      - name: "Значение None не путается с default"
+        call: "safe_get({\"x\": None}, \"x\", default=\"default\")"
+        expected: "None"
+
+  - id: t3
+    title: "Разбор записей с ошибками"
+    difficulty: 2
+    statement: |
+      Напишите `parse_records(lines)`. Каждая строка — `имя,возраст`. Функция возвращает кортеж `(records, bad_lines)`:
+
+      - `records` — список словарей `{"name": имя, "age": int}` для корректных строк (имя без пробелов по краям, непустое);
+      - `bad_lines` — номера (с 1) строк, которые разобрать нельзя: неверное число полей, возраст не целое число, пустое имя.
+    examples:
+      - input: "parse_records([\"Ада,36\", \"Алан\", \"Грейс,сто\", \" Билл , 30\"])"
+        output: "([{'name': 'Ада', 'age': 36}, {'name': 'Билл', 'age': 30}], [2, 3])"
+    starter: |
+      def parse_records(lines):
+          records = []
+          for line in lines:
+              name, age = line.split(",")
+              records.append({"name": name, "age": int(age)})
+          return records
+    hints:
+      - "Распаковка `name, age = line.split(\",\")` бросает ValueError при неверном числе полей, `int(...)` — при нечисловом возрасте."
+      - "Пустое имя — проверьте и бросьте ValueError сами (`raise ValueError(\"пустое имя\")`) или просто добавьте номер в bad_lines."
+    solution: |
+      def parse_records(lines):
+          """Разобрать строки «имя,возраст»; вернуть (записи, номера плохих строк)."""
+          records = []
+          bad_lines = []
+          for number, line in enumerate(lines, start=1):
+              try:
+                  name, age = line.split(",")
+                  name = name.strip()
+                  age = int(age)
+              except ValueError:
+                  bad_lines.append(number)
+                  continue
+              if not name:
+                  bad_lines.append(number)
+                  continue
+              records.append({"name": name, "age": age})
+          return records, bad_lines
+    solution_explanation: "Ошибка в одной строке не останавливает обработку: она учитывается и пропускается. И неверное число полей, и плохое число — это ValueError, поэтому один обработчик покрывает оба случая. int() сам игнорирует пробелы вокруг числа."
+    tests:
+      - name: "Пример"
+        call: "parse_records([\"Ада,36\", \"Алан\", \"Грейс,сто\", \" Билл , 30\"])"
+        expected: "([{'name': 'Ада', 'age': 36}, {'name': 'Билл', 'age': 30}], [2, 3])"
+      - name: "Пусто"
+        call: "parse_records([])"
+        expected: "([], [])"
+      - name: "Лишние поля"
+        call: "parse_records([\"a,1,2\"])"
+        expected: "([], [1])"
+      - name: "Пустое имя"
+        call: "parse_records([\" ,5\"])"
+        expected: "([], [1])"
+      - name: "Все корректные"
+        call: "parse_records([\"X,1\", \"Y,2\"])"
+        expected: "([{'name': 'X', 'age': 1}, {'name': 'Y', 'age': 2}], [])"
+
+  - id: t4
+    title: "Повтор с выбором ошибок"
+    difficulty: 3
+    statement: |
+      Напишите `call_with_retry(func, attempts=3, retry_on=(TimeoutError, ConnectionError))`:
+
+      - вызывает `func()` (без аргументов) и возвращает результат при успехе;
+      - если `func` бросает исключение из `retry_on` — повторяет вызов, но не больше `attempts` раз всего;
+      - если все попытки неудачны — **пробрасывает последнее** исключение;
+      - исключения не из `retry_on` пробрасываются сразу, без повторов.
+    examples:
+      - input: "call_with_retry(lambda: 42)"
+        output: "42"
+    starter: |
+      def call_with_retry(func, attempts=3, retry_on=(TimeoutError, ConnectionError)):
+          try:
+              return func()
+          except:
+              return None
+    hints:
+      - "Цикл `for attempt in range(attempts):`, внутри `try: return func()` и `except retry_on as error: last_error = error`."
+      - "После цикла — `raise last_error`. Остальные исключения не перехватывайте — они «всплывут» сами."
+    solution: |
+      def call_with_retry(func, attempts=3, retry_on=(TimeoutError, ConnectionError)):
+          """Вызвать func, повторяя при временных ошибках из retry_on."""
+          last_error = None
+          for _ in range(attempts):
+              try:
+                  return func()
+              except retry_on as error:
+                  last_error = error
+          raise last_error
+    solution_explanation: "except принимает кортеж типов из переменной — набор «временных» ошибок настраивается снаружи. Постоянные ошибки (например, неверный ключ API) не перехватываются и сразу видны. Голый except из заготовки скрывал бы любые проблемы."
+    tests:
+      - name: "Успех сразу"
+        call: "call_with_retry(lambda: 42)"
+        expected: "42"
+      - name: "Успех с третьей попытки"
+        code: |
+          calls = []
+          def flaky():
+              calls.append(1)
+              if len(calls) < 3:
+                  raise TimeoutError("сеть")
+              return "ok"
+          assert call_with_retry(flaky) == "ok" and len(calls) == 3
+      - name: "Все попытки неудачны — последнее исключение"
+        code: |
+          calls = []
+          def always_fails():
+              calls.append(1)
+              raise ConnectionError(f"попытка {len(calls)}")
+          try:
+              call_with_retry(always_fails, attempts=2)
+          except ConnectionError as error:
+              assert str(error) == "попытка 2", f"Должно пробрасываться последнее исключение, а не {error}"
+              assert len(calls) == 2
+          else:
+              raise AssertionError("Исключение должно быть проброшено")
+      - name: "Другие ошибки — без повторов"
+        code: |
+          calls = []
+          def bad_key():
+              calls.append(1)
+              raise PermissionError("неверный ключ")
+          try:
+              call_with_retry(bad_key)
+          except PermissionError:
+              assert len(calls) == 1, "Не временную ошибку нельзя повторять"
+          else:
+              raise AssertionError("PermissionError должен пробрасываться")
+      - name: "Свой набор ошибок"
+        code: |
+          calls = []
+          def value_then_ok():
+              calls.append(1)
+              if len(calls) == 1:
+                  raise ValueError("временно")
+              return 7
+          assert call_with_retry(value_then_ok, retry_on=(ValueError,)) == 7

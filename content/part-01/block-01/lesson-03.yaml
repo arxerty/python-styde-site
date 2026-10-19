@@ -1,0 +1,320 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print(17 // 5, 17 % 5)
+    options:
+      - text: "`3 2`"
+        correct: true
+        why: "5 помещается в 17 три раза (15), остаток 2."
+      - text: "`3.4 2`"
+        why: "`//` — целочисленное деление, дробной части нет."
+      - text: "`3 0.4`"
+        why: "`%` — остаток в тех же единицах, а не дробная часть."
+      - text: "`4 3`"
+        why: "`//` округляет вниз: 17 // 5 = 3."
+    explanation: "`a // b` — сколько раз b целиком помещается в a, `a % b` — что остаётся."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print(2 + 3 * 4 ** 2)
+    options:
+      - text: "`50`"
+        correct: true
+        why: "Сначала 4 ** 2 = 16, затем 3 * 16 = 48, затем 2 + 48 = 50."
+      - text: "`400`"
+        why: "Это (2 + 3) * 4 ** 2 — сложение не выполняется первым."
+      - text: "`196`"
+        why: "Это (2 + 3 * 4) ** 2 — но степень относится только к 4."
+      - text: "`146`"
+        why: "Проверьте порядок: степень → умножение → сложение."
+    explanation: "Приоритет: `**` выше `*`, а `*` выше `+`."
+
+  - id: q3
+    type: single
+    prompt: "Почему `0.1 + 0.2 == 0.3` даёт `False`?"
+    options:
+      - text: "float хранится в двоичном виде, и 0.1 нельзя записать точно — возникает крошечная погрешность"
+        correct: true
+        why: "0.1 в двоичной системе — бесконечная дробь, её приходится обрезать."
+      - text: "Это ошибка в Python, которую исправят в новой версии"
+        why: "Так работает стандарт IEEE 754 почти во всех языках, это не баг."
+      - text: "Оператор `==` не работает с дробными числами"
+        why: "Работает, но сравнивает точно — а значения отличаются на 4e-17."
+      - text: "Python округляет 0.3 до 0"
+        why: "Нет, 0.3 хранится как ближайшее двоичное приближение, а не 0."
+    explanation: "Сравнивайте float с допуском: `abs(a - b) < 1e-9`."
+
+  - id: q4
+    type: multiple
+    prompt: "Какие выражения дают значение типа `float`? Выберите все."
+    options:
+      - text: "`10 / 2`"
+        correct: true
+        why: "`/` всегда даёт float: 5.0."
+      - text: "`3 * 1.0`"
+        correct: true
+        why: "int × float = float: 3.0."
+      - text: "`7 // 2`"
+        why: "Целочисленное деление двух int даёт int: 3."
+      - text: "`round(2.7)`"
+        why: "round() без второго аргумента возвращает int: 3."
+      - text: "`2 ** 3`"
+        why: "Степень двух целых с неотрицательным показателем — int: 8."
+    explanation: "float появляется при делении `/`, при участии хотя бы одного float в операции и при отрицательной степени."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print(round(2.5), round(3.5), int(3.9))
+    options:
+      - text: "`2 4 3`"
+        correct: true
+        why: "Банковское округление: 2.5 → 2, 3.5 → 4 (к чётному). int() отбрасывает дробь: 3."
+      - text: "`3 4 4`"
+        why: "Python округляет середину к чётному, а int() не округляет, а отбрасывает."
+      - text: "`3 4 3`"
+        why: "round(2.5) = 2: ближайшее чётное."
+      - text: "`2 3 3`"
+        why: "round(3.5) = 4: ближайшее чётное к 3.5 — это 4."
+    explanation: "round() использует банковское округление (к ближайшему чётному при .5), int() просто отбрасывает дробную часть."
+
+  - id: q6
+    type: find_bug
+    prompt: "Программа должна вывести среднее трёх оценок (ожидается 4.0), но выводит другое. В чём ошибка?"
+    code: |
+      a = 3
+      b = 4
+      c = 5
+      average = a + b + c / 3
+      print(average)
+    options:
+      - text: "Не хватает скобок: делится только `c`, а нужно `(a + b + c) / 3`"
+        correct: true
+        why: "Деление старше сложения, поэтому вычисляется 3 + 4 + 5/3 ≈ 8.67."
+      - text: "Нужно использовать `//` вместо `/`"
+        why: "Это дало бы целое, но порядок операций остался бы неверным."
+      - text: "Переменные нужно сделать float"
+        why: "Тип здесь не важен: `/` и так даёт float."
+      - text: "Нельзя называть переменную `average`"
+        why: "Имя допустимое и хорошее."
+    explanation: "Без скобок формула считается как `a + b + (c / 3)`. Скобки задают нужный порядок."
+
+tasks:
+  - id: t1
+    title: "Секунды в часы, минуты и секунды"
+    difficulty: 1
+    statement: |
+      Переменная `seconds` содержит количество секунд (целое, не меньше нуля).
+      Выведите время в формате `Ч ч М мин С с`, например для 3725 секунд — `1 ч 2 мин 5 с`.
+    examples:
+      - input: "seconds = 3725"
+        output: "1 ч 2 мин 5 с"
+      - input: "seconds = 59"
+        output: "0 ч 0 мин 59 с"
+    setup: |
+      seconds = 3725
+    starter: |
+      hours = 0
+      minutes = 0
+      secs = 0
+      print(hours, "ч", minutes, "мин", secs, "с")
+    hints:
+      - "Часы: `seconds // 3600`. Остаток секунд после часов: `seconds % 3600`."
+      - "Из остатка: минуты — `// 60`, секунды — `% 60`."
+    solution: |
+      hours = seconds // 3600
+      minutes = seconds % 3600 // 60
+      secs = seconds % 60
+      print(hours, "ч", minutes, "мин", secs, "с")
+    solution_explanation: "`//` отвечает «сколько целых часов», `%` — «сколько секунд осталось». `seconds % 3600 // 60` — минуты внутри неполного часа. Секунды проще взять сразу как `seconds % 60`."
+    tests:
+      - name: "3725 секунд"
+        stdout: "1 ч 2 мин 5 с"
+      - name: "Ноль"
+        setup: "seconds = 0"
+        stdout: "0 ч 0 мин 0 с"
+      - name: "Меньше минуты"
+        setup: "seconds = 59"
+        stdout: "0 ч 0 мин 59 с"
+      - name: "Ровно час"
+        setup: "seconds = 3600"
+        stdout: "1 ч 0 мин 0 с"
+      - name: "Почти сутки"
+        setup: "seconds = 86399"
+        stdout: "23 ч 59 мин 59 с"
+      - name: "Больше суток"
+        setup: "seconds = 90061"
+        stdout: "25 ч 1 мин 1 с"
+
+  - id: t2
+    title: "Средний чек"
+    difficulty: 1
+    statement: |
+      Переменные `total` (общая выручка) и `orders` (число заказов, больше нуля) уже заданы.
+      Создайте переменную `average` — средний чек, округлённый до 2 знаков после запятой, и выведите её.
+    examples:
+      - input: "total = 1000, orders = 3"
+        output: "333.33"
+    setup: |
+      total = 1000
+      orders = 3
+    starter: |
+      average = total / orders
+      print(average)
+    hints:
+      - "Сейчас результат не округлён. Какая функция округляет до заданного числа знаков?"
+      - "`round(значение, 2)`."
+    solution: |
+      average = round(total / orders, 2)
+      print(average)
+    solution_explanation: "`/` даёт float, `round(x, 2)` оставляет два знака после запятой."
+    tests:
+      - name: "1000 / 3"
+        code: |
+          assert average == 333.33, f"Ожидалось 333.33, получено {average!r}"
+      - name: "Делится нацело"
+        setup: |
+          total = 900
+          orders = 3
+        code: |
+          assert average == 300.0
+      - name: "Один заказ"
+        setup: |
+          total = 1234.567
+          orders = 1
+        code: |
+          assert average == 1234.57, f"Ожидалось 1234.57, получено {average!r}"
+      - name: "Маленький чек"
+        setup: |
+          total = 10
+          orders = 7
+        code: |
+          assert average == 1.43, f"Ожидалось 1.43, получено {average!r}"
+      - name: "Вывод"
+        setup: |
+          total = 500
+          orders = 4
+        stdout: "125.0"
+
+  - id: t3
+    title: "Сложные проценты"
+    difficulty: 2
+    statement: |
+      Заданы переменные: `principal` — начальная сумма, `rate` — годовая ставка в процентах, `years` — срок в годах.
+      Проценты капитализируются раз в год. Создайте переменную `amount` — итоговую сумму, округлённую до 2 знаков:
+
+      `amount = principal × (1 + rate / 100) ^ years`
+    examples:
+      - input: "principal = 100000, rate = 12, years = 5"
+        output: "176234.17"
+    setup: |
+      principal = 100000
+      rate = 12
+      years = 5
+    starter: |
+      amount = principal * 1 + rate / 100 ** years
+      print(amount)
+    hints:
+      - "В заготовке нарушен порядок операций. Где нужны скобки?"
+      - "`principal * (1 + rate / 100) ** years`, затем `round(..., 2)`."
+    solution: |
+      amount = round(principal * (1 + rate / 100) ** years, 2)
+      print(amount)
+    solution_explanation: "Скобки нужны вокруг `1 + rate / 100`: иначе степень применится только к одному числу. Степень старше умножения, поэтому `principal * (...) ** years` вычисляется правильно."
+    tests:
+      - name: "Пример из условия"
+        code: |
+          assert amount == 176234.17, f"Ожидалось 176234.17, получено {amount!r}"
+      - name: "Нулевой срок"
+        setup: |
+          principal = 5000
+          rate = 10
+          years = 0
+        code: |
+          assert amount == 5000, f"За 0 лет сумма не меняется: {amount!r}"
+      - name: "Нулевая ставка"
+        setup: |
+          principal = 7000
+          rate = 0
+          years = 10
+        code: |
+          assert amount == 7000
+      - name: "Один год"
+        setup: |
+          principal = 1000
+          rate = 7.5
+          years = 1
+        code: |
+          assert amount == 1075.0, f"Ожидалось 1075.0, получено {amount!r}"
+      - name: "Долгий срок"
+        setup: |
+          principal = 1
+          rate = 100
+          years = 10
+        code: |
+          assert amount == 1024, f"Удвоение 10 лет подряд: ожидалось 1024, получено {amount!r}"
+
+  - id: t4
+    title: "Цифры трёхзначного числа"
+    difficulty: 2
+    statement: |
+      Переменная `number` — трёхзначное положительное целое число. Используя только `//` и `%`, создайте:
+
+      - `digit_sum` — сумму его цифр;
+      - `reversed_number` — число, записанное задом наперёд (для 120 это 21).
+
+      Выведите обе переменные через пробел.
+    examples:
+      - input: "number = 472"
+        output: "13 274"
+    setup: |
+      number = 472
+    starter: |
+      hundreds = 0
+      tens = 0
+      units = 0
+      digit_sum = 0
+      reversed_number = 0
+      print(digit_sum, reversed_number)
+    hints:
+      - "Единицы — `number % 10`, десятки — `number // 10 % 10`, сотни — `number // 100`."
+      - "Перевёрнутое число собирается как `units * 100 + tens * 10 + hundreds`."
+    solution: |
+      hundreds = number // 100
+      tens = number // 10 % 10
+      units = number % 10
+      digit_sum = hundreds + tens + units
+      reversed_number = units * 100 + tens * 10 + hundreds
+      print(digit_sum, reversed_number)
+    solution_explanation: "`% 10` «отрезает» последнюю цифру, `// 10` убирает её из числа. Собирая цифры с весами 100, 10 и 1 в обратном порядке, получаем перевёрнутое число — и ведущий ноль исчезает сам."
+    constraints:
+      forbid: ["str(", "[::-1]"]
+      message: "Решите арифметикой, без превращения числа в строку."
+    tests:
+      - name: "472"
+        code: |
+          assert digit_sum == 13 and reversed_number == 274, f"Получено {digit_sum}, {reversed_number}"
+      - name: "Ноль в конце"
+        setup: "number = 120"
+        code: |
+          assert digit_sum == 3 and reversed_number == 21, f"Получено {digit_sum}, {reversed_number}"
+      - name: "Одинаковые цифры"
+        setup: "number = 777"
+        code: |
+          assert digit_sum == 21 and reversed_number == 777
+      - name: "Наименьшее трёхзначное"
+        setup: "number = 100"
+        code: |
+          assert digit_sum == 1 and reversed_number == 1
+      - name: "Наибольшее трёхзначное"
+        setup: "number = 999"
+        code: |
+          assert digit_sum == 27 and reversed_number == 999
+      - name: "Вывод"
+        setup: "number = 305"
+        stdout: "8 503"

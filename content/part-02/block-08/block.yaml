@@ -1,0 +1,18 @@
+title: "Тесты, структура проекта, git"
+description: "Инженерная культура: pytest, фикстуры и параметризация, моки внешних API, структура пакета и pyproject.toml, логирование, PEP 8 и линтеры, git. Задачи на инструменты выполняются локально."
+mini_project: "Покрыть тестами готовый модуль и найти в нём 3 бага"
+lessons:
+  - id: lesson-01
+    title: "pytest: тесты, assert, запуск"
+  - id: lesson-02
+    title: "Фикстуры и параметризация"
+  - id: lesson-03
+    title: "Моки (unittest.mock): тестирование кода с внешними API"
+  - id: lesson-04
+    title: "Структура проекта, пакеты, pyproject.toml, uv и poetry"
+  - id: lesson-05
+    title: "Логирование (logging) вместо print"
+  - id: lesson-06
+    title: "PEP 8, ruff, black, pre-commit"
+  - id: lesson-07
+    title: "Git: commit, branch, merge, GitHub, .gitignore"

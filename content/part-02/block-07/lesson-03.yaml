@@ -1,0 +1,452 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import asyncio
+
+
+      async def job(name, delay):
+          await asyncio.sleep(delay)
+          return name
+
+
+      async def main():
+          return await asyncio.gather(job("a", 0.03), job("b", 0.01), job("c", 0.02))
+
+
+      print(asyncio.run(main()))
+    options:
+      - text: "`['a', 'b', 'c']`"
+        correct: true
+        why: "gather возвращает результаты в порядке аргументов."
+      - text: "`['b', 'c', 'a']`"
+        why: "Это порядок завершения — его даёт as_completed, а не gather."
+      - text: "`'a'`"
+        why: "gather возвращает список всех результатов."
+    explanation: "gather — порядок аргументов; as_completed — порядок завершения."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import asyncio
+
+
+      async def check(x):
+          if x < 0:
+              raise ValueError(x)
+          return x
+
+
+      async def main():
+          results = await asyncio.gather(check(1), check(-2), check(3), return_exceptions=True)
+          return [type(r).__name__ for r in results]
+
+
+      print(asyncio.run(main()))
+    options:
+      - text: "`['int', 'ValueError', 'int']`"
+        correct: true
+        why: "С return_exceptions=True исключение возвращается как элемент списка."
+      - text: "ValueError: -2"
+        why: "Так было бы без return_exceptions=True."
+      - text: "`['int', 'int']`"
+        why: "Ошибочный элемент не пропускается — на его месте исключение."
+    explanation: "return_exceptions=True сохраняет все результаты при отдельных сбоях."
+
+  - id: q3
+    type: find_bug
+    prompt: "Обработка 100 вопросов занимает 100 × время ответа. Почему?"
+    code: |
+      async def process_all(questions):
+          answers = []
+          for q in questions:
+              answers.append(await ask_model(q))
+          return answers
+    options:
+      - text: "Каждый await ждёт ответа перед следующим вопросом; нужно `await asyncio.gather(*(ask_model(q) for q in questions))`"
+        correct: true
+        why: "Цикл с await внутри — последовательное выполнение."
+      - text: "Нельзя вызывать append в асинхронной функции"
+        why: "Можно."
+      - text: "ask_model должна быть синхронной"
+        why: "Тогда стало бы только хуже."
+    explanation: "Одновременность появляется при совместном запуске корутин."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import asyncio
+
+
+      async def slow():
+          await asyncio.sleep(1)
+          return "медленно"
+
+
+      async def main():
+          try:
+              return await asyncio.wait_for(slow(), timeout=0.05)
+          except TimeoutError:
+              return "таймаут"
+
+
+      print(asyncio.run(main()))
+    options:
+      - text: "`таймаут`"
+        correct: true
+        why: "slow не успевает за 0.05 с: она отменяется, а наружу выходит TimeoutError."
+      - text: "`медленно`"
+        why: "wait_for не ждёт дольше timeout."
+      - text: "None"
+        why: "Блок except возвращает строку."
+    explanation: "Каждое сетевое ожидание должно иметь таймаут."
+
+  - id: q5
+    type: single
+    prompt: "Чем задача (`asyncio.create_task(coro)`) отличается от корутины?"
+    options:
+      - text: "Задача сразу запланирована и выполняется в фоне; корутина ничего не делает, пока её не ждут"
+        correct: true
+        why: "Task — уже запущенная корутина."
+      - text: "Задача выполняется в отдельном потоке"
+        why: "Все задачи asyncio — в одном потоке."
+      - text: "Ничем"
+        why: "Корутина не начнёт работу без await."
+      - text: "Задачу нельзя ждать через await"
+        why: "Можно: await task возвращает результат."
+    explanation: "create_task позволяет начать работу и продолжить делать другое."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно? Выберите все."
+    options:
+      - text: "При таймауте ожидаемая операция отменяется"
+        correct: true
+        why: "Через CancelledError внутри неё."
+      - text: "TaskGroup отменяет остальные задачи, если одна упала"
+        correct: true
+        why: "Ошибки собираются в ExceptionGroup."
+      - text: "as_completed выдаёт результаты по мере готовности"
+        correct: true
+        why: "В порядке завершения."
+      - text: "CancelledError можно молча проглотить без последствий"
+        why: "Это ломает отмену и таймауты — после уборки нужен raise."
+    explanation: "Инструменты одновременности и таймаутов asyncio."
+
+tasks:
+  - id: t1
+    title: "Пакет с частичными сбоями"
+    difficulty: 1
+    statement: |
+      Напишите `async def run_batch(func, items)`: вызывает асинхронную функцию `func(item)` для всех элементов **одновременно** и возвращает словарь:
+
+      - `"ok"` — список успешных результатов в исходном порядке элементов;
+      - `"errors"` — словарь `{индекс: "<ТипИсключения>: <сообщение>"}` для упавших вызовов.
+    examples:
+      - input: "asyncio.run(run_batch(parse, [\"1\", \"x\", \"3\"]))"
+        output: "{'ok': [1, 3], 'errors': {1: \"ValueError: invalid literal for int() with base 10: 'x'\"}}"
+    setup: |
+      import asyncio
+
+
+      async def parse(text):
+          await asyncio.sleep(0.01)
+          return int(text)
+    starter: |
+      async def run_batch(func, items):
+          results = await asyncio.gather(*(func(item) for item in items))
+          return {"ok": results, "errors": {}}
+    hints:
+      - "`results = await asyncio.gather(*(func(i) for i in items), return_exceptions=True)`."
+      - "Перебирайте `enumerate(results)` и разделяйте по `isinstance(result, Exception)`."
+    solution: |
+      import asyncio
+
+
+      async def run_batch(func, items):
+          """Выполнить func для всех элементов, собрав ошибки отдельно."""
+          results = await asyncio.gather(*(func(item) for item in items), return_exceptions=True)
+          ok = []
+          errors = {}
+          for index, result in enumerate(results):
+              if isinstance(result, Exception):
+                  errors[index] = f"{type(result).__name__}: {result}"
+              else:
+                  ok.append(result)
+          return {"ok": ok, "errors": errors}
+    solution_explanation: "return_exceptions=True превращает исключения в элементы результата, поэтому один сбой не теряет остальные ответы. Индекс ошибки позволяет потом повторить только упавшие элементы."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(run_batch(parse, [\"1\", \"x\", \"3\"]))"
+        expected: "{'ok': [1, 3], 'errors': {1: \"ValueError: invalid literal for int() with base 10: 'x'\"}}"
+      - name: "Все успешны"
+        call: "asyncio.run(run_batch(parse, [\"7\", \"8\"]))"
+        expected: "{'ok': [7, 8], 'errors': {}}"
+      - name: "Одновременность"
+        code: |
+          import time
+          start = time.perf_counter()
+          asyncio.run(run_batch(parse, [str(i) for i in range(30)]))
+          assert time.perf_counter() - start < 0.2
+      - name: "Разные исключения"
+        code: |
+          async def risky(x):
+              if x == 0:
+                  raise ZeroDivisionError("ноль")
+              if x < 0:
+                  raise KeyError("минус")
+              return 1 / x
+          out = asyncio.run(run_batch(risky, [2, 0, -1]))
+          assert out["ok"] == [0.5] and out["errors"] == {1: "ZeroDivisionError: ноль", 2: "KeyError: 'минус'"}, out
+      - name: "Пусто"
+        call: "asyncio.run(run_batch(parse, []))"
+        expected: "{'ok': [], 'errors': {}}"
+
+  - id: t2
+    title: "Основная модель и запасная"
+    difficulty: 2
+    statement: |
+      Напишите `async def with_fallback(primary, fallback, timeout)`: `primary` и `fallback` — асинхронные функции без аргументов.
+
+      - вызвать `primary()` с таймаутом `timeout`; при успехе вернуть `("primary", результат)`;
+      - если основная функция не уложилась в таймаут **или** бросила исключение — вызвать `fallback()` и вернуть `("fallback", результат)`;
+      - ошибки запасной функции пробрасываются.
+    examples:
+      - input: "asyncio.run(with_fallback(fast, backup, 1.0))"
+        output: "('primary', 'быстрый ответ')"
+    setup: |
+      import asyncio
+
+
+      async def fast():
+          await asyncio.sleep(0.01)
+          return "быстрый ответ"
+
+
+      async def slow():
+          await asyncio.sleep(5)
+          return "медленный ответ"
+
+
+      async def broken():
+          await asyncio.sleep(0.01)
+          raise RuntimeError("503")
+
+
+      async def backup():
+          return "запасной ответ"
+    starter: |
+      async def with_fallback(primary, fallback, timeout):
+          return "primary", await primary()
+    hints:
+      - "`try: return \"primary\", await asyncio.wait_for(primary(), timeout)`."
+      - "`except Exception:` поймает и TimeoutError, и любые ошибки основной функции; там вызовите `await fallback()`."
+    solution: |
+      import asyncio
+
+
+      async def with_fallback(primary, fallback, timeout):
+          """Основной вызов с таймаутом и запасным вариантом."""
+          try:
+              return "primary", await asyncio.wait_for(primary(), timeout)
+          except Exception:
+              return "fallback", await fallback()
+    solution_explanation: "TimeoutError — тоже потомок Exception, поэтому один except покрывает и зависание, и сбой основной модели. CancelledError в Python 3.8+ — потомок BaseException и сюда не попадёт, так что отмена работает корректно."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(with_fallback(fast, backup, 1.0))"
+        expected: "('primary', 'быстрый ответ')"
+      - name: "Таймаут"
+        code: |
+          import time
+          start = time.perf_counter()
+          assert asyncio.run(with_fallback(slow, backup, 0.1)) == ("fallback", "запасной ответ")
+          assert time.perf_counter() - start < 1, "Таймаут не сработал"
+      - name: "Ошибка основной"
+        call: "asyncio.run(with_fallback(broken, backup, 1.0))"
+        expected: "('fallback', 'запасной ответ')"
+      - name: "Ошибка запасной пробрасывается"
+        code: |
+          try:
+              asyncio.run(with_fallback(broken, broken, 1.0))
+          except RuntimeError:
+              pass
+          else:
+              raise AssertionError("Ошибка запасной функции должна выходить наружу")
+      - name: "Используется таймаут"
+        code: |
+          assert "wait_for" in __source__ or "timeout(" in __source__
+
+  - id: t3
+    title: "Кто первый ответил"
+    difficulty: 3
+    statement: |
+      Отправляем один вопрос нескольким моделям и берём первый **успешный** ответ. Напишите `async def first_success(coros)`:
+
+      - запускает все корутины как задачи;
+      - возвращает результат первой успешно завершившейся; остальные незавершённые задачи **отменяет**;
+      - если все упали — пробрасывает исключение, возникшее последним.
+    examples:
+      - input: "asyncio.run(first_success([answer(\"медленная\", 0.3), answer(\"быстрая\", 0.05)]))"
+        output: "'быстрая'"
+    setup: |
+      import asyncio
+
+
+      async def answer(name, delay, fail=False):
+          await asyncio.sleep(delay)
+          if fail:
+              raise RuntimeError(f"{name} упала")
+          return name
+    starter: |
+      async def first_success(coros):
+          results = await asyncio.gather(*coros)
+          return results[0]
+    hints:
+      - "`tasks = [asyncio.create_task(c) for c in coros]`, затем `for next_done in asyncio.as_completed(tasks):` с `try: result = await next_done`."
+      - "При успехе отмените остальные: `for t in tasks: t.cancel()` (у завершённых cancel ничего не делает) и верните результат. Ошибку запоминайте и пробросьте после цикла."
+    solution: |
+      import asyncio
+
+
+      async def first_success(coros):
+          """Первый успешный результат; остальные задачи отменяются."""
+          tasks = [asyncio.create_task(coro) for coro in coros]
+          last_error = None
+          try:
+              for next_done in asyncio.as_completed(tasks):
+                  try:
+                      return await next_done
+                  except Exception as error:
+                      last_error = error
+          finally:
+              for task in tasks:
+                  task.cancel()
+          raise last_error
+    solution_explanation: "as_completed отдаёт задачи в порядке завершения, а finally гарантирует отмену всех оставшихся — и при успехе, и при общем провале. Без отмены «проигравшие» модели продолжали бы работать и тратить деньги."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(first_success([answer(\"медленная\", 0.3), answer(\"быстрая\", 0.05)]))"
+        expected: "'быстрая'"
+      - name: "Пропуск упавших"
+        call: "asyncio.run(first_success([answer(\"a\", 0.01, fail=True), answer(\"b\", 0.05), answer(\"c\", 0.2)]))"
+        expected: "'b'"
+      - name: "Все упали"
+        code: |
+          try:
+              asyncio.run(first_success([answer("a", 0.01, True), answer("b", 0.03, True)]))
+          except RuntimeError as error:
+              assert str(error) == "b упала", str(error)
+          else:
+              raise AssertionError("Ожидалось исключение")
+      - name: "Остальные отменяются"
+        code: |
+          finished = []
+          async def tracked(name, delay):
+              await asyncio.sleep(delay)
+              finished.append(name)
+              return name
+          async def main():
+              result = await first_success([tracked("fast", 0.02), tracked("slow", 0.2)])
+              await asyncio.sleep(0.3)
+              return result
+          assert asyncio.run(main()) == "fast" and finished == ["fast"], finished
+      - name: "Время"
+        code: |
+          import time
+          start = time.perf_counter()
+          asyncio.run(first_success([answer("x", 0.05), answer("y", 2)]))
+          assert time.perf_counter() - start < 1
+
+  - id: t4
+    title: "Сбор контекста из источников"
+    difficulty: 3
+    statement: |
+      Для RAG-ответа опрашиваем несколько источников одновременно. Напишите `async def gather_context(question, sources, timeout)`:
+
+      - `sources` — словарь `{имя: асинхронная функция(question)}`;
+      - все источники опрашиваются одновременно, каждый — с таймаутом `timeout`;
+      - результат: `{"context": {имя: ответ} только для успевших и не упавших, "missing": отсортированный список остальных имён}`.
+
+      Общее время не должно превышать примерно `timeout`, сколько бы ни было источников.
+    examples:
+      - input: "asyncio.run(gather_context(\"rag\", {\"wiki\": wiki, \"web\": web_slow}, 0.1))"
+        output: "{'context': {'wiki': 'wiki: rag'}, 'missing': ['web']}"
+    setup: |
+      import asyncio
+
+
+      def make_source(name, delay, fail=False):
+          async def source(question):
+              await asyncio.sleep(delay)
+              if fail:
+                  raise ConnectionError(name)
+              return f"{name}: {question}"
+          return source
+
+
+      wiki = make_source("wiki", 0.01)
+      web_slow = make_source("web", 1.0)
+    starter: |
+      async def gather_context(question, sources, timeout):
+          context = {}
+          for name, source in sources.items():
+              context[name] = await source(question)
+          return {"context": context, "missing": []}
+    hints:
+      - "Обёртка на один источник: `async def one(name, source)` — `try: return name, await asyncio.wait_for(source(question), timeout)` / `except Exception: return name, None`."
+      - "`pairs = await asyncio.gather(*(one(n, s) for n, s in sources.items()))`; источники с `None` идут в missing. (Если источник может честно вернуть None, используйте отдельный маркер.)"
+    solution: |
+      import asyncio
+
+      _FAILED = object()
+
+
+      async def gather_context(question, sources, timeout):
+          """Опросить источники одновременно, пропустив медленные и упавшие."""
+
+          async def one(name, source):
+              try:
+                  return name, await asyncio.wait_for(source(question), timeout)
+              except Exception:
+                  return name, _FAILED
+
+          pairs = await asyncio.gather(*(one(name, source) for name, source in sources.items()))
+          context = {name: result for name, result in pairs if result is not _FAILED}
+          missing = sorted(name for name, result in pairs if result is _FAILED)
+          return {"context": context, "missing": missing}
+    solution_explanation: "Каждый источник получает собственный таймаут и собственный обработчик ошибок, а gather запускает их одновременно. Ответ собирается из того, что успело прийти, — лучше ответить по двум источникам из трёх, чем заставлять пользователя ждать зависший сервис."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(gather_context(\"rag\", {\"wiki\": wiki, \"web\": web_slow}, 0.1))"
+        expected: "{'context': {'wiki': 'wiki: rag'}, 'missing': ['web']}"
+      - name: "Падения и таймауты"
+        code: |
+          sources = {
+              "a": make_source("a", 0.01),
+              "b": make_source("b", 0.01, fail=True),
+              "c": make_source("c", 2.0),
+              "d": make_source("d", 0.02),
+          }
+          out = asyncio.run(gather_context("q", sources, 0.2))
+          assert out == {"context": {"a": "a: q", "d": "d: q"}, "missing": ["b", "c"]}, out
+      - name: "Общее время ~ timeout"
+        code: |
+          import time
+          sources = {str(i): make_source(str(i), 5.0) for i in range(10)}
+          start = time.perf_counter()
+          out = asyncio.run(gather_context("q", sources, 0.1))
+          elapsed = time.perf_counter() - start
+          assert len(out["missing"]) == 10 and elapsed < 1, f"{elapsed:.2f} с — источники опрашиваются по очереди?"
+      - name: "Источник, вернувший None"
+        code: |
+          async def empty(question):
+              return None
+          out = asyncio.run(gather_context("q", {"empty": empty}, 0.1))
+          assert out == {"context": {"empty": None}, "missing": []}, out
+      - name: "Нет источников"
+        call: "asyncio.run(gather_context(\"q\", {}, 0.1))"
+        expected: "{'context': {}, 'missing': []}"

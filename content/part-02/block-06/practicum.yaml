@@ -1,0 +1,631 @@
+title: "Практикум: Python изнутри и алгоритмы"
+description: |
+  Вопросы и задачи по всему блоку: ссылки и копирование, устройство list и dict, сложность и замеры, поиск и сортировка, collections и heapq, потоки и процессы.
+  Последняя задача — мини-проект «Оптимизация медленного кода с замерами до и после».
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def add_tag(tags, tag="new"):
+          tags.append(tag)
+          return tags
+
+
+      base = ["ml"]
+      result = add_tag(base)
+      print(base, result is base)
+    options:
+      - text: "`['ml', 'new'] True`"
+        correct: true
+        why: "Функция изменила переданный список и вернула тот же объект."
+      - text: "`['ml'] False`"
+        why: "Параметр — ссылка на тот же список, append меняет его."
+      - text: "`['ml', 'new'] False`"
+        why: "Возвращён тот же объект, что передан."
+    explanation: "Изменение объекта внутри функции видно снаружи."
+
+  - id: q2
+    type: single
+    prompt: "Когда уместно сравнение через `is`?"
+    options:
+      - text: "Для проверки тождества с синглтонами: `x is None`, членами Enum, маркерами"
+        correct: true
+        why: "Эти объекты существуют в единственном экземпляре."
+      - text: "Для сравнения строк — это быстрее"
+        why: "Строки сравнивают через ==; is зависит от интернирования."
+      - text: "Для сравнения чисел до 1000"
+        why: "Кэшируются только числа −5…256, и это деталь реализации."
+      - text: "Всегда, когда сравниваются списки"
+        why: "Списки сравнивают по содержимому через ==."
+    explanation: "is — тождество, == — равенство."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import copy
+
+      cfg = {"opt": {"lr": 0.1}, "tags": ["a"]}
+      shallow = dict(cfg)
+      deep = copy.deepcopy(cfg)
+      shallow["opt"]["lr"] = 0.5
+      deep["tags"].append("b")
+      print(cfg["opt"]["lr"], cfg["tags"])
+    options:
+      - text: "`0.5 ['a']`"
+        correct: true
+        why: "Поверхностная копия разделяет вложенный словарь; глубокая — независима."
+      - text: "`0.1 ['a']`"
+        why: "dict(cfg) не копирует вложенный словарь opt."
+      - text: "`0.5 ['a', 'b']`"
+        why: "deepcopy создал собственный список tags."
+    explanation: "Вложенные изменяемые объекты копирует только deepcopy."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      rows = [[0] * 2] * 2
+      rows[0][1] = 7
+      cols = [[0] * 2 for _ in range(2)]
+      cols[0][1] = 7
+      print(rows, cols)
+    options:
+      - text: "`[[0, 7], [0, 7]] [[0, 7], [0, 0]]`"
+        correct: true
+        why: "Умножение даёт две ссылки на один список; включение — разные списки."
+      - text: "`[[0, 7], [0, 0]] [[0, 7], [0, 0]]`"
+        why: "[[0] * 2] * 2 — один внутренний список дважды."
+      - text: "`[[0, 7], [0, 7]] [[0, 7], [0, 7]]`"
+        why: "Включение создаёт новый список на каждой итерации."
+    explanation: "Для вложенных структур — включения, а не умножение."
+
+  - id: q5
+    type: single
+    prompt: "Почему проверка `x in some_set` в среднем O(1), а `x in some_list` — O(n)?"
+    options:
+      - text: "Множество — хеш-таблица: хеш сразу указывает на ячейку; список перебирается подряд"
+        correct: true
+        why: "Хеш вычисляется за константное время."
+      - text: "Множество хранит элементы отсортированными"
+        why: "Множество не упорядочено."
+      - text: "Список хранит копии элементов"
+        why: "Список хранит ссылки."
+      - text: "Множество меньше по памяти"
+        why: "Наоборот, хеш-таблица занимает больше."
+    explanation: "Для многократных проверок принадлежности — set."
+
+  - id: q6
+    type: single
+    prompt: "Какова сложность кода?"
+    code: |
+      def has_common(a, b):
+          for x in a:
+              if x in b:
+                  return True
+          return False
+    options:
+      - text: "O(n·m), если b — список; O(n), если b — множество"
+        correct: true
+        why: "Скрытый цикл в `in` по списку."
+      - text: "O(n) всегда"
+        why: "Зависит от типа b."
+      - text: "O(log n)"
+        why: "Деления пополам нет."
+      - text: "O(1)"
+        why: "Перебирается коллекция a."
+    explanation: "Учитывайте стоимость операций внутри цикла."
+
+  - id: q7
+    type: find_bug
+    prompt: "Замер показывает, что функция работает 3 секунды, хотя она быстрая. Что не так?"
+    code: |
+      import timeit
+
+      t = timeit.timeit("f(list(range(1_000_000)))", setup="from __main__ import f", number=10)
+    options:
+      - text: "Создание огромного списка попало в измеряемый код; данные нужно готовить в setup"
+        correct: true
+        why: "Измеряется и list(range(...)), и f."
+      - text: "number должен быть 1"
+        why: "Повторы повышают точность."
+      - text: "timeit нельзя использовать с функциями"
+        why: "Можно."
+    explanation: "Измеряйте только интересующий код."
+
+  - id: q8
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import bisect
+
+      thresholds = [0.3, 0.6, 0.9]
+      labels = ["низкая", "средняя", "высокая", "максимальная"]
+      print([labels[bisect.bisect_right(thresholds, s)] for s in (0.1, 0.6, 0.95)])
+    options:
+      - text: "`['низкая', 'высокая', 'максимальная']`"
+        correct: true
+        why: "bisect_right(0.6) = 2: значение на границе попадает в правый интервал."
+      - text: "`['низкая', 'средняя', 'максимальная']`"
+        why: "bisect_right ставит 0.6 после равной границы."
+      - text: "`['средняя', 'высокая', 'максимальная']`"
+        why: "0.1 меньше первой границы — индекс 0."
+    explanation: "bisect по границам интервалов возвращает номер интервала."
+
+  - id: q9
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from collections import Counter, deque
+
+      c = Counter("mississippi")
+      d = deque([1, 2, 3], maxlen=3)
+      d.append(4)
+      print(c.most_common(1), list(d))
+    options:
+      - text: "`[('i', 4)] [2, 3, 4]`"
+        correct: true
+        why: "i и s встречаются по 4 раза, первой встретилась i; deque вытеснил 1."
+      - text: "`[('s', 4)] [1, 2, 3, 4]`"
+        why: "При равенстве — порядок первого появления; maxlen ограничивает длину."
+      - text: "`[('i', 4)] [1, 2, 3]`"
+        why: "append добавляет 4 и вытесняет самый старый элемент."
+    explanation: "Counter.most_common и deque(maxlen) — частые инструменты."
+
+  - id: q10
+    type: multiple
+    prompt: "Какие операции выполняются за O(log n)? Выберите все."
+    options:
+      - text: "`heapq.heappush` в кучу из n элементов"
+        correct: true
+        why: "Перестраивается одна ветка дерева."
+      - text: "`bisect.bisect_left` в отсортированном списке"
+        correct: true
+        why: "Бинарный поиск."
+      - text: "`heapq.heappop`"
+        correct: true
+        why: "Тоже одна ветка."
+      - text: "`bisect.insort` в список"
+        why: "Поиск — O(log n), но вставка в список сдвигает элементы — O(n)."
+    explanation: "Отличайте поиск позиции и вставку в массив."
+
+  - id: q11
+    type: single
+    prompt: "Нужно найти 10 самых релевантных документов из 5 миллионов оценок. Что лучше?"
+    options:
+      - text: "`heapq.nlargest(10, scores)`"
+        correct: true
+        why: "O(n log k) и O(k) дополнительной памяти."
+      - text: "`sorted(scores)[-10:]`"
+        why: "Сортирует всё — O(n log n)."
+      - text: "Десять раз вызвать max и удалить элемент"
+        why: "Каждое удаление из списка — O(n)."
+      - text: "`set(scores)`"
+        why: "Множество не даёт порядка."
+    explanation: "Для top-k — куча."
+
+  - id: q12
+    type: single
+    prompt: "Нужно параллельно токенизировать миллион текстов функцией на чистом Python. Что выбрать?"
+    options:
+      - text: "ProcessPoolExecutor и обработку крупными кусками"
+        correct: true
+        why: "CPU-bound на Python — процессы, каждый со своим GIL."
+      - text: "ThreadPoolExecutor с 64 потоками"
+        why: "Из-за GIL потоки не ускорят вычисления на Python."
+      - text: "asyncio"
+        why: "asyncio помогает ожиданию, а не вычислениям."
+      - text: "Ничего не поможет"
+        why: "Процессы используют несколько ядер."
+    explanation: "Тип задачи определяет инструмент."
+
+  - id: q13
+    type: multiple
+    prompt: "Что верно про GIL? Выберите все."
+    options:
+      - text: "Только один поток процесса выполняет байт-код Python в каждый момент"
+        correct: true
+        why: "Это и есть глобальная блокировка."
+      - text: "GIL отпускается во время ожидания ввода-вывода"
+        correct: true
+        why: "Поэтому потоки ускоряют сетевые запросы."
+      - text: "C-расширения вроде NumPy могут отпускать GIL"
+        correct: true
+        why: "И использовать несколько ядер."
+      - text: "У каждого процесса один общий GIL на всю машину"
+        why: "У каждого процесса свой GIL."
+    explanation: "GIL ограничивает параллельные вычисления на Python в одном процессе."
+
+tasks:
+  - id: t1
+    title: "Обновление конфигурации без побочных эффектов"
+    difficulty: 1
+    statement: |
+      Напишите `updated(config, path, value)`: вернуть **новую** конфигурацию (вложенные словари) с изменённым значением по пути вида `"training.optimizer.lr"`; исходная конфигурация и её вложенные объекты не меняются. Отсутствующие промежуточные ключи создаются как пустые словари.
+    examples:
+      - input: "updated({\"training\": {\"lr\": 0.1}}, \"training.lr\", 0.01)"
+        output: "{'training': {'lr': 0.01}}"
+    starter: |
+      def updated(config, path, value):
+          *parents, last = path.split(".")
+          target = config
+          for key in parents:
+              target = target[key]
+          target[last] = value
+          return config
+    hints:
+      - "Начните с `result = copy.deepcopy(config)` и меняйте только копию."
+      - "Для промежуточных ключей: `target = target.setdefault(key, {})`."
+    solution: |
+      import copy
+
+
+      def updated(config, path, value):
+          """Новая конфигурация с изменённым значением по пути."""
+          result = copy.deepcopy(config)
+          *parents, last = path.split(".")
+          target = result
+          for key in parents:
+              target = target.setdefault(key, {})
+          target[last] = value
+          return result
+    solution_explanation: "Глубокая копия гарантирует, что ни исходный словарь, ни вложенные объекты не пострадают — в отличие от dict(config), который разделил бы вложенные словари."
+    tests:
+      - name: "Пример"
+        call: "updated({\"training\": {\"lr\": 0.1}}, \"training.lr\", 0.01)"
+        expected: "{'training': {'lr': 0.01}}"
+      - name: "Исходный не меняется"
+        code: |
+          base = {"training": {"optimizer": {"lr": 0.1}}, "tags": ["a"]}
+          new = updated(base, "training.optimizer.lr", 0.5)
+          new["tags"].append("b")
+          assert base == {"training": {"optimizer": {"lr": 0.1}}, "tags": ["a"]}, base
+      - name: "Новые ключи"
+        call: "updated({}, \"model.layers.count\", 4)"
+        expected: "{'model': {'layers': {'count': 4}}}"
+      - name: "Верхний уровень"
+        call: "updated({\"seed\": 1}, \"seed\", 42)"
+        expected: "{'seed': 42}"
+      - name: "Новый объект"
+        code: |
+          base = {"a": 1}
+          assert updated(base, "a", 1) is not base
+
+  - id: t2
+    title: "Аналитика запросов"
+    difficulty: 2
+    statement: |
+      Запросы — список кортежей `(user, intent)`. С помощью `collections`:
+
+      - `top_intents(queries, k)` — `k` самых частых интентов с количеством;
+      - `intents_by_user(queries)` — обычный `dict` «пользователь → список интентов по порядку»;
+      - `recent(queries, n)` — `dict` «пользователь → список последних `n` интентов» (используйте `deque(maxlen=n)`).
+    examples:
+      - input: "top_intents([(\"a\", \"погода\"), (\"b\", \"перевод\"), (\"a\", \"погода\")], 1)"
+        output: "[('погода', 2)]"
+    starter: |
+      def top_intents(queries, k):
+          intents = [intent for _, intent in queries]
+          return sorted({(i, intents.count(i)) for i in intents}, key=lambda p: -p[1])[:k]
+    hints:
+      - "`Counter(intent for _, intent in queries).most_common(k)`."
+      - "`defaultdict(list)` и `defaultdict(lambda: deque(maxlen=n))`; в конце `{user: list(d) for user, d in ...items()}`."
+    solution: |
+      from collections import Counter, defaultdict, deque
+
+
+      def top_intents(queries, k):
+          """Самые частые интенты."""
+          return Counter(intent for _, intent in queries).most_common(k)
+
+
+      def intents_by_user(queries):
+          """Интенты каждого пользователя по порядку."""
+          grouped = defaultdict(list)
+          for user, intent in queries:
+              grouped[user].append(intent)
+          return dict(grouped)
+
+
+      def recent(queries, n):
+          """Последние n интентов каждого пользователя."""
+          buffers = defaultdict(lambda: deque(maxlen=n))
+          for user, intent in queries:
+              buffers[user].append(intent)
+          return {user: list(buffer) for user, buffer in buffers.items()}
+    solution_explanation: "Counter, defaultdict и deque решают задачи подсчёта, группировки и «последних N» одной-двумя строками и за линейное время."
+    tests:
+      - name: "Пример"
+        call: "top_intents([(\"a\", \"погода\"), (\"b\", \"перевод\"), (\"a\", \"погода\")], 1)"
+        expected: "[('погода', 2)]"
+      - name: "intents_by_user"
+        call: "intents_by_user([(\"a\", \"x\"), (\"b\", \"y\"), (\"a\", \"z\")])"
+        expected: "{'a': ['x', 'z'], 'b': ['y']}"
+      - name: "recent"
+        call: "recent([(\"a\", \"1\"), (\"a\", \"2\"), (\"b\", \"3\"), (\"a\", \"4\")], 2)"
+        expected: "{'a': ['2', '4'], 'b': ['3']}"
+      - name: "Типы результатов"
+        code: |
+          assert type(intents_by_user([("a", "x")])) is dict and type(recent([("a", "x")], 1)) is dict
+      - name: "Производительность"
+        code: |
+          queries = [(f"u{i % 1000}", f"intent{i % 300}") for i in range(200_000)]
+          assert top_intents(queries, 1)[0][1] == 667
+
+  - id: t3
+    title: "Слияние k отсортированных списков"
+    difficulty: 2
+    statement: |
+      Напишите `merge_k(lists)` — слить `k` отсортированных списков в один отсортированный список за O(N log k) с помощью кучи (`heapq.heappush`/`heappop`). Нельзя использовать `sorted`, `.sort()` и `heapq.merge`.
+    examples:
+      - input: "merge_k([[1, 4, 9], [2, 3], [], [0, 10]])"
+        output: "[0, 1, 2, 3, 4, 9, 10]"
+    starter: |
+      def merge_k(lists):
+          result = []
+          for items in lists:
+              result += items
+          return sorted(result)
+    hints:
+      - "Положите в кучу первые элементы всех непустых списков в виде `(значение, номер_списка, индекс)`."
+      - "Извлекайте минимум, добавляйте его в результат и кладите в кучу следующий элемент того же списка."
+    solution: |
+      import heapq
+
+
+      def merge_k(lists):
+          """Слияние отсортированных списков через кучу."""
+          heap = [(items[0], i, 0) for i, items in enumerate(lists) if items]
+          heapq.heapify(heap)
+          result = []
+          while heap:
+              value, list_index, position = heapq.heappop(heap)
+              result.append(value)
+              if position + 1 < len(lists[list_index]):
+                  heapq.heappush(heap, (lists[list_index][position + 1], list_index, position + 1))
+          return result
+    solution_explanation: "В куче одновременно не больше k элементов — по одному «текущему» из каждого списка, поэтому каждая операция стоит O(log k). Номер списка в кортеже разрешает ничьи по значению."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        call: "merge_k([[1, 4, 9], [2, 3], [], [0, 10]])"
+        expected: "[0, 1, 2, 3, 4, 9, 10]"
+      - name: "Повторы и строки"
+        call: "[merge_k([[1, 1], [1, 2]]), merge_k([[\"a\", \"c\"], [\"b\"]])]"
+        expected: "[[1, 1, 1, 2], ['a', 'b', 'c']]"
+      - name: "Пустые"
+        call: "[merge_k([]), merge_k([[], []])]"
+        expected: "[[], []]"
+      - name: "Много списков"
+        code: |
+          lists = [list(range(i, 100_000, 50)) for i in range(50)]
+          assert merge_k(lists) == list(range(100_000))
+      - name: "Без сортировки"
+        code: |
+          assert "sorted(" not in __source__ and ".sort(" not in __source__ and "heapq.merge" not in __source__
+
+  - id: t4
+    title: "Первая сломанная версия"
+    difficulty: 2
+    statement: |
+      Версии модели пронумерованы от 1 до `n`; начиная с какой-то версии все последующие «сломаны». Проверка `is_bad(version)` дорогая (переобучение и оценка). Напишите `first_bad(n, is_bad)` — номер первой сломанной версии (или `None`, если сломанных нет) не больше чем за `⌈log₂ n⌉ + 1` вызовов `is_bad`.
+    examples:
+      - input: "first_bad(10, lambda v: v >= 7)"
+        output: "7"
+    starter: |
+      def first_bad(n, is_bad):
+          for version in range(1, n + 1):
+              if is_bad(version):
+                  return version
+          return None
+    hints:
+      - "Бинарный поиск левой границы: `low, high = 1, n`; пока `low < high`: если `is_bad(middle)` — `high = middle`, иначе `low = middle + 1`."
+      - "В конце один вызов `is_bad(low)` проверяет, есть ли сломанные вообще."
+    solution: |
+      def first_bad(n, is_bad):
+          """Первая сломанная версия бинарным поиском."""
+          if n < 1:
+              return None
+          low, high = 1, n
+          while low < high:
+              middle = (low + high) // 2
+              if is_bad(middle):
+                  high = middle
+              else:
+                  low = middle + 1
+          return low if is_bad(low) else None
+    solution_explanation: "Свойство «сломана» монотонно, поэтому подходит бинарный поиск по ответу. Каждая проверка вдвое сокращает диапазон — для миллиона версий хватает около 21 вызова вместо миллиона."
+    tests:
+      - name: "Пример"
+        call: "first_bad(10, lambda v: v >= 7)"
+        expected: "7"
+      - name: "Крайние случаи"
+        call: "[first_bad(5, lambda v: True), first_bad(5, lambda v: False), first_bad(1, lambda v: True), first_bad(0, lambda v: True)]"
+        expected: "[1, None, 1, None]"
+      - name: "Число вызовов"
+        code: |
+          import math
+          for n, bad in ((1_000_000, 765_432), (1024, 1), (999, 999)):
+              calls = []
+              def is_bad(v, bad=bad):
+                  calls.append(v)
+                  return v >= bad
+              assert first_bad(n, is_bad) == bad
+              assert len(calls) <= math.ceil(math.log2(n)) + 1, f"{len(calls)} вызовов для n={n}"
+      - name: "Нет сломанных — мало вызовов"
+        code: |
+          calls = []
+          def never(v):
+              calls.append(v)
+              return False
+          assert first_bad(100_000, never) is None and len(calls) <= 18
+      - name: "Большое n"
+        call: "first_bad(10**12, lambda v: v >= 123_456_789_012)"
+        expected: "123456789012"
+
+  - id: t5
+    title: "Мини-проект: оптимизация медленного кода"
+    difficulty: 3
+    mini_project: true
+    statement: |
+      В `setup` задачи есть модуль аналитики текстов с четырьмя **медленными** функциями (их можно вызывать в своём коде для проверки): `slow_dedupe`, `slow_top_words`, `slow_running_mean`, `slow_lookup`. Они работают правильно, но на реальных объёмах — часами. Ваша задача — написать быстрые версии с **теми же результатами** и измерить ускорение.
+
+      1. `fast_dedupe(docs)` — документы без повторов в исходном порядке (у медленной версии — проверка `in` по списку: O(n²)).
+      2. `fast_top_words(docs, k)` — `k` самых частых слов (в нижнем регистре) с количеством; при равенстве — по алфавиту (у медленной — `list.count` для каждого уникального слова).
+      3. `fast_running_mean(values, window)` — средние по скользящему окну, округлённые до 4 знаков (у медленной — сумма окна пересчитывается на каждом шаге: O(n·w)).
+      4. `fast_lookup(events, user_ids)` — для каждого id из `user_ids` список его событий в исходном порядке (у медленной — полный проход по событиям для каждого id).
+      5. `measure(slow, fast, *args, number=3)` — словарь `{"slow": время, "fast": время, "speedup": slow / fast с округлением до 1 знака}`; время — минимум из 3 серий `timeit.repeat` по `number` вызовов. Если результаты медленной и быстрой версий различаются — `AssertionError`.
+
+      Определите сложность каждой медленной и быстрой функции — она пригодится в разборе.
+    examples:
+      - input: "fast_top_words([\"Кот и пёс\", \"кот\"], 2)"
+        output: "[('кот', 2), ('и', 1)]"
+    setup: |
+      def slow_dedupe(docs):
+          result = []
+          for doc in docs:
+              if doc not in result:
+                  result.append(doc)
+          return result
+
+
+      def slow_top_words(docs, k):
+          words = [word for doc in docs for word in doc.lower().split()]
+          unique = []
+          for word in words:
+              if word not in unique:
+                  unique.append(word)
+          counts = [(word, words.count(word)) for word in unique]
+          counts.sort(key=lambda pair: (-pair[1], pair[0]))
+          return counts[:k]
+
+
+      def slow_running_mean(values, window):
+          return [round(sum(values[i - window + 1:i + 1]) / window, 4) for i in range(window - 1, len(values))]
+
+
+      def slow_lookup(events, user_ids):
+          result = {}
+          for user_id in user_ids:
+              result[user_id] = [event for user, event in events if user == user_id]
+          return result
+    starter: |
+      def fast_dedupe(docs):
+          return slow_dedupe(docs)
+
+
+      def fast_top_words(docs, k):
+          return slow_top_words(docs, k)
+    hints:
+      - "dedupe — множество `seen`; top_words — `Counter` и `sorted(counts.items(), key=lambda p: (-p[1], p[0]))[:k]`; running_mean — бегущая сумма: прибавить новое значение, вычесть выпавшее из окна; lookup — один проход по событиям с `defaultdict(list)`, затем ответ для каждого id."
+      - "measure: `t_slow = min(timeit.repeat(lambda: slow(*args), number=number, repeat=3))`, аналогично fast; перед замером сравните `slow(*args) == fast(*args)`. В running_mean результат зависит от порядка вычислений float — округление до 4 знаков делает его одинаковым."
+    solution: |
+      import timeit
+      from collections import Counter, defaultdict
+
+
+      def fast_dedupe(docs):
+          """O(n): множество просмотренных документов."""
+          seen = set()
+          result = []
+          for doc in docs:
+              if doc not in seen:
+                  seen.add(doc)
+                  result.append(doc)
+          return result
+
+
+      def fast_top_words(docs, k):
+          """O(N + u log u): Counter вместо list.count."""
+          counts = Counter(word for doc in docs for word in doc.lower().split())
+          return sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))[:k]
+
+
+      def fast_running_mean(values, window):
+          """O(n): бегущая сумма окна."""
+          result = []
+          total = 0.0
+          for i, value in enumerate(values):
+              total += value
+              if i >= window:
+                  total -= values[i - window]
+              if i >= window - 1:
+                  result.append(round(total / window, 4))
+          return result
+
+
+      def fast_lookup(events, user_ids):
+          """O(E + U): один проход по событиям."""
+          by_user = defaultdict(list)
+          for user, event in events:
+              by_user[user].append(event)
+          return {user_id: list(by_user.get(user_id, [])) for user_id in user_ids}
+
+
+      def measure(slow, fast, *args, number=3):
+          """Замер до и после оптимизации."""
+          assert slow(*args) == fast(*args), "результаты медленной и быстрой версий различаются"
+          t_slow = min(timeit.repeat(lambda: slow(*args), number=number, repeat=3))
+          t_fast = min(timeit.repeat(lambda: fast(*args), number=number, repeat=3))
+          return {"slow": t_slow, "fast": t_fast, "speedup": round(t_slow / t_fast, 1)}
+    solution_explanation: |
+      | Функция | Было | Стало | Приём |
+      |---|---|---|---|
+      | dedupe | O(n²) | O(n) | множество вместо `in` по списку |
+      | top_words | O(N·u) | O(N + u log u) | `Counter` вместо `list.count` |
+      | running_mean | O(n·w) | O(n) | бегущая сумма вместо пересчёта окна |
+      | lookup | O(E·U) | O(E + U) | индекс `defaultdict(list)` за один проход |
+
+      Порядок работы, который стоит повторять в реальных проектах:
+
+      1. **Сохранить медленную версию** как эталон и сравнивать результаты — оптимизация, меняющая ответ, хуже медленного кода. `measure` проверяет это перед замером.
+      2. **Найти скрытые циклы**: `in` по списку, `list.count`, срезы с `sum` внутри цикла, вложенный проход по данным.
+      3. **Подобрать структуру данных**: множество, словарь-счётчик, индекс, бегущее состояние.
+      4. **Измерить**: минимум нескольких серий `timeit`, ускорение — отношением, а не «на глаз».
+
+      Обратите внимание на `fast_running_mean`: сумма, накопленная бегущим способом, может отличаться от пересчитанной в последних знаках из-за погрешности float — округление до 4 знаков делает результаты одинаковыми. В численном коде всегда думайте, что значит «тот же результат».
+    timeout: 20
+    tests:
+      - name: "Тот же результат: dedupe и top_words"
+        code: |
+          docs = ["Кот спит", "пёс ест", "Кот спит", "кот ест", "пёс ест"]
+          assert fast_dedupe(docs) == slow_dedupe(docs)
+          for k in (1, 3, 10):
+              assert fast_top_words(docs, k) == slow_top_words(docs, k), k
+      - name: "Тот же результат: running_mean и lookup"
+        code: |
+          values = [((i * 37) % 101) / 7 for i in range(500)]
+          for window in (1, 3, 50):
+              assert fast_running_mean(values, window) == slow_running_mean(values, window), window
+          events = [(f"u{i % 7}", f"e{i}") for i in range(100)]
+          ids = ["u1", "u3", "нет"]
+          assert fast_lookup(events, ids) == slow_lookup(events, ids)
+      - name: "Крайние случаи"
+        code: |
+          assert fast_dedupe([]) == [] and fast_top_words([], 3) == []
+          assert fast_running_mean([1, 2], 5) == [] and fast_lookup([], ["x"]) == {"x": []}
+      - name: "Большие данные"
+        code: |
+          docs = [f"документ {i % 20_000}" for i in range(60_000)]
+          assert len(fast_dedupe(docs)) == 20_000
+          words_docs = [f"w{i % 5000} w{i % 7}" for i in range(60_000)]
+          assert fast_top_words(words_docs, 1)[0][0] in {f"w{i}" for i in range(7)}
+          values = list(range(200_000))
+          assert fast_running_mean(values, 1000)[0] == 499.5
+          events = [(i % 5000, i) for i in range(200_000)]
+          assert len(fast_lookup(events, list(range(5000)))[42]) == 40
+      - name: "measure: ускорение"
+        code: |
+          docs = [f"d{i % 1500}" for i in range(3000)]
+          report = measure(slow_dedupe, fast_dedupe, docs, number=1)
+          assert set(report) == {"slow", "fast", "speedup"} and report["speedup"] > 5, report
+      - name: "measure проверяет результаты"
+        code: |
+          try:
+              measure(lambda: [1], lambda: [2])
+          except AssertionError:
+              pass
+          else:
+              raise AssertionError("measure должна отвергать разные результаты")

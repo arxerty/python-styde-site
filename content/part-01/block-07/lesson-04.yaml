@@ -1,0 +1,366 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import json
+      print(json.dumps({"ok": True, "value": None, "items": (1, 2)}))
+    options:
+      - text: "`{\"ok\": true, \"value\": null, \"items\": [1, 2]}`"
+        correct: true
+        why: "True → true, None → null, кортеж → массив."
+      - text: "`{'ok': True, 'value': None, 'items': (1, 2)}`"
+        why: "Это repr словаря Python, а не JSON."
+      - text: "Ошибку: кортежи нельзя сохранять в JSON"
+        why: "Кортеж превращается в JSON-массив (а при загрузке вернётся списком)."
+    explanation: "JSON — строгий формат: двойные кавычки, true/false/null, массивы вместо кортежей."
+
+  - id: q2
+    type: single
+    prompt: "Чем `json.dump` отличается от `json.dumps`?"
+    options:
+      - text: "dump пишет в файл, dumps возвращает строку"
+        correct: true
+        why: "Буква s — string."
+      - text: "dump для словарей, dumps для списков"
+        why: "Обе функции работают с любыми сериализуемыми объектами."
+      - text: "dumps добавляет отступы"
+        why: "Отступы задаются параметром indent у обеих функций."
+      - text: "Ничем, это синонимы"
+        why: "Разница — куда идёт результат."
+    explanation: "dump/load — файлы, dumps/loads — строки."
+
+  - id: q3
+    type: multiple
+    prompt: "Какие строки — **невалидный** JSON? Выберите все."
+    options:
+      - text: "`{'name': 'Ада'}`"
+        correct: true
+        why: "Одинарные кавычки недопустимы."
+      - text: "`[1, 2, 3,]`"
+        correct: true
+        why: "Завершающая запятая недопустима."
+      - text: "`{\"active\": True}`"
+        correct: true
+        why: "В JSON логические значения — строчными: true."
+      - text: "`{\"a\": null, \"b\": [1.5, \"x\"]}`"
+        why: "Корректный JSON."
+      - text: "`42`"
+        why: "Отдельное число — тоже валидный JSON-документ."
+    explanation: "Строгие правила JSON — причина, по которой его не собирают вручную."
+
+  - id: q4
+    type: find_bug
+    prompt: "Почему в файле вместо «Привет» записано `\\u041f\\u0440...`?"
+    code: |
+      import json
+      with open("out.json", "w", encoding="utf-8") as f:
+          json.dump({"text": "Привет"}, f)
+    options:
+      - text: "По умолчанию ensure_ascii=True экранирует не-ASCII символы; нужно ensure_ascii=False"
+        correct: true
+        why: "Это корректный JSON, но нечитаемый для человека."
+      - text: "Неверная кодировка файла"
+        why: "Кодировка указана верно; экранирование делает json.dump."
+      - text: "json не поддерживает кириллицу"
+        why: "Поддерживает — просто экранирует по умолчанию."
+    explanation: "ensure_ascii=False сохраняет символы как есть."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import json
+      data = json.loads(json.dumps({1: "a"}))
+      print(data, list(data)[0] == 1)
+    options:
+      - text: "`{'1': 'a'} False`"
+        correct: true
+        why: "Ключи JSON-объектов — только строки: число 1 стало строкой «1»."
+      - text: "`{1: 'a'} True`"
+        why: "После круга dumps → loads ключ становится строкой."
+      - text: "Ошибку: числовые ключи недопустимы"
+        why: "dumps превращает числовой ключ в строку без ошибки."
+    explanation: "Круг через JSON может менять типы: ключи-числа → строки, кортежи → списки."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import json
+      lines = ['{"a": 1}', 'битая строка', '{"a": 3}']
+      total = 0
+      for line in lines:
+          try:
+              total += json.loads(line)["a"]
+          except json.JSONDecodeError:
+              pass
+      print(total)
+    answer: "4"
+    explanation: "В JSONL битая строка пропускается, остальные обрабатываются: 1 + 3 = 4."
+
+tasks:
+  - id: t1
+    title: "Сохранить и загрузить JSON"
+    difficulty: 1
+    statement: |
+      Напишите две функции:
+
+      - `save_json(path, data)` — сохраняет данные в файл в UTF-8 с `ensure_ascii=False` и `indent=2`;
+      - `load_json(path)` — загружает и возвращает данные.
+    examples:
+      - input: "save_json(\"c.json\", {\"name\": \"Ада\"}); load_json(\"c.json\")"
+        output: "{'name': 'Ада'}"
+    starter: |
+      import json
+
+
+      def save_json(path, data):
+          with open(path, "w") as f:
+              f.write(str(data))
+
+
+      def load_json(path):
+          with open(path) as f:
+              return f.read()
+    hints:
+      - "`json.dump(data, f, ensure_ascii=False, indent=2)` — внутри with с encoding=\"utf-8\"."
+      - "`json.load(f)` возвращает Python-объект."
+    solution: |
+      import json
+
+
+      def save_json(path, data):
+          """Сохранить данные в JSON-файл в читаемом виде."""
+          with open(path, "w", encoding="utf-8") as file:
+              json.dump(data, file, ensure_ascii=False, indent=2)
+
+
+      def load_json(path):
+          """Загрузить данные из JSON-файла."""
+          with open(path, encoding="utf-8") as file:
+              return json.load(file)
+    solution_explanation: "str(data) создаёт repr Python, а не JSON (одинарные кавычки, True). json.dump/json.load делают корректное преобразование в обе стороны."
+    tests:
+      - name: "Круг сохранение → загрузка"
+        code: |
+          data = {"name": "Ада", "skills": ["python"], "active": True, "boss": None}
+          save_json("c.json", data)
+          assert load_json("c.json") == data
+      - name: "Кириллица читаема в файле"
+        code: |
+          save_json("r.json", {"text": "Привет"})
+          with open("r.json", encoding="utf-8") as f:
+              raw = f.read()
+          assert "Привет" in raw, "Используйте ensure_ascii=False"
+      - name: "Отступы"
+        code: |
+          save_json("i.json", {"a": 1})
+          with open("i.json", encoding="utf-8") as f:
+              assert f.read() == '{\n  "a": 1\n}'
+      - name: "Список на верхнем уровне"
+        code: |
+          save_json("l.json", [1, 2, 3])
+          assert load_json("l.json") == [1, 2, 3]
+      - name: "Валидный JSON в файле"
+        code: |
+          import json
+          save_json("v.json", {"ok": False})
+          with open("v.json", encoding="utf-8") as f:
+              assert json.loads(f.read()) == {"ok": False}
+
+  - id: t2
+    title: "Разбор JSON-ответа модели"
+    difficulty: 2
+    statement: |
+      Напишите `parse_model_json(response)`: убрать пробелы и обёртку ```` ```json ```` / ```` ``` ````, разобрать JSON. Если не получилось — попробовать разобрать подстроку от первой `{` до последней `}`. Если и это не удалось — вернуть `None`.
+    examples:
+      - input: "parse_model_json(\"Ответ: {\\\"label\\\": \\\"spam\\\"} — готово\")"
+        output: "{'label': 'spam'}"
+    starter: |
+      import json
+
+
+      def parse_model_json(response):
+          return json.loads(response)
+    hints:
+      - "Очистка: `strip()`, `removeprefix(\"```json\")`, `removeprefix(\"```\")`, `removesuffix(\"```\")`, `strip()`."
+      - "Вторая попытка: `start, end = text.find(\"{\"), text.rfind(\"}\")` и `json.loads(text[start:end + 1])`; обе попытки — в try/except json.JSONDecodeError."
+    solution: |
+      import json
+
+
+      def parse_model_json(response):
+          """Разобрать JSON из ответа модели или вернуть None."""
+          text = response.strip()
+          text = text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+          try:
+              return json.loads(text)
+          except json.JSONDecodeError:
+              pass
+          start, end = text.find("{"), text.rfind("}")
+          if start == -1 or end <= start:
+              return None
+          try:
+              return json.loads(text[start:end + 1])
+          except json.JSONDecodeError:
+              return None
+    solution_explanation: "Две линии обороны от «болтливой» модели: очистка разметки и вырезание объекта из текста. JSONDecodeError обрабатывается явно, остальные ошибки не скрываются."
+    tests:
+      - name: "Текст вокруг"
+        call: "parse_model_json(\"Ответ: {\\\"label\\\": \\\"spam\\\"} — готово\")"
+        expected: "{'label': 'spam'}"
+      - name: "Разметка"
+        call: "parse_model_json(\"```json\\n{\\\"ok\\\": true}\\n```\")"
+        expected: "{'ok': True}"
+      - name: "Чистый JSON"
+        call: "parse_model_json(\"[1, 2]\")"
+        expected: "[1, 2]"
+      - name: "Нет JSON"
+        call: "parse_model_json(\"Не могу ответить\")"
+        expected: "None"
+      - name: "Битый объект"
+        call: "parse_model_json(\"{\\\"a\\\": 1,}\")"
+        expected: "None"
+      - name: "Вложенный объект"
+        call: "parse_model_json(\"x {\\\"a\\\": {\\\"b\\\": 2}} y\")"
+        expected: "{'a': {'b': 2}}"
+
+  - id: t3
+    title: "Чтение JSONL"
+    difficulty: 2
+    statement: |
+      Напишите `read_jsonl(path)`: прочитать файл JSONL потоково и вернуть кортеж `(records, bad)` — список разобранных объектов и количество строк, которые разобрать не удалось. Пустые строки пропускаются и плохими не считаются.
+    examples:
+      - input: "read_jsonl(\"data.jsonl\")"
+        output: "([{'q': '2+2', 'a': '4'}, {'q': 'столица', 'a': 'Париж'}], 1)"
+    files:
+      data.jsonl: "{\"q\": \"2+2\", \"a\": \"4\"}\n\nне json\n{\"q\": \"столица\", \"a\": \"Париж\"}\n"
+    starter: |
+      import json
+
+
+      def read_jsonl(path):
+          with open(path, encoding="utf-8") as file:
+              return json.load(file)
+    hints:
+      - "Перебирайте строки файла, пропускайте `if not line.strip()`."
+      - "`json.loads(line)` в try; при JSONDecodeError увеличивайте счётчик bad."
+    solution: |
+      import json
+
+
+      def read_jsonl(path):
+          """Прочитать JSONL; вернуть (записи, число битых строк)."""
+          records = []
+          bad = 0
+          with open(path, encoding="utf-8") as file:
+              for line in file:
+                  if not line.strip():
+                      continue
+                  try:
+                      records.append(json.loads(line))
+                  except json.JSONDecodeError:
+                      bad += 1
+          return records, bad
+    solution_explanation: "JSONL читается построчно — память не зависит от размера файла, а битая строка не роняет загрузку всего датасета. Счётчик плохих строк важно вернуть: молча терять данные нельзя."
+    tests:
+      - name: "Пример"
+        call: "read_jsonl(\"data.jsonl\")"
+        expected: "([{'q': '2+2', 'a': '4'}, {'q': 'столица', 'a': 'Париж'}], 1)"
+      - name: "Пустой файл"
+        code: |
+          with open("empty.jsonl", "w", encoding="utf-8") as f:
+              f.write("")
+          assert read_jsonl("empty.jsonl") == ([], 0)
+      - name: "Все битые"
+        code: |
+          with open("bad.jsonl", "w", encoding="utf-8") as f:
+              f.write("{\n}x\n")
+          assert read_jsonl("bad.jsonl") == ([], 2)
+      - name: "Разные типы"
+        code: |
+          with open("t.jsonl", "w", encoding="utf-8") as f:
+              f.write('1\n"s"\n[1]\n')
+          assert read_jsonl("t.jsonl") == ([1, "s", [1]], 0)
+      - name: "Без перевода строки в конце"
+        code: |
+          with open("n.jsonl", "w", encoding="utf-8") as f:
+              f.write('{"x": 1}')
+          assert read_jsonl("n.jsonl") == ([{"x": 1}], 0)
+
+  - id: t4
+    title: "Слияние конфигураций"
+    difficulty: 3
+    statement: |
+      Напишите `merge_configs(*paths)`: загрузить JSON-объекты из файлов по порядку и слить их в один словарь (значения из более поздних файлов перекрывают ранние, слияние поверхностное).
+
+      - отсутствующий файл пропускается;
+      - если файл не валидный JSON или содержит не объект — бросить `ValueError` с именем файла в сообщении.
+    examples:
+      - input: "merge_configs(\"base.json\", \"missing.json\", \"user.json\")"
+        output: "{'model': 'mini', 'temperature': 0.2, 'max_tokens': 256}"
+    files:
+      base.json: "{\"model\": \"mini\", \"temperature\": 0.7, \"max_tokens\": 256}"
+      user.json: "{\"temperature\": 0.2}"
+      broken.json: "{\"a\": 1,"
+      list.json: "[1, 2]"
+    starter: |
+      import json
+
+
+      def merge_configs(*paths):
+          result = {}
+          for path in paths:
+              with open(path) as f:
+                  result.update(json.load(f))
+          return result
+    hints:
+      - "Внутри цикла: try/except FileNotFoundError → continue; except json.JSONDecodeError as error → raise ValueError(...) from error."
+      - "После загрузки проверьте `isinstance(data, dict)`, иначе ValueError."
+    solution: |
+      import json
+
+
+      def merge_configs(*paths):
+          """Слить JSON-конфигурации; поздние файлы перекрывают ранние."""
+          result = {}
+          for path in paths:
+              try:
+                  with open(path, encoding="utf-8") as file:
+                      data = json.load(file)
+              except FileNotFoundError:
+                  continue
+              except json.JSONDecodeError as error:
+                  raise ValueError(f"{path}: невалидный JSON ({error.msg})") from error
+              if not isinstance(data, dict):
+                  raise ValueError(f"{path}: ожидался JSON-объект")
+              result.update(data)
+          return result
+    solution_explanation: "Отсутствующий файл — нормальная ситуация (пользовательских настроек может не быть), а битый файл — ошибка, о которой нужно громко сообщить с указанием файла. raise ... from сохраняет исходную причину."
+    tests:
+      - name: "Слияние с пропуском"
+        call: "merge_configs(\"base.json\", \"missing.json\", \"user.json\")"
+        expected: "{'model': 'mini', 'temperature': 0.2, 'max_tokens': 256}"
+      - name: "Без файлов"
+        call: "merge_configs()"
+        expected: "{}"
+      - name: "Битый файл"
+        code: |
+          try:
+              merge_configs("base.json", "broken.json")
+          except ValueError as error:
+              assert "broken.json" in str(error), f"В сообщении нет имени файла: {error}"
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Не объект"
+        code: |
+          try:
+              merge_configs("list.json")
+          except ValueError as error:
+              assert "list.json" in str(error)
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Порядок важен"
+        call: "merge_configs(\"user.json\", \"base.json\")['temperature']"
+        expected: "0.7"

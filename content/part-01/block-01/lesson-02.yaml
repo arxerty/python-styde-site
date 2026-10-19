@@ -1,0 +1,323 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "Что делает строка `score = score + 10`?"
+    options:
+      - text: "Вычисляет `score + 10` и привязывает имя `score` к результату"
+        correct: true
+        why: "Сначала вычисляется правая часть, затем имя слева получает новое значение."
+      - text: "Проверяет, равно ли `score` значению `score + 10`"
+        why: "Проверка равенства — это `==`. Одиночный `=` — присваивание."
+      - text: "Вызывает ошибку: переменная не может быть с обеих сторон"
+        why: "Может: справа используется старое значение, слева — имя для нового."
+      - text: "Создаёт вторую переменную с тем же именем"
+        why: "Имя одно; оно просто перепривязывается к новому объекту."
+    explanation: "`=` — команда «вычисли справа и привяжи к имени слева». То же самое можно записать как `score += 10`."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      x = 5
+      x = x * 2
+      x += 3
+      print(x)
+    options:
+      - text: "`13`"
+        correct: true
+        why: "5 → 5 * 2 = 10 → 10 + 3 = 13."
+      - text: "`16`"
+        why: "Так было бы, если бы сначала прибавили 3, а потом умножили. Код выполняется сверху вниз."
+      - text: "`5`"
+        why: "Переприсваивание меняет значение x."
+      - text: "`8`"
+        why: "Умножение во второй строке тоже меняет x."
+    explanation: "Каждая строка использует текущее значение x и перепривязывает имя к новому."
+
+  - id: q3
+    type: multiple
+    prompt: "Какие имена переменных **допустимы** в Python? Выберите все."
+    options:
+      - text: "`user_name`"
+        correct: true
+        why: "Буквы и подчёркивание — допустимо и соответствует PEP 8."
+      - text: "`_count`"
+        correct: true
+        why: "Имя может начинаться с подчёркивания."
+      - text: "`userName`"
+        correct: true
+        why: "Допустимо синтаксически, хотя PEP 8 рекомендует `user_name`."
+      - text: "`2nd_place`"
+        why: "Имя не может начинаться с цифры."
+      - text: "`class`"
+        why: "`class` — ключевое слово, его нельзя использовать как имя."
+      - text: "`learning-rate`"
+        why: "Дефис воспринимается как минус: `learning - rate`."
+    explanation: "Правила: буквы, цифры, `_`; не с цифры; не ключевое слово. Соглашение PEP 8 — `snake_case`."
+
+  - id: q4
+    type: find_bug
+    prompt: "Почему программа падает с ошибкой?"
+    code: |
+      price = 100
+      print(price * quantity)
+      quantity = 3
+    options:
+      - text: "`quantity` используется до того, как ей присвоено значение"
+        correct: true
+        why: "Код выполняется сверху вниз: на второй строке имени `quantity` ещё нет → NameError."
+      - text: "Нельзя умножать переменные внутри print()"
+        why: "Можно: аргумент вычисляется перед выводом."
+      - text: "Имя `quantity` слишком длинное"
+        why: "Длина имени не ограничена; длинные понятные имена — хорошо."
+      - text: "`price` должна быть строкой"
+        why: "Число умножается на число без проблем."
+    explanation: "Порядок строк важен: переменная должна быть создана раньше, чем используется. Исправление — поменять местами строки 2 и 3."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      a, b = 1, 2
+      a, b = b, a
+      print(a, b)
+    options:
+      - text: "`2 1`"
+        correct: true
+        why: "Правая часть `(b, a)` = `(2, 1)` вычисляется целиком, затем раскладывается по `a` и `b`."
+      - text: "`1 2`"
+        why: "Обмен произошёл — значения поменялись местами."
+      - text: "`2 2`"
+        why: "Так получилось бы при поочерёдном `a = b; b = a`. Множественное присваивание сначала вычисляет всё справа."
+    explanation: "`a, b = b, a` — идиоматичный обмен значений в Python."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      data = 10
+      data = "десять"
+      print(type(data))
+    options:
+      - text: "`<class 'str'>`"
+        correct: true
+        why: "Последнее присваивание привязало имя к строке."
+      - text: "`<class 'int'>`"
+        why: "Тип принадлежит значению, а не имени: после второго присваивания значение — строка."
+      - text: "Ошибку: тип переменной нельзя менять"
+        why: "В Python динамическая типизация — имя можно привязать к значению любого типа."
+    explanation: "Динамическая типизация: имя можно перепривязать к объекту другого типа, `type()` покажет тип текущего значения."
+
+tasks:
+  - id: t1
+    title: "Обмен значений"
+    difficulty: 1
+    statement: |
+      Переменные `left` и `right` уже созданы (их значения задаёт проверка, не создавайте их заново).
+      Поменяйте их значения местами.
+
+      Для кнопки «Запустить» заданы `left = "кошка"` и `right = "собака"`.
+    examples:
+      - input: 'left = "кошка", right = "собака"'
+        output: 'left = "собака", right = "кошка"'
+    setup: |
+      left = "кошка"
+      right = "собака"
+    starter: |
+      # left и right уже существуют — поменяйте их значения местами
+      print(left, right)
+    hints:
+      - "Можно использовать временную переменную: `temp = left`, затем …"
+      - "Самый короткий способ в Python: `left, right = right, left`."
+    solution: |
+      left, right = right, left
+      print(left, right)
+    solution_explanation: "Множественное присваивание сначала вычисляет правую часть `(right, left)`, а потом раскладывает значения по именам — поэтому ничего не теряется."
+    tests:
+      - name: "Строки"
+        code: |
+          assert left == "собака" and right == "кошка", f"Получено: left={left!r}, right={right!r}"
+      - name: "Числа"
+        setup: |
+          left = 1
+          right = 2
+        code: |
+          assert (left, right) == (2, 1), f"Получено: left={left!r}, right={right!r}"
+      - name: "Разные типы"
+        setup: |
+          left = 3.5
+          right = "три с половиной"
+        code: |
+          assert left == "три с половиной" and right == 3.5
+      - name: "Одинаковые значения"
+        setup: |
+          left = 0
+          right = 0
+        code: |
+          assert left == 0 and right == 0
+      - name: "Отрицательные"
+        setup: |
+          left = -10
+          right = 99
+        code: |
+          assert left == 99 and right == -10, f"Получено: left={left!r}, right={right!r}"
+
+  - id: t2
+    title: "Прогресс обучения"
+    difficulty: 1
+    statement: |
+      Модель обучается заданное число эпох. Переменные уже созданы проверкой:
+
+      - `epoch` — сколько эпох уже пройдено,
+      - `total_epochs` — сколько эпох всего.
+
+      Создайте две переменные:
+
+      - `remaining` — сколько эпох осталось;
+      - `progress` — доля пройденного: `epoch / total_epochs`.
+    examples:
+      - input: "epoch = 3, total_epochs = 10"
+        output: "remaining = 7, progress = 0.3"
+    setup: |
+      epoch = 3
+      total_epochs = 10
+    starter: |
+      remaining = 0
+      progress = 0
+      print(remaining, progress)
+    hints:
+      - "Осталось = всего − пройдено."
+      - "Деление `/` в Python всегда даёт дробное число (float)."
+    solution: |
+      remaining = total_epochs - epoch
+      progress = epoch / total_epochs
+      print(remaining, progress)
+    solution_explanation: "Переменные вычисляются из других переменных. Код работает для любых входных значений, потому что в нём нет «зашитых» чисел."
+    tests:
+      - name: "3 из 10"
+        code: |
+          assert remaining == 7, f"remaining: ожидалось 7, получено {remaining!r}"
+          assert abs(progress - 0.3) < 1e-9, f"progress: ожидалось 0.3, получено {progress!r}"
+      - name: "Начало обучения"
+        setup: |
+          epoch = 0
+          total_epochs = 5
+        code: |
+          assert remaining == 5 and progress == 0
+      - name: "Обучение закончено"
+        setup: |
+          epoch = 20
+          total_epochs = 20
+        code: |
+          assert remaining == 0 and progress == 1
+      - name: "Половина"
+        setup: |
+          epoch = 50
+          total_epochs = 100
+        code: |
+          assert remaining == 50 and progress == 0.5
+      - name: "Нет зашитых чисел"
+        setup: |
+          epoch = 1
+          total_epochs = 4
+        code: |
+          assert remaining == 3 and progress == 0.25, f"Код должен работать для любых epoch и total_epochs: получено {remaining!r}, {progress!r}"
+
+  - id: t3
+    title: "Конфигурация модели"
+    difficulty: 1
+    statement: |
+      Создайте переменные с конфигурацией модели — строго с такими именами, значениями и типами:
+
+      | Имя | Значение | Тип |
+      |---|---|---|
+      | `model_name` | `mini-gpt` | строка |
+      | `num_layers` | `12` | целое |
+      | `learning_rate` | `0.001` | дробное |
+      | `is_trained` | ложь | логическое |
+
+      И выведите строку `mini-gpt 12 0.001 False` одним `print()`.
+    examples:
+      - input: "(ввода нет)"
+        output: "mini-gpt 12 0.001 False"
+    starter: |
+      model_name = "mini-gpt"
+    hints:
+      - "Логические значения пишутся с большой буквы и без кавычек: `True`, `False`."
+      - "`\"12\"` — строка, а `12` — число. Тип важен."
+    solution: |
+      model_name = "mini-gpt"
+      num_layers = 12
+      learning_rate = 0.001
+      is_trained = False
+      print(model_name, num_layers, learning_rate, is_trained)
+    solution_explanation: "Тип определяется записью значения: кавычки — строка, целое без точки — int, с точкой — float, True/False — bool."
+    tests:
+      - name: "model_name — строка mini-gpt"
+        code: |
+          assert model_name == "mini-gpt" and type(model_name) is str
+      - name: "num_layers — целое 12"
+        code: |
+          assert type(num_layers) is int, f"num_layers должно быть int, а не {type(num_layers).__name__}"
+          assert num_layers == 12
+      - name: "learning_rate — дробное 0.001"
+        code: |
+          assert type(learning_rate) is float, f"learning_rate должно быть float, а не {type(learning_rate).__name__}"
+          assert learning_rate == 0.001
+      - name: "is_trained — False"
+        code: |
+          assert is_trained is False, "is_trained должно быть логическим False (без кавычек)"
+      - name: "Вывод"
+        stdout: "mini-gpt 12 0.001 False"
+
+  - id: t4
+    title: "Банковские операции"
+    difficulty: 2
+    statement: |
+      Переменная `balance` уже содержит начальный баланс счёта. Выполните операции **по порядку**, используя составное присваивание (`+=`, `-=`, `*=`):
+
+      1. внести 500;
+      2. снять 200;
+      3. удвоить баланс (акция банка: баланс умножается на 2).
+
+      В конце выведите `balance`.
+    examples:
+      - input: "balance = 1000"
+        output: "2600"
+        explanation: "(1000 + 500 − 200) × 2 = 2600"
+    setup: |
+      balance = 1000
+    starter: |
+      # выполните три операции с balance
+      print(balance)
+    hints:
+      - "`balance += 500` — то же, что `balance = balance + 500`."
+      - "Для удвоения: `balance *= 2`."
+    solution: |
+      balance += 500
+      balance -= 200
+      balance *= 2
+      print(balance)
+    solution_explanation: "Составное присваивание изменяет переменную относительно её текущего значения. Порядок операций важен: удваивается уже изменённый баланс."
+    constraints:
+      require: ["+=", "-=", "*="]
+      message: "Используйте составное присваивание."
+    tests:
+      - name: "Начальный баланс 1000"
+        code: |
+          assert balance == 2600, f"Ожидалось 2600, получено {balance!r}"
+      - name: "Нулевой баланс"
+        setup: "balance = 0"
+        code: |
+          assert balance == 600, f"Ожидалось 600, получено {balance!r}"
+      - name: "Минус на счёте"
+        setup: "balance = -300"
+        code: |
+          assert balance == 0, f"Ожидалось 0, получено {balance!r}"
+      - name: "Большой баланс"
+        setup: "balance = 100000"
+        code: |
+          assert balance == 200600, f"Ожидалось 200600, получено {balance!r}"
+      - name: "Баланс выводится"
+        setup: "balance = 700"
+        stdout: "2000"

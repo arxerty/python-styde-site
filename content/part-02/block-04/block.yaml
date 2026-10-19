@@ -1,0 +1,16 @@
+title: "Замыкания, декораторы, контекстные менеджеры"
+description: "Функции как объекты, замыкания и nonlocal, декораторы с аргументами и без, functools, контекстные менеджеры и contextlib."
+mini_project: "Декоратор @retry с экспоненциальной задержкой — как для вызовов LLM API"
+lessons:
+  - id: lesson-01
+    title: "Функции как объекты, функции высшего порядка"
+  - id: lesson-02
+    title: "Замыкания и nonlocal"
+  - id: lesson-03
+    title: "Декораторы: как работают, functools.wraps"
+  - id: lesson-04
+    title: "Декораторы с аргументами: таймер, retry, кэш"
+  - id: lesson-05
+    title: "functools: lru_cache, partial, reduce"
+  - id: lesson-06
+    title: "Контекстные менеджеры: with, __enter__/__exit__, contextlib"

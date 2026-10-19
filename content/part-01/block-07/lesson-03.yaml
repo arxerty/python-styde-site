@@ -1,0 +1,305 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "Зачем открывать файл в блоке `with`?"
+    options:
+      - text: "with гарантирует закрытие файла при выходе из блока, даже если произошло исключение"
+        correct: true
+        why: "Это менеджер контекста — он вызывает close() автоматически."
+      - text: "Без with файл нельзя прочитать"
+        why: "Можно, но тогда нужно не забыть close() и обработать исключения."
+      - text: "with ускоряет чтение"
+        why: "На скорость не влияет."
+      - text: "with автоматически выбирает кодировку"
+        why: "Кодировку нужно указывать параметром encoding."
+    explanation: "with + open — стандартный способ работы с файлами."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      with open("t.txt", "w", encoding="utf-8") as f:
+          f.write("a\nb\n")
+      with open("t.txt", "a", encoding="utf-8") as f:
+          f.write("c\n")
+      with open("t.txt", encoding="utf-8") as f:
+          print(f.readlines())
+    options:
+      - text: "`['a\\n', 'b\\n', 'c\\n']`"
+        correct: true
+        why: "Режим a дописывает в конец; readlines сохраняет переводы строк."
+      - text: "`['c\\n']`"
+        why: "Так было бы с режимом w во втором open."
+      - text: "`['a', 'b', 'c']`"
+        why: "readlines не убирает символ \\n."
+    explanation: "\"w\" стирает файл, \"a\" дописывает; строки файла заканчиваются на \\n."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему после запуска в файле оказалась одна длинная строка `кошкасобакапопугай`?"
+    code: |
+      animals = ["кошка", "собака", "попугай"]
+      with open("animals.txt", "w", encoding="utf-8") as f:
+          for animal in animals:
+              f.write(animal)
+    options:
+      - text: "write не добавляет перевод строки — нужно `f.write(animal + \"\\n\")` или `print(animal, file=f)`"
+        correct: true
+        why: "write пишет строку как есть."
+      - text: "Режим w склеивает строки"
+        why: "Режим w стирает файл перед записью, но склеивание — из-за отсутствия \\n."
+      - text: "Нужна кодировка cp1251"
+        why: "Кодировка не влияет на переводы строк."
+    explanation: "В отличие от print, write не добавляет \\n."
+
+  - id: q4
+    type: multiple
+    prompt: "Какие утверждения о режимах открытия верны? Выберите все."
+    options:
+      - text: "`\"w\"` стирает содержимое существующего файла сразу при открытии"
+        correct: true
+        why: "Даже если ничего не записать."
+      - text: "`\"a\"` создаёт файл, если его нет"
+        correct: true
+        why: "И дописывает в конец, если есть."
+      - text: "`\"x\"` выбрасывает FileExistsError, если файл уже есть"
+        correct: true
+        why: "Защита от случайной перезаписи."
+      - text: "`\"r\"` создаёт пустой файл, если его нет"
+        why: "Будет FileNotFoundError."
+    explanation: "Выбор режима определяет, что случится с существующими данными."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      with open("d.txt", "w", encoding="utf-8") as f:
+          f.write("x\n\ny\n")
+      count = 0
+      with open("d.txt", encoding="utf-8") as f:
+          for line in f:
+              if line.strip():
+                  count += 1
+      print(count)
+    options:
+      - text: "`2`"
+        correct: true
+        why: "Строки: «x», «» (пустая), «y» — непустых две."
+      - text: "`3`"
+        why: "Пустая строка отфильтрована условием line.strip()."
+      - text: "`4`"
+        why: "После последнего \\n строки нет."
+    explanation: "Перебор файла по строкам + strip — потоковая обработка."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      with open("n.txt", "w", encoding="utf-8") as f:
+          print("a", 1, file=f)
+          print("b", file=f)
+      with open("n.txt", encoding="utf-8") as f:
+          print(repr(f.read()))
+    answer: "'a 1\\nb\\n'"
+    explanation: "print с file= пишет в файл, расставляя пробелы и добавляя перевод строки."
+
+tasks:
+  - id: t1
+    title: "Непустые строки файла"
+    difficulty: 1
+    statement: |
+      Напишите `count_nonempty_lines(path)` — количество строк файла, содержащих что-то кроме пробелов. Файл в UTF-8. Читайте файл построчно.
+
+      Для проверки в виртуальной папке есть файл `poem.txt`.
+    examples:
+      - input: "count_nonempty_lines(\"poem.txt\")"
+        output: "4"
+    files:
+      poem.txt: "Буря мглою\nнебо кроет,\n\n   \nвихри снежные\nкрутя\n"
+      empty.txt: ""
+    starter: |
+      def count_nonempty_lines(path):
+          with open(path, encoding="utf-8") as file:
+              return len(file.readlines())
+    hints:
+      - "Перебирайте файл: `for line in file:` и считайте строки, у которых `line.strip()` непусто."
+      - "Можно одной строкой: `return sum(1 for line in file if line.strip())`."
+    solution: |
+      def count_nonempty_lines(path):
+          """Посчитать строки файла, содержащие не только пробелы."""
+          with open(path, encoding="utf-8") as file:
+              return sum(1 for line in file if line.strip())
+    solution_explanation: "Генераторное выражение перебирает файл потоково — подходит для файлов любого размера. strip() отсекает и пустые строки, и строки из пробелов."
+    tests:
+      - name: "Стихотворение"
+        call: "count_nonempty_lines(\"poem.txt\")"
+        expected: "4"
+      - name: "Пустой файл"
+        call: "count_nonempty_lines(\"empty.txt\")"
+        expected: "0"
+      - name: "Без перевода строки в конце"
+        code: |
+          with open("one.txt", "w", encoding="utf-8") as f:
+              f.write("одна строка")
+          assert count_nonempty_lines("one.txt") == 1
+      - name: "Табуляции считаются пустыми"
+        code: |
+          with open("tabs.txt", "w", encoding="utf-8") as f:
+              f.write("\t\n  \t \nтекст\n")
+          assert count_nonempty_lines("tabs.txt") == 1
+      - name: "Кириллица"
+        code: |
+          with open("ru.txt", "w", encoding="utf-8") as f:
+              f.write("привет\nмир\n")
+          assert count_nonempty_lines("ru.txt") == 2
+
+  - id: t2
+    title: "Сохранение метрик"
+    difficulty: 1
+    statement: |
+      Напишите `save_metrics(path, metrics)`: `metrics` — словарь `название → число`. Запишите в файл по строке на метрику в формате `<название>=<значение с 4 знаками>` в порядке словаря. Функция возвращает количество записанных строк.
+    examples:
+      - input: "save_metrics(\"m.txt\", {\"loss\": 0.23456, \"acc\": 0.9})"
+        output: "2  (в файле: loss=0.2346 и acc=0.9000)"
+    starter: |
+      def save_metrics(path, metrics):
+          with open(path, "w") as file:
+              for name, value in metrics.items():
+                  file.write(name + "=" + str(value))
+    hints:
+      - "Добавьте encoding=\"utf-8\" и перевод строки: `file.write(f\"{name}={value:.4f}\\n\")`."
+      - "Количество строк — `len(metrics)`; верните его через return."
+    solution: |
+      def save_metrics(path, metrics):
+          """Записать метрики в файл по строке на метрику и вернуть число строк."""
+          with open(path, "w", encoding="utf-8") as file:
+              for name, value in metrics.items():
+                  file.write(f"{name}={value:.4f}\n")
+          return len(metrics)
+    solution_explanation: "Формат значения задаётся в f-строке; перевод строки добавляется явно. Режим \"w\" перезаписывает файл при каждом сохранении."
+    tests:
+      - name: "Две метрики"
+        code: |
+          count = save_metrics("m.txt", {"loss": 0.23456, "acc": 0.9})
+          with open("m.txt", encoding="utf-8") as f:
+              content = f.read()
+          assert count == 2, f"Функция должна вернуть 2, вернула {count!r}"
+          assert content == "loss=0.2346\nacc=0.9000\n", f"Содержимое файла: {content!r}"
+      - name: "Пустой словарь"
+        code: |
+          assert save_metrics("e.txt", {}) == 0
+          with open("e.txt", encoding="utf-8") as f:
+              assert f.read() == ""
+      - name: "Перезапись"
+        code: |
+          save_metrics("r.txt", {"a": 1})
+          save_metrics("r.txt", {"b": 2})
+          with open("r.txt", encoding="utf-8") as f:
+              assert f.read() == "b=2.0000\n", "Файл должен перезаписываться"
+      - name: "Кириллица в названиях"
+        code: |
+          save_metrics("ru.txt", {"точность": 0.5})
+          with open("ru.txt", encoding="utf-8") as f:
+              assert f.read() == "точность=0.5000\n"
+      - name: "Целые значения"
+        code: |
+          save_metrics("i.txt", {"epochs": 10})
+          with open("i.txt", encoding="utf-8") as f:
+              assert f.read() == "epochs=10.0000\n"
+
+  - id: t3
+    title: "Последние строки"
+    difficulty: 2
+    statement: |
+      Напишите `tail(path, n=3)` — последние `n` строк файла **без** символов перевода строки, в исходном порядке. Читайте файл построчно и храните не больше `n` строк одновременно (как скользящее окно из блока 1.5).
+    examples:
+      - input: "tail(\"log.txt\", 2)"
+        output: "['строка 4', 'строка 5']"
+    files:
+      log.txt: "строка 1\nстрока 2\nстрока 3\nстрока 4\nстрока 5\n"
+    starter: |
+      def tail(path, n=3):
+          with open(path, encoding="utf-8") as file:
+              return file.readlines()[-n:]
+    hints:
+      - "Окно: `window = []`; для каждой строки `window.append(line.rstrip(\"\\n\"))`, и если `len(window) > n` — `window.pop(0)`."
+      - "Случай n = 0 — сразу вернуть пустой список."
+    solution: |
+      def tail(path, n=3):
+          """Вернуть последние n строк файла без переводов строки."""
+          if n <= 0:
+              return []
+          window = []
+          with open(path, encoding="utf-8") as file:
+              for line in file:
+                  window.append(line.rstrip("\n"))
+                  if len(window) > n:
+                      window.pop(0)
+          return window
+    solution_explanation: "Скользящее окно хранит в памяти не больше n строк — функция работает и для многогигабайтных логов. rstrip(\"\\n\") убирает только перевод строки, сохраняя пробелы в тексте."
+    tests:
+      - name: "Две последние"
+        call: "tail(\"log.txt\", 2)"
+        expected: "['строка 4', 'строка 5']"
+      - name: "По умолчанию три"
+        call: "tail(\"log.txt\")"
+        expected: "['строка 3', 'строка 4', 'строка 5']"
+      - name: "n больше числа строк"
+        call: "tail(\"log.txt\", 100)"
+        expected: "['строка 1', 'строка 2', 'строка 3', 'строка 4', 'строка 5']"
+      - name: "n = 0"
+        call: "tail(\"log.txt\", 0)"
+        expected: "[]"
+      - name: "Без \\n в конце файла"
+        code: |
+          with open("x.txt", "w", encoding="utf-8") as f:
+              f.write("a\nb")
+          assert tail("x.txt", 1) == ["b"]
+
+  - id: t4
+    title: "Поиск по файлу"
+    difficulty: 3
+    statement: |
+      Напишите `search_file(path, word)`: вернуть список пар `(номер строки с 1, строка без \n)` для строк, содержащих `word` без учёта регистра. Если файла нет — вернуть `None` (не падать).
+    examples:
+      - input: "search_file(\"doc.txt\", \"python\")"
+        output: "[(1, 'Python — язык AI'), (3, 'учим python')]"
+    files:
+      doc.txt: "Python — язык AI\nДанные и модели\nучим python\n"
+    starter: |
+      def search_file(path, word):
+          with open(path) as file:
+              return [line for line in file if word in line]
+    hints:
+      - "Перебирайте `enumerate(file, start=1)`, сравнивайте `word.lower() in line.lower()`."
+      - "Оберните открытие в `try` и перехватите `FileNotFoundError`."
+    solution: |
+      def search_file(path, word):
+          """Найти строки файла, содержащие слово (без учёта регистра)."""
+          needle = word.lower()
+          try:
+              with open(path, encoding="utf-8") as file:
+                  return [
+                      (number, line.rstrip("\n"))
+                      for number, line in enumerate(file, start=1)
+                      if needle in line.lower()
+                  ]
+          except FileNotFoundError:
+              return None
+    solution_explanation: "Нормализация регистра один раз для искомого слова и для каждой строки; enumerate даёт номера строк. Отсутствие файла — ожидаемая ситуация, поэтому она обрабатывается и превращается в None."
+    tests:
+      - name: "Пример"
+        call: "search_file(\"doc.txt\", \"python\")"
+        expected: "[(1, 'Python — язык AI'), (3, 'учим python')]"
+      - name: "Нет совпадений"
+        call: "search_file(\"doc.txt\", \"java\")"
+        expected: "[]"
+      - name: "Файла нет"
+        call: "search_file(\"missing.txt\", \"x\")"
+        expected: "None"
+      - name: "Регистр искомого"
+        call: "search_file(\"doc.txt\", \"ДАННЫЕ\")"
+        expected: "[(2, 'Данные и модели')]"
+      - name: "Подстрока"
+        call: "search_file(\"doc.txt\", \"мод\")"
+        expected: "[(2, 'Данные и модели')]"

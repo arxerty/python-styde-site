@@ -1,0 +1,513 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Shape:
+          @classmethod
+          def create(cls):
+              return cls()
+
+
+      class Circle(Shape):
+          pass
+
+
+      print(type(Circle.create()).__name__, type(Shape.create()).__name__)
+    options:
+      - text: "`Circle Shape`"
+        correct: true
+        why: "cls — класс, через который вызван метод."
+      - text: "`Shape Shape`"
+        why: "Метод определён в Shape, но cls при вызове Circle.create() — это Circle."
+      - text: "`Circle Circle`"
+        why: "Shape.create() вызван через Shape — cls равен Shape."
+    explanation: "cls в методе класса — тот класс, у которого метод вызвали, поэтому альтернативные конструкторы работают для потомков."
+
+  - id: q2
+    type: find_bug
+    prompt: "`Point.from_tuple((1, 2))` падает с TypeError. Почему?"
+    code: |
+      class Point:
+          def __init__(self, x, y):
+              self.x = x
+              self.y = y
+
+          def from_tuple(cls, pair):
+              return cls(pair[0], pair[1])
+    options:
+      - text: "Нет декоратора @classmethod: кортеж попадает в cls, а pair не передан"
+        correct: true
+        why: "Без декоратора это обычная функция, вызванная через класс."
+      - text: "Нельзя вызывать cls(...) внутри класса"
+        why: "Можно — это вызов конструктора."
+      - text: "Параметр должен называться self"
+        why: "Имя не важно; важен декоратор."
+    explanation: "Метод класса объявляется с @classmethod — тогда Python сам передаёт класс первым аргументом."
+
+  - id: q3
+    type: single
+    prompt: "Классу `Document` нужен способ создать объект из JSON-строки. Какой вид метода подходит?"
+    options:
+      - text: "`@classmethod` — альтернативный конструктор `from_json(cls, text)`"
+        correct: true
+        why: "Создание объекта — классическое применение метода класса."
+      - text: "Обычный метод `from_json(self, text)`"
+        why: "Для вызова понадобился бы уже существующий объект."
+      - text: "`@staticmethod`, возвращающий `Document(...)`"
+        why: "Сработает, но сломается для потомков: всегда будет создаваться Document."
+      - text: "Второй `__init__` с другими параметрами"
+        why: "В классе может быть только один __init__ — второй заменит первый."
+    explanation: "Альтернативные конструкторы — методы класса, возвращающие cls(...)."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class MathUtils:
+          @staticmethod
+          def square(x):
+              return x * x
+
+
+      utils = MathUtils()
+      print(MathUtils.square(3), utils.square(4))
+    options:
+      - text: "`9 16`"
+        correct: true
+        why: "Статический метод вызывается и через класс, и через объект; self не передаётся."
+      - text: "TypeError при вызове через объект"
+        why: "Для статического метода объект не подставляется в аргументы."
+      - text: "`9 9`"
+        why: "Каждый вызов получает свой аргумент."
+    explanation: "@staticmethod — обычная функция внутри класса, без self и cls."
+
+  - id: q5
+    type: find_bug
+    prompt: "`SavingsAccount.from_dict(data)` возвращает объект `Account`, а не `SavingsAccount`. Почему?"
+    code: |
+      class Account:
+          def __init__(self, owner):
+              self.owner = owner
+
+          @classmethod
+          def from_dict(cls, data):
+              return Account(data["owner"])
+
+
+      class SavingsAccount(Account):
+          pass
+    options:
+      - text: "Внутри метода явно указан Account вместо cls"
+        correct: true
+        why: "cls(...) создал бы объект того класса, через который вызван метод."
+      - text: "Потомок должен переопределить from_dict"
+        why: "Не нужно, если в родителе используется cls."
+      - text: "Методы класса не наследуются"
+        why: "Наследуются, как и обычные методы."
+    explanation: "В альтернативных конструкторах всегда пишите cls(...), а не имя класса."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно? Выберите все."
+    options:
+      - text: "Метод класса может изменять атрибуты класса через cls"
+        correct: true
+        why: "Например, cls.count += 1."
+      - text: "Статический метод не имеет доступа к self"
+        correct: true
+        why: "Он не получает ни объект, ни класс."
+      - text: "Метод класса можно вызвать через объект: obj.from_dict(...)"
+        correct: true
+        why: "cls всё равно будет классом объекта."
+      - text: "Статический метод нужен, чтобы метод работал быстрее"
+        why: "Выбор вида метода — вопрос смысла, а не скорости."
+    explanation: "Вид метода определяется тем, что ему нужно: объект, класс или ничего."
+
+tasks:
+  - id: t1
+    title: "Версия программы"
+    difficulty: 1
+    statement: |
+      Создайте класс `Version(major, minor, patch)`:
+
+      - статический метод `is_valid(text)` — `True`, если строка вида `"1.2.3"`: три части через точку, каждая из цифр;
+      - метод класса `from_string(text)` — создаёт версию из строки; неверная строка → `ValueError`;
+      - `__str__` → `"1.2.3"`;
+      - `is_newer_than(other)` — `True`, если версия новее `other` (сравнение по major, затем minor, затем patch).
+    examples:
+      - input: "Version.from_string(\"2.10.0\").is_newer_than(Version(2, 9, 5))"
+        output: "True"
+    starter: |
+      class Version:
+          def __init__(self, major, minor, patch):
+              self.major = major
+              self.minor = minor
+              self.patch = patch
+    hints:
+      - "is_valid: `parts = text.split(\".\")`, затем `len(parts) == 3 and all(part.isdigit() for part in parts)`."
+      - "Сравнение — кортежами: `(self.major, self.minor, self.patch) > (other.major, other.minor, other.patch)`."
+    solution: |
+      class Version:
+          """Версия в формате major.minor.patch."""
+
+          def __init__(self, major, minor, patch):
+              self.major = major
+              self.minor = minor
+              self.patch = patch
+
+          @staticmethod
+          def is_valid(text):
+              parts = text.split(".")
+              return len(parts) == 3 and all(part.isdigit() for part in parts)
+
+          @classmethod
+          def from_string(cls, text):
+              if not cls.is_valid(text):
+                  raise ValueError(f"неверная версия: {text!r}")
+              major, minor, patch = (int(part) for part in text.split("."))
+              return cls(major, minor, patch)
+
+          def _key(self):
+              return (self.major, self.minor, self.patch)
+
+          def is_newer_than(self, other):
+              return self._key() > other._key()
+
+          def __str__(self):
+              return f"{self.major}.{self.minor}.{self.patch}"
+    solution_explanation: "Проверка формата не нуждается ни в объекте, ни в классе — статический метод. Создание из строки — метод класса, который сначала проверяет формат, а потом вызывает cls(...). Сравнение кортежей решает задачу «major, потом minor, потом patch» одной операцией и правильно ставит 2.10 выше 2.9, в отличие от сравнения строк."
+    tests:
+      - name: "Пример"
+        call: "Version.from_string(\"2.10.0\").is_newer_than(Version(2, 9, 5))"
+        expected: "True"
+      - name: "str"
+        call: "str(Version.from_string(\"1.0.12\"))"
+        expected: "'1.0.12'"
+      - name: "is_valid"
+        call: "[Version.is_valid(t) for t in (\"1.2.3\", \"1.2\", \"1.x.3\", \"1.2.3.4\")]"
+        expected: "[True, False, False, False]"
+      - name: "Неверная строка"
+        code: |
+          try:
+              Version.from_string("v1.2")
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Равные версии"
+        call: "Version(1, 2, 3).is_newer_than(Version(1, 2, 3))"
+        expected: "False"
+      - name: "Виды методов"
+        code: |
+          assert isinstance(Version.__dict__["is_valid"], staticmethod), "is_valid — @staticmethod"
+          assert isinstance(Version.__dict__["from_string"], classmethod), "from_string — @classmethod"
+
+  - id: t2
+    title: "Активные сессии"
+    difficulty: 2
+    statement: |
+      Создайте класс `Session(user)`:
+
+      - атрибут класса `_active = 0` — число открытых сессий;
+      - при создании сессия открыта (`is_open == True`), счётчик увеличивается;
+      - `close()` закрывает сессию и уменьшает счётчик; повторный `close()` ничего не делает;
+      - метод класса `active_count()` возвращает число открытых сессий;
+      - метод класса `reset()` обнуляет счётчик.
+    examples:
+      - input: "Session.reset(); a = Session(\"ada\"); b = Session(\"alan\"); a.close(); Session.active_count()"
+        output: "1"
+    starter: |
+      class Session:
+          _active = 0
+
+          def __init__(self, user):
+              self.user = user
+              self._active += 1
+
+          def close(self):
+              self._active -= 1
+    hints:
+      - "Изменения счётчика оформите методами класса или пишите через `type(self)._active` — не через `self._active +=`."
+      - "Для повторного close храните `self.is_open` и выходите из метода, если сессия уже закрыта."
+    solution: |
+      class Session:
+          """Пользовательская сессия с подсчётом открытых сессий."""
+
+          _active = 0
+
+          def __init__(self, user):
+              self.user = user
+              self.is_open = True
+              type(self)._change(1)
+
+          @classmethod
+          def _change(cls, delta):
+              cls._active += delta
+
+          def close(self):
+              """Закрыть сессию (повторное закрытие игнорируется)."""
+              if not self.is_open:
+                  return
+              self.is_open = False
+              type(self)._change(-1)
+
+          @classmethod
+          def active_count(cls):
+              return cls._active
+
+          @classmethod
+          def reset(cls):
+              cls._active = 0
+    solution_explanation: "Общий счётчик меняется только через метод класса _change, поэтому не возникает затенения атрибутом экземпляра. Флаг is_open защищает от двойного уменьшения счётчика."
+    tests:
+      - name: "Пример"
+        code: |
+          Session.reset()
+          a = Session("ada")
+          b = Session("alan")
+          a.close()
+          assert Session.active_count() == 1, f"active_count = {Session.active_count()}"
+      - name: "Повторное закрытие"
+        code: |
+          Session.reset()
+          s = Session("x")
+          s.close()
+          s.close()
+          assert Session.active_count() == 0 and s.is_open is False
+      - name: "reset"
+        code: |
+          Session.reset()
+          Session("a")
+          Session("b")
+          Session.reset()
+          assert Session.active_count() == 0
+      - name: "Новая сессия открыта"
+        code: |
+          Session.reset()
+          s = Session("ada")
+          assert s.is_open is True and s.user == "ada"
+      - name: "Счётчик в классе, а не в объекте"
+        code: |
+          Session.reset()
+          s = Session("a")
+          assert "_active" not in vars(s), "Счётчик не должен становиться атрибутом экземпляра"
+          assert isinstance(Session.__dict__["active_count"], classmethod)
+
+  - id: t3
+    title: "Фабрики сообщений"
+    difficulty: 2
+    statement: |
+      Создайте класс `Message(role, content)` (роль из `ROLES = ("system", "user", "assistant")`, иначе `ValueError`) с альтернативными конструкторами:
+
+      - `Message.system(content)`, `Message.user(content)`, `Message.assistant(content)`;
+      - `Message.from_dict(data)` — из словаря `{"role": ..., "content": ...}`; нет ключа → `ValueError`;
+      - `to_dict()` и `__repr__` → `Message('user', 'Привет')`.
+
+      Конструкторы должны правильно работать для потомков: `Child.user("x")` создаёт объект `Child`.
+    examples:
+      - input: "Message.user(\"Привет\")"
+        output: "Message('user', 'Привет')"
+    starter: |
+      class Message:
+          ROLES = ("system", "user", "assistant")
+
+          def __init__(self, role, content):
+              self.role = role
+              self.content = content
+
+          @staticmethod
+          def user(content):
+              return Message("user", content)
+    hints:
+      - "Каждая фабрика — `@classmethod` и `return cls(\"user\", content)`."
+      - "from_dict: `if \"role\" not in data or \"content\" not in data: raise ValueError(...)`, затем `cls(data[\"role\"], data[\"content\"])` — проверку роли сделает `__init__`."
+    solution: |
+      class Message:
+          """Сообщение диалога с языковой моделью."""
+
+          ROLES = ("system", "user", "assistant")
+
+          def __init__(self, role, content):
+              if role not in self.ROLES:
+                  raise ValueError(f"неизвестная роль: {role}")
+              self.role = role
+              self.content = content
+
+          @classmethod
+          def system(cls, content):
+              return cls("system", content)
+
+          @classmethod
+          def user(cls, content):
+              return cls("user", content)
+
+          @classmethod
+          def assistant(cls, content):
+              return cls("assistant", content)
+
+          @classmethod
+          def from_dict(cls, data):
+              if "role" not in data or "content" not in data:
+                  raise ValueError("нужны ключи role и content")
+              return cls(data["role"], data["content"])
+
+          def to_dict(self):
+              return {"role": self.role, "content": self.content}
+
+          def __repr__(self):
+              return f"Message({self.role!r}, {self.content!r})"
+    solution_explanation: "Все фабрики вызывают cls(...), а проверка роли живёт только в __init__. Поэтому from_dict с неверной ролью тоже получит ValueError, а потомки Message автоматически получают фабрики, создающие объекты нужного класса."
+    tests:
+      - name: "Пример"
+        call: "repr(Message.user(\"Привет\"))"
+        expected: "\"Message('user', 'Привет')\""
+      - name: "Фабрики ролей"
+        call: "[Message.system(\"s\").role, Message.assistant(\"a\").role]"
+        expected: "['system', 'assistant']"
+      - name: "from_dict и to_dict"
+        call: "Message.from_dict({\"role\": \"assistant\", \"content\": \"Готово\"}).to_dict()"
+        expected: "{'role': 'assistant', 'content': 'Готово'}"
+      - name: "from_dict без ключа"
+        code: |
+          try:
+              Message.from_dict({"role": "user"})
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "from_dict с неверной ролью"
+        code: |
+          try:
+              Message.from_dict({"role": "admin", "content": "x"})
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Работает для потомков"
+        code: |
+          class TimedMessage(Message):
+              pass
+          assert type(TimedMessage.user("x")) is TimedMessage, "Фабрика должна создавать объект класса, через который вызвана"
+          assert type(TimedMessage.from_dict({"role": "user", "content": "y"})) is TimedMessage
+
+  - id: t4
+    title: "Реестр моделей"
+    difficulty: 3
+    statement: |
+      Создайте базовый класс `BaseModel` с реестром моделей по имени:
+
+      - атрибут класса `_registry = {}`;
+      - статический метод `validate_name(name)` — имя из строчных латинских букв и `_` (непустое), иначе `ValueError`;
+      - метод класса `register(name, model_class)` — проверяет имя и добавляет класс в реестр;
+      - метод класса `available()` — отсортированный список зарегистрированных имён;
+      - метод класса `create(name, **params)` — создаёт объект зарегистрированного класса с параметрами; неизвестное имя → `KeyError`;
+      - метод `predict(x)` бросает `NotImplementedError`.
+
+      Модели-потомки: `LinearModel(weight=1.0, bias=0.0)` — `predict(x) = weight * x + bias`; `ConstantModel(value=0)` — всегда `value`. Зарегистрируйте их под именами `"linear"` и `"constant"`.
+    examples:
+      - input: "BaseModel.create(\"linear\", weight=2, bias=1).predict(3)"
+        output: "7"
+    starter: |
+      class BaseModel:
+          _registry = {}
+
+          def predict(self, x):
+              raise NotImplementedError
+
+
+      class LinearModel(BaseModel):
+          def __init__(self, weight=1.0, bias=0.0):
+              self.weight = weight
+              self.bias = bias
+    hints:
+      - "validate_name: `name and all(ch.isascii() and (ch.islower() or ch == \"_\") for ch in name)`."
+      - "create: `if name not in cls._registry: raise KeyError(...)`, затем `return cls._registry[name](**params)`. Регистрация — после определения классов: `BaseModel.register(\"linear\", LinearModel)`."
+    solution: |
+      class BaseModel:
+          """Базовая модель с реестром реализаций по имени."""
+
+          _registry = {}
+
+          @staticmethod
+          def validate_name(name):
+              valid = bool(name) and all(ch.isascii() and (ch.islower() or ch == "_") for ch in name)
+              if not valid:
+                  raise ValueError(f"неверное имя модели: {name!r}")
+              return name
+
+          @classmethod
+          def register(cls, name, model_class):
+              cls._registry[cls.validate_name(name)] = model_class
+
+          @classmethod
+          def available(cls):
+              return sorted(cls._registry)
+
+          @classmethod
+          def create(cls, name, **params):
+              if name not in cls._registry:
+                  raise KeyError(f"модель {name!r} не найдена, доступны: {cls.available()}")
+              return cls._registry[name](**params)
+
+          def predict(self, x):
+              raise NotImplementedError("потомок должен реализовать predict")
+
+
+      class LinearModel(BaseModel):
+          def __init__(self, weight=1.0, bias=0.0):
+              self.weight = weight
+              self.bias = bias
+
+          def predict(self, x):
+              return self.weight * x + self.bias
+
+
+      class ConstantModel(BaseModel):
+          def __init__(self, value=0):
+              self.value = value
+
+          def predict(self, x):
+              return self.value
+
+
+      BaseModel.register("linear", LinearModel)
+      BaseModel.register("constant", ConstantModel)
+    solution_explanation: "Код, создающий модель, знает только её имя из конфигурации: BaseModel.create(\"linear\", ...). Методы класса работают с общим реестром, статический метод проверяет имя. По такой схеме устроены AutoModel в Hugging Face и реестры в фреймворках обучения."
+    tests:
+      - name: "Пример"
+        call: "BaseModel.create(\"linear\", weight=2, bias=1).predict(3)"
+        expected: "7"
+      - name: "Параметры по умолчанию"
+        call: "[BaseModel.create(\"linear\").predict(5), BaseModel.create(\"constant\", value=9).predict(100)]"
+        expected: "[5.0, 9]"
+      - name: "available"
+        code: |
+          names = BaseModel.available()
+          assert "constant" in names and "linear" in names
+          assert names == sorted(names), "Список должен быть отсортирован"
+      - name: "Неизвестная модель"
+        code: |
+          try:
+              BaseModel.create("transformer")
+          except KeyError:
+              pass
+          else:
+              raise AssertionError("Ожидался KeyError")
+      - name: "Неверное имя"
+        code: |
+          for bad in ("", "Linear", "my-model", "модель"):
+              try:
+                  BaseModel.register(bad, LinearModel)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"Имя {bad!r} должно отвергаться")
+      - name: "Регистрация новой модели"
+        code: |
+          class Doubler(BaseModel):
+              def predict(self, x):
+                  return 2 * x
+          BaseModel.register("doubler", Doubler)
+          assert BaseModel.create("doubler").predict(21) == 42
+          assert isinstance(BaseModel.create("doubler"), BaseModel)

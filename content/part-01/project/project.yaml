@@ -1,0 +1,1838 @@
+title: Менеджер задач в консоли
+mode: browser
+description: |
+  **Проект части 1.** Вы соберёте консольный менеджер задач — небольшое, но настоящее приложение, в котором работают все темы части: функции, коллекции, условия и циклы, строки, исключения, файлы и JSON.
+
+  **Что умеет программа:**
+
+  - добавлять задачи с приоритетом и сроком, отмечать выполненными, переименовывать и удалять;
+  - показывать активные и все задачи в разумном порядке, искать по тексту, отмечать просроченные;
+  - считать статистику;
+  - сохранять задачи в JSON-файл между запусками;
+  - не падать от ошибок ввода, а объяснять, что не так.
+
+  Пример сеанса:
+
+  ```text
+  Менеджер задач. Введите help для списка команд, выход — для завершения.
+  > add Купить молоко !high @2026-10-20
+  Добавлена: [ ] #1 Купить молоко (high, до 2026-10-20)
+  > add Позвонить маме
+  Добавлена: [ ] #2 Позвонить маме (medium)
+  > done 1
+  Выполнена: #1 Купить молоко
+  > stats
+  Всего: 2, выполнено: 1, активных: 1, просрочено: 0
+  > выход
+  До встречи!
+  ```
+
+  **Как устроен проект.** Он разбит на 8 этапов — от модели данных до главного цикла. Каждый этап проверяется тестами. Функции прошлых этапов на платформе подключаются автоматически (в эталонном виде), так что вы пишете только код текущего этапа. Чтобы получить цельную программу у себя на компьютере, складывайте решения этапов в один файл `taskman.py` по порядку.
+
+  **Архитектура** — «логика отдельно от ввода-вывода»: этапы 1–7 — чистые функции, которые принимают данные и возвращают результат; `print` и `input` появляются только на этапе 8. Это делает код проверяемым и переиспользуемым: тот же `handle_command` можно подключить к Telegram-боту или веб-сервису.
+
+  Используйте только темы части 1.
+requirements:
+- Добавление, выполнение, переименование и удаление задач
+- Приоритеты (low/medium/high) и сроки (ГГГГ-ММ-ДД)
+- Поиск по тексту и фильтры, сортировка по статусу, приоритету и сроку
+- Сохранение в JSON и загрузка при запуске
+- Обработка ошибок ввода без падения программы
+- Код разбит на функции с docstring
+stages:
+- id: stage-01
+  title: Модель задачи и валидация
+  description: |
+    Задача в менеджере — словарь с полями:
+
+    | Поле | Тип | Пример |
+    |---|---|---|
+    | `id` | int | `3` |
+    | `title` | str | `"Купить молоко"` |
+    | `priority` | `"low"`, `"medium"`, `"high"` | `"high"` |
+    | `due` | строка `ГГГГ-ММ-ДД` или `None` | `"2026-10-20"` |
+    | `done` | bool | `False` |
+
+    На этом этапе напишите функции проверки полей и функцию создания задачи. Каждая проверка либо возвращает нормализованное значение, либо бросает `ValueError` с понятным сообщением — принцип «падай рано» из блока 1.7.
+  hints:
+  - Даты удобно проверять через `date.fromisoformat`; чтобы не принимать форматы вроде `20261020`, сравните `parsed.isoformat()` с исходной строкой.
+  tasks:
+  - id: t1
+    title: make_task и проверки полей
+    difficulty: 2
+    statement: |
+      Напишите функции:
+
+      - `validate_title(title)` — вернуть название без пробелов по краям; пустое (или не строка) → `ValueError`;
+      - `validate_priority(priority)` — вернуть приоритет, если он `low`, `medium` или `high`, иначе `ValueError`;
+      - `validate_due(due)` — `None` вернуть как есть; строку в формате `ГГГГ-ММ-ДД` с существующей датой — вернуть; иначе `ValueError`;
+      - `make_task(task_id, title, priority="medium", due=None)` — вернуть словарь задачи с `done=False`, проверив поля.
+    starter: |
+      from datetime import date
+
+      PRIORITIES = ("low", "medium", "high")
+
+
+      def validate_title(title):
+          pass
+
+
+      def validate_priority(priority):
+          pass
+
+
+      def validate_due(due):
+          pass
+
+
+      def make_task(task_id, title, priority="medium", due=None):
+          pass
+    hints:
+    - 'Название: `if not isinstance(title, str) or not title.strip(): raise ValueError(...)`.'
+    - 'Дата: оберните `date.fromisoformat(due)` в try/except (TypeError, ValueError) и проверьте, что `parsed.isoformat() == due`.'
+    solution: |
+      from datetime import date
+
+      PRIORITIES = ("low", "medium", "high")
+
+
+      def validate_title(title):
+          """Проверить и нормализовать название задачи."""
+          if not isinstance(title, str) or not title.strip():
+              raise ValueError("название задачи не может быть пустым")
+          return title.strip()
+
+
+      def validate_priority(priority):
+          """Проверить, что приоритет — low, medium или high."""
+          if priority not in PRIORITIES:
+              raise ValueError("приоритет должен быть одним из: low, medium, high")
+          return priority
+
+
+      def validate_due(due):
+          """Проверить срок в формате ГГГГ-ММ-ДД; None — срока нет."""
+          if due is None:
+              return None
+          try:
+              parsed = date.fromisoformat(due)
+          except (TypeError, ValueError):
+              parsed = None
+          if parsed is None or parsed.isoformat() != due:
+              raise ValueError(f"дата должна быть в формате ГГГГ-ММ-ДД, получено {due!r}")
+          return due
+
+
+      def make_task(task_id, title, priority="medium", due=None):
+          """Создать словарь задачи после проверки полей."""
+          return {
+              "id": task_id,
+              "title": validate_title(title),
+              "priority": validate_priority(priority),
+              "due": validate_due(due),
+              "done": False,
+          }
+    solution_explanation: |
+      Эталонная реализация этапа. Обратите внимание на docstring у каждой функции, охранные проверки в начале и на то, что функции возвращают результат, а не печатают его. Полный разбор проекта — в эталонном решении внизу страницы.
+    setup: ''
+    tests:
+    - name: Создание задачи
+      call: make_task(1, '  Купить молоко ', 'high', '2026-10-20')
+      expected: '{''id'': 1, ''title'': ''Купить молоко'', ''priority'': ''high'', ''due'': ''2026-10-20'', ''done'': False}'
+    - name: Значения по умолчанию
+      call: make_task(2, 'Позвонить')
+      expected: '{''id'': 2, ''title'': ''Позвонить'', ''priority'': ''medium'', ''due'': None, ''done'': False}'
+    - name: Пустое название
+      code: |
+        try:
+            make_task(1, '   ')
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Ожидался ValueError')
+    - name: Неверный приоритет
+      code: |
+        try:
+            validate_priority('urgent')
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Ожидался ValueError')
+    - name: Неверные даты
+      code: |
+        for bad in ['2026-13-01', '20.10.2026', '2026-02-30', '20261020', 42]:
+            try:
+                validate_due(bad)
+            except ValueError:
+                continue
+            raise AssertionError(f'Дата {bad!r} должна вызывать ValueError')
+    - name: Корректная дата и None
+      call: (validate_due('2028-02-29'), validate_due(None))
+      expected: ('2028-02-29', None)
+    timeout: 10
+- id: stage-02
+  title: Добавление задач и нумерация
+  description: |
+    Список задач — обычный список словарей. Новая задача получает номер на единицу больше максимального среди существующих (а не `len(tasks) + 1` — после удалений номера иначе бы повторялись).
+
+    Функции прошлого этапа уже подключены — используйте `make_task`.
+  hints:
+  - 'У `max` есть параметр `default` — значение для пустой последовательности: `max([], default=0)` вернёт 0.'
+  tasks:
+  - id: t1
+    title: next_id и add_task
+    difficulty: 2
+    statement: |
+      Напишите:
+
+      - `next_id(tasks)` — номер для новой задачи (для пустого списка — 1);
+      - `add_task(tasks, title, priority="medium", due=None)` — создать задачу через `make_task`, добавить в конец списка и вернуть её.
+    starter: |
+      # make_task и проверки из этапа 1 уже доступны
+
+
+      def next_id(tasks):
+          return len(tasks) + 1
+
+
+      def add_task(tasks, title, priority="medium", due=None):
+          pass
+    hints:
+    - '`max((task["id"] for task in tasks), default=0) + 1`.'
+    - '`task = make_task(next_id(tasks), title, priority, due)`, затем `tasks.append(task)` и `return task`.'
+    solution: |
+      def next_id(tasks):
+          """Вернуть номер для новой задачи: на единицу больше максимального."""
+          return max((task["id"] for task in tasks), default=0) + 1
+
+
+      def add_task(tasks, title, priority="medium", due=None):
+          """Создать задачу, добавить её в список и вернуть."""
+          task = make_task(next_id(tasks), title, priority, due)
+          tasks.append(task)
+          return task
+    solution_explanation: |
+      Эталонная реализация этапа. Обратите внимание на docstring у каждой функции, охранные проверки в начале и на то, что функции возвращают результат, а не печатают его. Полный разбор проекта — в эталонном решении внизу страницы.
+    setup: |
+      from datetime import date
+
+      PRIORITIES = ("low", "medium", "high")
+
+
+      def validate_title(title):
+          """Проверить и нормализовать название задачи."""
+          if not isinstance(title, str) or not title.strip():
+              raise ValueError("название задачи не может быть пустым")
+          return title.strip()
+
+
+      def validate_priority(priority):
+          """Проверить, что приоритет — low, medium или high."""
+          if priority not in PRIORITIES:
+              raise ValueError("приоритет должен быть одним из: low, medium, high")
+          return priority
+
+
+      def validate_due(due):
+          """Проверить срок в формате ГГГГ-ММ-ДД; None — срока нет."""
+          if due is None:
+              return None
+          try:
+              parsed = date.fromisoformat(due)
+          except (TypeError, ValueError):
+              parsed = None
+          if parsed is None or parsed.isoformat() != due:
+              raise ValueError(f"дата должна быть в формате ГГГГ-ММ-ДД, получено {due!r}")
+          return due
+
+
+      def make_task(task_id, title, priority="medium", due=None):
+          """Создать словарь задачи после проверки полей."""
+          return {
+              "id": task_id,
+              "title": validate_title(title),
+              "priority": validate_priority(priority),
+              "due": validate_due(due),
+              "done": False,
+          }
+    tests:
+    - name: Первая задача
+      call: next_id([])
+      expected: '1'
+    - name: После удаления номера не повторяются
+      call: 'next_id([{''id'': 1}, {''id'': 5}])'
+      expected: '6'
+    - name: add_task добавляет и возвращает
+      code: |
+        tasks = []
+        t1 = add_task(tasks, 'A')
+        t2 = add_task(tasks, 'B', 'low', '2026-01-01')
+        assert tasks == [t1, t2]
+        assert (t1['id'], t2['id'], t2['priority']) == (1, 2, 'low')
+    - name: Ошибка не добавляет задачу
+      code: |
+        tasks = []
+        try:
+            add_task(tasks, '')
+        except ValueError:
+            pass
+        assert tasks == [], 'Некорректная задача не должна попасть в список'
+    - name: Номер от максимального
+      code: |
+        tasks = [{'id': 3, 'title': 'x', 'priority': 'low', 'due': None, 'done': False}]
+        assert add_task(tasks, 'y')['id'] == 4
+    timeout: 10
+- id: stage-03
+  title: Поиск, выполнение, изменение и удаление
+  description: |
+    Операции над конкретной задачей начинаются с её поиска по номеру. Если задачи нет, это не повод возвращать `None`: заведите собственное исключение `TaskNotFoundError` — вызывающий код (обработчик команд на этапе 7) превратит его в сообщение пользователю.
+
+    `update_task` должна сначала проверить **все** изменения и только потом применить их — иначе ошибка во втором поле оставит задачу «наполовину изменённой».
+  hints:
+  - 'Словарь функций-валидаторов `{"title": validate_title, ...}` позволяет проверять поля одним циклом — без цепочки if.'
+  tasks:
+  - id: t1
+    title: find, complete, update, delete
+    difficulty: 2
+    statement: |
+      Напишите:
+
+      - исключение `TaskNotFoundError(Exception)`;
+      - `find_task(tasks, task_id)` — вернуть задачу или бросить `TaskNotFoundError` с сообщением `задача #<номер> не найдена`;
+      - `complete_task(tasks, task_id)` — отметить выполненной, вернуть задачу;
+      - `update_task(tasks, task_id, **changes)` — изменить поля `title`, `priority`, `due` (с проверкой); другое поле → `ValueError`; при ошибке задача не меняется;
+      - `delete_task(tasks, task_id)` — удалить из списка, вернуть удалённую задачу.
+    starter: |
+      # функции этапов 1–2 уже доступны
+
+
+      def find_task(tasks, task_id):
+          return tasks[task_id]
+    hints:
+    - '`VALIDATORS = {"title": validate_title, "priority": validate_priority, "due": validate_due}`.'
+    - 'update_task: проверьте имена полей, затем `validated = {f: VALIDATORS[f](v) for f, v in changes.items()}` и `task.update(validated)`.'
+    solution: |
+      class TaskNotFoundError(Exception):
+          """Задача с таким номером не найдена."""
+
+
+      VALIDATORS = {"title": validate_title, "priority": validate_priority, "due": validate_due}
+
+
+      def find_task(tasks, task_id):
+          """Найти задачу по номеру или бросить TaskNotFoundError."""
+          for task in tasks:
+              if task["id"] == task_id:
+                  return task
+          raise TaskNotFoundError(f"задача #{task_id} не найдена")
+
+
+      def complete_task(tasks, task_id):
+          """Отметить задачу выполненной и вернуть её."""
+          task = find_task(tasks, task_id)
+          task["done"] = True
+          return task
+
+
+      def update_task(tasks, task_id, **changes):
+          """Изменить поля задачи (title, priority, due) после проверки."""
+          task = find_task(tasks, task_id)
+          for field in changes:
+              if field not in VALIDATORS:
+                  raise ValueError(f"поле {field} нельзя изменить")
+          validated = {field: VALIDATORS[field](value) for field, value in changes.items()}
+          task.update(validated)
+          return task
+
+
+      def delete_task(tasks, task_id):
+          """Удалить задачу из списка и вернуть её."""
+          task = find_task(tasks, task_id)
+          tasks.remove(task)
+          return task
+    solution_explanation: |
+      Эталонная реализация этапа. Обратите внимание на docstring у каждой функции, охранные проверки в начале и на то, что функции возвращают результат, а не печатают его. Полный разбор проекта — в эталонном решении внизу страницы.
+    setup: |
+      from datetime import date
+
+      PRIORITIES = ("low", "medium", "high")
+
+
+      def validate_title(title):
+          """Проверить и нормализовать название задачи."""
+          if not isinstance(title, str) or not title.strip():
+              raise ValueError("название задачи не может быть пустым")
+          return title.strip()
+
+
+      def validate_priority(priority):
+          """Проверить, что приоритет — low, medium или high."""
+          if priority not in PRIORITIES:
+              raise ValueError("приоритет должен быть одним из: low, medium, high")
+          return priority
+
+
+      def validate_due(due):
+          """Проверить срок в формате ГГГГ-ММ-ДД; None — срока нет."""
+          if due is None:
+              return None
+          try:
+              parsed = date.fromisoformat(due)
+          except (TypeError, ValueError):
+              parsed = None
+          if parsed is None or parsed.isoformat() != due:
+              raise ValueError(f"дата должна быть в формате ГГГГ-ММ-ДД, получено {due!r}")
+          return due
+
+
+      def make_task(task_id, title, priority="medium", due=None):
+          """Создать словарь задачи после проверки полей."""
+          return {
+              "id": task_id,
+              "title": validate_title(title),
+              "priority": validate_priority(priority),
+              "due": validate_due(due),
+              "done": False,
+          }
+
+      def next_id(tasks):
+          """Вернуть номер для новой задачи: на единицу больше максимального."""
+          return max((task["id"] for task in tasks), default=0) + 1
+
+
+      def add_task(tasks, title, priority="medium", due=None):
+          """Создать задачу, добавить её в список и вернуть."""
+          task = make_task(next_id(tasks), title, priority, due)
+          tasks.append(task)
+          return task
+    tests:
+    - name: Поиск
+      code: |
+        tasks = []
+        add_task(tasks, 'A')
+        add_task(tasks, 'B')
+        assert find_task(tasks, 2)['title'] == 'B'
+    - name: Нет задачи
+      code: |
+        try:
+            find_task([], 7)
+        except TaskNotFoundError as error:
+            assert str(error) == 'задача #7 не найдена', str(error)
+        else:
+            raise AssertionError('Ожидался TaskNotFoundError')
+    - name: Выполнение
+      code: |
+        tasks = []
+        add_task(tasks, 'A')
+        assert complete_task(tasks, 1)['done'] is True and tasks[0]['done'] is True
+    - name: Изменение с проверкой
+      code: |
+        tasks = []
+        add_task(tasks, 'A')
+        update_task(tasks, 1, title=' B ', priority='high')
+        assert (tasks[0]['title'], tasks[0]['priority']) == ('B', 'high')
+    - name: Ошибка не меняет задачу частично
+      code: |
+        tasks = []
+        add_task(tasks, 'A')
+        try:
+            update_task(tasks, 1, title='Новое', due='вчера')
+        except ValueError:
+            pass
+        assert tasks[0]['title'] == 'A', 'При ошибке задача не должна меняться'
+    - name: Неизвестное поле
+      code: |
+        tasks = []
+        add_task(tasks, 'A')
+        try:
+            update_task(tasks, 1, done=True)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Поле done нельзя менять через update_task')
+    - name: Удаление
+      code: |
+        tasks = []
+        add_task(tasks, 'A')
+        add_task(tasks, 'B')
+        removed = delete_task(tasks, 1)
+        assert removed['title'] == 'A' and [t['id'] for t in tasks] == [2]
+    timeout: 10
+- id: stage-04
+  title: Фильтры и сортировка
+  description: |
+    Пользователю нужны выборки: только активные, только важные, найденные по слову, со сроком до даты. И разумный порядок: сначала невыполненные, внутри — по приоритету, затем по сроку (задачи без срока — в конце), затем по номеру.
+
+    Полезное свойство формата `ГГГГ-ММ-ДД`: такие строки можно сравнивать обычными `<` и `>` — лексикографический порядок совпадает с хронологическим.
+  hints:
+  - Ключ сортировки — кортеж; `False < True`, поэтому `task["done"]` первым элементом ставит невыполненные вперёд.
+  tasks:
+  - id: t1
+    title: filter_tasks и sort_tasks
+    difficulty: 2
+    statement: |
+      Напишите:
+
+      - `filter_tasks(tasks, *, done=None, priority=None, query=None, due_before=None)` — задачи, удовлетворяющие **всем** заданным условиям (`None` — условие не применяется): статус выполнения, приоритет, подстрока в названии без учёта регистра, срок строго раньше `due_before` (задачи без срока под это условие не подходят). Порядок — исходный.
+      - `sort_tasks(tasks)` — **новый** список: невыполненные раньше выполненных, затем high → medium → low, затем по сроку (без срока — в конце), затем по номеру.
+    starter: |
+      # функции этапов 1–3 уже доступны
+
+
+      def filter_tasks(tasks, *, done=None, priority=None, query=None, due_before=None):
+          return tasks
+
+
+      def sort_tasks(tasks):
+          return sorted(tasks, key=lambda task: task["priority"])
+    hints:
+    - 'В filter_tasks на каждое условие — `if ... : continue`, в конце `result.append(task)`.'
+    - '`PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}`; ключ: `(t["done"], PRIORITY_RANK[t["priority"]], t["due"] is None, t["due"] or "", t["id"])`.'
+    solution: |
+      PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+      def filter_tasks(tasks, *, done=None, priority=None, query=None, due_before=None):
+          """Вернуть задачи, подходящие под все заданные условия."""
+          result = []
+          for task in tasks:
+              if done is not None and task["done"] != done:
+                  continue
+              if priority is not None and task["priority"] != priority:
+                  continue
+              if query and query.lower() not in task["title"].lower():
+                  continue
+              if due_before is not None and (task["due"] is None or task["due"] >= due_before):
+                  continue
+              result.append(task)
+          return result
+
+
+      def sort_tasks(tasks):
+          """Вернуть задачи по порядку: невыполненные, по приоритету, по сроку, по номеру."""
+          return sorted(
+              tasks,
+              key=lambda task: (
+                  task["done"],
+                  PRIORITY_RANK[task["priority"]],
+                  task["due"] is None,
+                  task["due"] or "",
+                  task["id"],
+              ),
+          )
+    solution_explanation: |
+      Эталонная реализация этапа. Обратите внимание на docstring у каждой функции, охранные проверки в начале и на то, что функции возвращают результат, а не печатают его. Полный разбор проекта — в эталонном решении внизу страницы.
+    setup: |
+      from datetime import date
+
+      PRIORITIES = ("low", "medium", "high")
+
+
+      def validate_title(title):
+          """Проверить и нормализовать название задачи."""
+          if not isinstance(title, str) or not title.strip():
+              raise ValueError("название задачи не может быть пустым")
+          return title.strip()
+
+
+      def validate_priority(priority):
+          """Проверить, что приоритет — low, medium или high."""
+          if priority not in PRIORITIES:
+              raise ValueError("приоритет должен быть одним из: low, medium, high")
+          return priority
+
+
+      def validate_due(due):
+          """Проверить срок в формате ГГГГ-ММ-ДД; None — срока нет."""
+          if due is None:
+              return None
+          try:
+              parsed = date.fromisoformat(due)
+          except (TypeError, ValueError):
+              parsed = None
+          if parsed is None or parsed.isoformat() != due:
+              raise ValueError(f"дата должна быть в формате ГГГГ-ММ-ДД, получено {due!r}")
+          return due
+
+
+      def make_task(task_id, title, priority="medium", due=None):
+          """Создать словарь задачи после проверки полей."""
+          return {
+              "id": task_id,
+              "title": validate_title(title),
+              "priority": validate_priority(priority),
+              "due": validate_due(due),
+              "done": False,
+          }
+
+      def next_id(tasks):
+          """Вернуть номер для новой задачи: на единицу больше максимального."""
+          return max((task["id"] for task in tasks), default=0) + 1
+
+
+      def add_task(tasks, title, priority="medium", due=None):
+          """Создать задачу, добавить её в список и вернуть."""
+          task = make_task(next_id(tasks), title, priority, due)
+          tasks.append(task)
+          return task
+
+      class TaskNotFoundError(Exception):
+          """Задача с таким номером не найдена."""
+
+
+      VALIDATORS = {"title": validate_title, "priority": validate_priority, "due": validate_due}
+
+
+      def find_task(tasks, task_id):
+          """Найти задачу по номеру или бросить TaskNotFoundError."""
+          for task in tasks:
+              if task["id"] == task_id:
+                  return task
+          raise TaskNotFoundError(f"задача #{task_id} не найдена")
+
+
+      def complete_task(tasks, task_id):
+          """Отметить задачу выполненной и вернуть её."""
+          task = find_task(tasks, task_id)
+          task["done"] = True
+          return task
+
+
+      def update_task(tasks, task_id, **changes):
+          """Изменить поля задачи (title, priority, due) после проверки."""
+          task = find_task(tasks, task_id)
+          for field in changes:
+              if field not in VALIDATORS:
+                  raise ValueError(f"поле {field} нельзя изменить")
+          validated = {field: VALIDATORS[field](value) for field, value in changes.items()}
+          task.update(validated)
+          return task
+
+
+      def delete_task(tasks, task_id):
+          """Удалить задачу из списка и вернуть её."""
+          task = find_task(tasks, task_id)
+          tasks.remove(task)
+          return task
+      SAMPLE = []
+      add_task(SAMPLE, 'Отчёт', 'high', '2026-10-25')
+      add_task(SAMPLE, 'Купить хлеб', 'low')
+      add_task(SAMPLE, 'Позвонить маме', 'medium', '2026-10-18')
+      add_task(SAMPLE, 'Купить подарок', 'high', '2026-10-19')
+      complete_task(SAMPLE, 4)
+    tests:
+    - name: Активные
+      call: '[t[''id''] for t in filter_tasks(SAMPLE, done=False)]'
+      expected: '[1, 2, 3]'
+    - name: Поиск без учёта регистра
+      call: '[t[''id''] for t in filter_tasks(SAMPLE, query=''КУПИТЬ'')]'
+      expected: '[2, 4]'
+    - name: Несколько условий
+      call: '[t[''id''] for t in filter_tasks(SAMPLE, priority=''high'', done=False)]'
+      expected: '[1]'
+    - name: Срок раньше даты
+      call: '[t[''id''] for t in filter_tasks(SAMPLE, due_before=''2026-10-20'')]'
+      expected: '[3, 4]'
+    - name: Сортировка
+      call: '[t[''id''] for t in sort_tasks(SAMPLE)]'
+      expected: '[1, 3, 2, 4]'
+    - name: Исходный список не меняется
+      code: |
+        before = [t['id'] for t in SAMPLE]
+        sort_tasks(SAMPLE)
+        assert [t['id'] for t in SAMPLE] == before
+    timeout: 10
+- id: stage-05
+  title: Сохранение в JSON
+  description: |
+    Задачи должны переживать перезапуск программы. Храним их в JSON-файле. Отсутствие файла — нормальная ситуация (первый запуск), а повреждённый файл — ошибка, о которой нужно сообщить своим исключением `StorageError`, сохранив причину.
+  hints:
+  - '`ensure_ascii=False` и `indent=2` сделают файл читаемым — его можно открыть и поправить руками.'
+  tasks:
+  - id: t1
+    title: save_tasks и load_tasks
+    difficulty: 3
+    statement: |
+      Напишите:
+
+      - исключение `StorageError(Exception)`;
+      - `save_tasks(path, tasks)` — сохранить список задач в JSON (UTF-8, `ensure_ascii=False`, `indent=2`);
+      - `load_tasks(path)` — загрузить список; нет файла → `[]`; невалидный JSON или не список → `StorageError` (для JSON-ошибки — с `from`).
+    starter: |
+      import json
+
+      # функции этапов 1–4 уже доступны
+
+
+      def save_tasks(path, tasks):
+          pass
+
+
+      def load_tasks(path):
+          pass
+    hints:
+    - 'Каркас load_tasks: `try: with open(...) as file: data = json.load(file)`, `except FileNotFoundError: return []`, `except json.JSONDecodeError as error: raise StorageError(...) from error`.'
+    - 'После загрузки: `if not isinstance(data, list): raise StorageError(...)`.'
+    solution: |
+      import json
+
+
+      class StorageError(Exception):
+          """Файл с задачами повреждён."""
+
+
+      def save_tasks(path, tasks):
+          """Сохранить задачи в JSON-файл."""
+          with open(path, "w", encoding="utf-8") as file:
+              json.dump(tasks, file, ensure_ascii=False, indent=2)
+
+
+      def load_tasks(path):
+          """Загрузить задачи из JSON-файла; нет файла — пустой список."""
+          try:
+              with open(path, encoding="utf-8") as file:
+                  data = json.load(file)
+          except FileNotFoundError:
+              return []
+          except json.JSONDecodeError as error:
+              raise StorageError(f"файл {path} повреждён") from error
+          if not isinstance(data, list):
+              raise StorageError(f"файл {path} должен содержать список задач")
+          return data
+    solution_explanation: |
+      Эталонная реализация этапа. Обратите внимание на docstring у каждой функции, охранные проверки в начале и на то, что функции возвращают результат, а не печатают его. Полный разбор проекта — в эталонном решении внизу страницы.
+    setup: |
+      from datetime import date
+
+      PRIORITIES = ("low", "medium", "high")
+
+
+      def validate_title(title):
+          """Проверить и нормализовать название задачи."""
+          if not isinstance(title, str) or not title.strip():
+              raise ValueError("название задачи не может быть пустым")
+          return title.strip()
+
+
+      def validate_priority(priority):
+          """Проверить, что приоритет — low, medium или high."""
+          if priority not in PRIORITIES:
+              raise ValueError("приоритет должен быть одним из: low, medium, high")
+          return priority
+
+
+      def validate_due(due):
+          """Проверить срок в формате ГГГГ-ММ-ДД; None — срока нет."""
+          if due is None:
+              return None
+          try:
+              parsed = date.fromisoformat(due)
+          except (TypeError, ValueError):
+              parsed = None
+          if parsed is None or parsed.isoformat() != due:
+              raise ValueError(f"дата должна быть в формате ГГГГ-ММ-ДД, получено {due!r}")
+          return due
+
+
+      def make_task(task_id, title, priority="medium", due=None):
+          """Создать словарь задачи после проверки полей."""
+          return {
+              "id": task_id,
+              "title": validate_title(title),
+              "priority": validate_priority(priority),
+              "due": validate_due(due),
+              "done": False,
+          }
+
+      def next_id(tasks):
+          """Вернуть номер для новой задачи: на единицу больше максимального."""
+          return max((task["id"] for task in tasks), default=0) + 1
+
+
+      def add_task(tasks, title, priority="medium", due=None):
+          """Создать задачу, добавить её в список и вернуть."""
+          task = make_task(next_id(tasks), title, priority, due)
+          tasks.append(task)
+          return task
+
+      class TaskNotFoundError(Exception):
+          """Задача с таким номером не найдена."""
+
+
+      VALIDATORS = {"title": validate_title, "priority": validate_priority, "due": validate_due}
+
+
+      def find_task(tasks, task_id):
+          """Найти задачу по номеру или бросить TaskNotFoundError."""
+          for task in tasks:
+              if task["id"] == task_id:
+                  return task
+          raise TaskNotFoundError(f"задача #{task_id} не найдена")
+
+
+      def complete_task(tasks, task_id):
+          """Отметить задачу выполненной и вернуть её."""
+          task = find_task(tasks, task_id)
+          task["done"] = True
+          return task
+
+
+      def update_task(tasks, task_id, **changes):
+          """Изменить поля задачи (title, priority, due) после проверки."""
+          task = find_task(tasks, task_id)
+          for field in changes:
+              if field not in VALIDATORS:
+                  raise ValueError(f"поле {field} нельзя изменить")
+          validated = {field: VALIDATORS[field](value) for field, value in changes.items()}
+          task.update(validated)
+          return task
+
+
+      def delete_task(tasks, task_id):
+          """Удалить задачу из списка и вернуть её."""
+          task = find_task(tasks, task_id)
+          tasks.remove(task)
+          return task
+
+      PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+      def filter_tasks(tasks, *, done=None, priority=None, query=None, due_before=None):
+          """Вернуть задачи, подходящие под все заданные условия."""
+          result = []
+          for task in tasks:
+              if done is not None and task["done"] != done:
+                  continue
+              if priority is not None and task["priority"] != priority:
+                  continue
+              if query and query.lower() not in task["title"].lower():
+                  continue
+              if due_before is not None and (task["due"] is None or task["due"] >= due_before):
+                  continue
+              result.append(task)
+          return result
+
+
+      def sort_tasks(tasks):
+          """Вернуть задачи по порядку: невыполненные, по приоритету, по сроку, по номеру."""
+          return sorted(
+              tasks,
+              key=lambda task: (
+                  task["done"],
+                  PRIORITY_RANK[task["priority"]],
+                  task["due"] is None,
+                  task["due"] or "",
+                  task["id"],
+              ),
+          )
+    tests:
+    - name: Сохранение и загрузка
+      code: |
+        tasks = []
+        add_task(tasks, 'Купить молоко', 'high', '2026-10-20')
+        save_tasks('t.json', tasks)
+        assert load_tasks('t.json') == tasks
+    - name: Нет файла
+      call: load_tasks('no_such_file.json')
+      expected: '[]'
+    - name: Повреждённый файл
+      code: |
+        with open('bad.json', 'w', encoding='utf-8') as f:
+            f.write('{не json')
+        try:
+            load_tasks('bad.json')
+        except StorageError as error:
+            assert error.__cause__ is not None, 'Сохраните причину через raise ... from'
+        else:
+            raise AssertionError('Ожидался StorageError')
+    - name: Не список
+      code: |
+        with open('obj.json', 'w', encoding='utf-8') as f:
+            f.write('{"a": 1}')
+        try:
+            load_tasks('obj.json')
+        except StorageError:
+            pass
+        else:
+            raise AssertionError('Ожидался StorageError')
+    - name: Читаемый файл
+      code: |
+        tasks = []
+        add_task(tasks, 'Привет')
+        save_tasks('r.json', tasks)
+        with open('r.json', encoding='utf-8') as f:
+            raw = f.read()
+        assert 'Привет' in raw and '\n  {' in raw, 'Нужны ensure_ascii=False и indent=2'
+    timeout: 10
+- id: stage-06
+  title: Вывод задач и статистика
+  description: |
+    Пользователь видит задачи строками вида:
+
+    ```text
+    [ ] #3 Позвонить маме (medium, до 2026-10-18) — просрочено
+    [x] #4 Купить подарок (high, до 2026-10-19)
+    [ ] #2 Купить хлеб (low)
+    ```
+
+    Пометка «просрочено» добавляется только для невыполненных задач со сроком раньше текущей даты. Текущую дату передаём параметром `today` (строкой `ГГГГ-ММ-ДД`), а не вычисляем внутри — так функции остаются чистыми и их легко проверить.
+  hints:
+  - Чистая функция с параметром `today` вместо `date.today()` внутри — приём, который делает код проверяемым тестами.
+  tasks:
+  - id: t1
+    title: format_task и task_stats
+    difficulty: 3
+    statement: |
+      Напишите:
+
+      - `is_overdue(task, today)` — True для невыполненной задачи со сроком раньше `today`;
+      - `format_task(task, today=None)` — строка `[x] #<id> <title> (<priority>[, до <due>])`, где `x` — для выполненной, пробел — для невыполненной; если `today` задан и задача просрочена — в конце ` — просрочено`;
+      - `task_stats(tasks, today)` — словарь `{"total", "done", "active", "overdue"}`.
+    starter: |
+      # функции этапов 1–5 уже доступны
+
+
+      def is_overdue(task, today):
+          return False
+
+
+      def format_task(task, today=None):
+          return task["title"]
+
+
+      def task_stats(tasks, today):
+          return {}
+    hints:
+    - '`details = task["priority"]`, при наличии срока — `details += f", до {task[''due'']}"`.'
+    - Статистика — счётчики через `sum(1 for task in tasks if ...)`.
+    solution: |
+      def is_overdue(task, today):
+          """Проверить, просрочена ли невыполненная задача на дату today."""
+          return not task["done"] and task["due"] is not None and task["due"] < today
+
+
+      def format_task(task, today=None):
+          """Собрать строку задачи для вывода."""
+          mark = "x" if task["done"] else " "
+          details = task["priority"]
+          if task["due"]:
+              details += f", до {task['due']}"
+          line = f"[{mark}] #{task['id']} {task['title']} ({details})"
+          if today and is_overdue(task, today):
+              line += " — просрочено"
+          return line
+
+
+      def task_stats(tasks, today):
+          """Посчитать статистику по задачам."""
+          done = sum(1 for task in tasks if task["done"])
+          return {
+              "total": len(tasks),
+              "done": done,
+              "active": len(tasks) - done,
+              "overdue": sum(1 for task in tasks if is_overdue(task, today)),
+          }
+    solution_explanation: |
+      Эталонная реализация этапа. Обратите внимание на docstring у каждой функции, охранные проверки в начале и на то, что функции возвращают результат, а не печатают его. Полный разбор проекта — в эталонном решении внизу страницы.
+    setup: |
+      from datetime import date
+
+      PRIORITIES = ("low", "medium", "high")
+
+
+      def validate_title(title):
+          """Проверить и нормализовать название задачи."""
+          if not isinstance(title, str) or not title.strip():
+              raise ValueError("название задачи не может быть пустым")
+          return title.strip()
+
+
+      def validate_priority(priority):
+          """Проверить, что приоритет — low, medium или high."""
+          if priority not in PRIORITIES:
+              raise ValueError("приоритет должен быть одним из: low, medium, high")
+          return priority
+
+
+      def validate_due(due):
+          """Проверить срок в формате ГГГГ-ММ-ДД; None — срока нет."""
+          if due is None:
+              return None
+          try:
+              parsed = date.fromisoformat(due)
+          except (TypeError, ValueError):
+              parsed = None
+          if parsed is None or parsed.isoformat() != due:
+              raise ValueError(f"дата должна быть в формате ГГГГ-ММ-ДД, получено {due!r}")
+          return due
+
+
+      def make_task(task_id, title, priority="medium", due=None):
+          """Создать словарь задачи после проверки полей."""
+          return {
+              "id": task_id,
+              "title": validate_title(title),
+              "priority": validate_priority(priority),
+              "due": validate_due(due),
+              "done": False,
+          }
+
+      def next_id(tasks):
+          """Вернуть номер для новой задачи: на единицу больше максимального."""
+          return max((task["id"] for task in tasks), default=0) + 1
+
+
+      def add_task(tasks, title, priority="medium", due=None):
+          """Создать задачу, добавить её в список и вернуть."""
+          task = make_task(next_id(tasks), title, priority, due)
+          tasks.append(task)
+          return task
+
+      class TaskNotFoundError(Exception):
+          """Задача с таким номером не найдена."""
+
+
+      VALIDATORS = {"title": validate_title, "priority": validate_priority, "due": validate_due}
+
+
+      def find_task(tasks, task_id):
+          """Найти задачу по номеру или бросить TaskNotFoundError."""
+          for task in tasks:
+              if task["id"] == task_id:
+                  return task
+          raise TaskNotFoundError(f"задача #{task_id} не найдена")
+
+
+      def complete_task(tasks, task_id):
+          """Отметить задачу выполненной и вернуть её."""
+          task = find_task(tasks, task_id)
+          task["done"] = True
+          return task
+
+
+      def update_task(tasks, task_id, **changes):
+          """Изменить поля задачи (title, priority, due) после проверки."""
+          task = find_task(tasks, task_id)
+          for field in changes:
+              if field not in VALIDATORS:
+                  raise ValueError(f"поле {field} нельзя изменить")
+          validated = {field: VALIDATORS[field](value) for field, value in changes.items()}
+          task.update(validated)
+          return task
+
+
+      def delete_task(tasks, task_id):
+          """Удалить задачу из списка и вернуть её."""
+          task = find_task(tasks, task_id)
+          tasks.remove(task)
+          return task
+
+      PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+      def filter_tasks(tasks, *, done=None, priority=None, query=None, due_before=None):
+          """Вернуть задачи, подходящие под все заданные условия."""
+          result = []
+          for task in tasks:
+              if done is not None and task["done"] != done:
+                  continue
+              if priority is not None and task["priority"] != priority:
+                  continue
+              if query and query.lower() not in task["title"].lower():
+                  continue
+              if due_before is not None and (task["due"] is None or task["due"] >= due_before):
+                  continue
+              result.append(task)
+          return result
+
+
+      def sort_tasks(tasks):
+          """Вернуть задачи по порядку: невыполненные, по приоритету, по сроку, по номеру."""
+          return sorted(
+              tasks,
+              key=lambda task: (
+                  task["done"],
+                  PRIORITY_RANK[task["priority"]],
+                  task["due"] is None,
+                  task["due"] or "",
+                  task["id"],
+              ),
+          )
+
+      import json
+
+
+      class StorageError(Exception):
+          """Файл с задачами повреждён."""
+
+
+      def save_tasks(path, tasks):
+          """Сохранить задачи в JSON-файл."""
+          with open(path, "w", encoding="utf-8") as file:
+              json.dump(tasks, file, ensure_ascii=False, indent=2)
+
+
+      def load_tasks(path):
+          """Загрузить задачи из JSON-файла; нет файла — пустой список."""
+          try:
+              with open(path, encoding="utf-8") as file:
+                  data = json.load(file)
+          except FileNotFoundError:
+              return []
+          except json.JSONDecodeError as error:
+              raise StorageError(f"файл {path} повреждён") from error
+          if not isinstance(data, list):
+              raise StorageError(f"файл {path} должен содержать список задач")
+          return data
+      SAMPLE = []
+      add_task(SAMPLE, 'Отчёт', 'high', '2026-10-25')
+      add_task(SAMPLE, 'Купить хлеб', 'low')
+      add_task(SAMPLE, 'Позвонить маме', 'medium', '2026-10-18')
+      add_task(SAMPLE, 'Купить подарок', 'high', '2026-10-19')
+      complete_task(SAMPLE, 4)
+    tests:
+    - name: Без срока
+      call: format_task(SAMPLE[1])
+      expected: '''[ ] #2 Купить хлеб (low)'''
+    - name: Выполненная со сроком
+      call: format_task(SAMPLE[3], '2026-10-30')
+      expected: '''[x] #4 Купить подарок (high, до 2026-10-19)'''
+    - name: Просроченная
+      call: format_task(SAMPLE[2], '2026-10-20')
+      expected: '''[ ] #3 Позвонить маме (medium, до 2026-10-18) — просрочено'''
+    - name: Срок сегодня — не просрочено
+      call: is_overdue(SAMPLE[2], '2026-10-18')
+      expected: 'False'
+    - name: Статистика
+      call: task_stats(SAMPLE, '2026-10-20')
+      expected: '{''total'': 4, ''done'': 1, ''active'': 3, ''overdue'': 1}'
+    - name: Пустой список
+      call: task_stats([], '2026-01-01')
+      expected: '{''total'': 0, ''done'': 0, ''active'': 0, ''overdue'': 0}'
+    timeout: 10
+- id: stage-07
+  title: Обработчик команд
+  description: |
+    Пользователь управляет задачами текстовыми командами. Напишите функцию, которая принимает строку команды и **возвращает** текст ответа (не печатает!) — тогда её можно проверить тестами и подключить к любому интерфейсу: консоли, чат-боту, веб-сервису.
+
+    | Команда | Ответ |
+    |---|---|
+    | `add <название> [!приоритет] [@ГГГГ-ММ-ДД]` | `Добавлена: <строка задачи>` |
+    | `done <номер>` | `Выполнена: #<номер> <название>` |
+    | `del <номер>` | `Удалена: #<номер> <название>` |
+    | `rename <номер> <новое название>` | `Изменена: <строка задачи>` |
+    | `list` | активные задачи по порядку `sort_tasks` или `Задач нет` |
+    | `list all` | все задачи по порядку или `Задач нет` |
+    | `find <текст>` | найденные задачи по порядку или `Ничего не найдено` |
+    | `stats` | `Всего: N, выполнено: D, активных: A, просрочено: O` |
+    | `help` | краткая справка (любой текст, начинающийся с `Команды:`) |
+    | пустая строка | пустая строка |
+    | другое | `Неизвестная команда: <первое слово>. Введите help` |
+
+    Строки задач в `list` и `find` выводятся через `format_task(task, today)` и разделяются переводом строки. Ошибки (`ValueError`, `TaskNotFoundError`) превращаются в ответ `Ошибка: <сообщение>`; нечисловой номер — `Ошибка: номер задачи должен быть числом`.
+  hints:
+  - '`match line.split():` с образцами `["add", *rest]`, `["done", number]` — отличный инструмент для разбора команд (блок 1.2).'
+  tasks:
+  - id: t1
+    title: handle_command
+    difficulty: 3
+    statement: |
+      Напишите `handle_command(tasks, line, today)` по таблице команд выше. В `add` слова, начинающиеся с `!`, задают приоритет, с `@` — срок, остальные слова — название.
+    starter: |
+      # функции этапов 1–6 уже доступны
+
+
+      def handle_command(tasks, line, today):
+          return ""
+    hints:
+    - 'Вспомогательные функции: `parse_add(words)` → (название, приоритет, срок) и `parse_id(text)` → int или ValueError с нужным сообщением.'
+    - Оберните весь match в `try:` и перехватите `(ValueError, TaskNotFoundError)`.
+    solution: |
+      HELP = (
+          "Команды: add <название> [!low|!medium|!high] [@ГГГГ-ММ-ДД], done <номер>, del <номер>, "
+          "rename <номер> <название>, list [all], find <текст>, stats, help, выход"
+      )
+
+
+      def parse_add(words):
+          """Разобрать аргументы add: слова названия, !приоритет и @срок."""
+          priority = "medium"
+          due = None
+          title_words = []
+          for word in words:
+              if word.startswith("!") and len(word) > 1:
+                  priority = word[1:]
+              elif word.startswith("@") and len(word) > 1:
+                  due = word[1:]
+              else:
+                  title_words.append(word)
+          return " ".join(title_words), priority, due
+
+
+      def parse_id(text):
+          """Преобразовать номер задачи в int с понятной ошибкой."""
+          try:
+              return int(text)
+          except ValueError:
+              raise ValueError("номер задачи должен быть числом") from None
+
+
+      def format_list(tasks, today):
+          """Отформатировать список задач в порядке sort_tasks."""
+          return "\n".join(format_task(task, today) for task in sort_tasks(tasks))
+
+
+      def handle_command(tasks, line, today):
+          """Выполнить команду пользователя и вернуть текст ответа."""
+          words = line.split()
+          try:
+              match words:
+                  case []:
+                      return ""
+                  case ["add", *rest]:
+                      title, priority, due = parse_add(rest)
+                      return "Добавлена: " + format_task(add_task(tasks, title, priority, due))
+                  case ["done", number]:
+                      task = complete_task(tasks, parse_id(number))
+                      return f"Выполнена: #{task['id']} {task['title']}"
+                  case ["del", number]:
+                      task = delete_task(tasks, parse_id(number))
+                      return f"Удалена: #{task['id']} {task['title']}"
+                  case ["rename", number, *title]:
+                      task = update_task(tasks, parse_id(number), title=" ".join(title))
+                      return "Изменена: " + format_task(task)
+                  case ["list"]:
+                      active = filter_tasks(tasks, done=False)
+                      return format_list(active, today) if active else "Задач нет"
+                  case ["list", "all"]:
+                      return format_list(tasks, today) if tasks else "Задач нет"
+                  case ["find", *query] if query:
+                      found = filter_tasks(tasks, query=" ".join(query))
+                      return format_list(found, today) if found else "Ничего не найдено"
+                  case ["stats"]:
+                      stats = task_stats(tasks, today)
+                      return (
+                          f"Всего: {stats['total']}, выполнено: {stats['done']}, "
+                          f"активных: {stats['active']}, просрочено: {stats['overdue']}"
+                      )
+                  case ["help"]:
+                      return HELP
+                  case [command, *_]:
+                      return f"Неизвестная команда: {command}. Введите help"
+          except (ValueError, TaskNotFoundError) as error:
+              return f"Ошибка: {error}"
+    solution_explanation: |
+      Эталонная реализация этапа. Обратите внимание на docstring у каждой функции, охранные проверки в начале и на то, что функции возвращают результат, а не печатают его. Полный разбор проекта — в эталонном решении внизу страницы.
+    setup: |
+      from datetime import date
+
+      PRIORITIES = ("low", "medium", "high")
+
+
+      def validate_title(title):
+          """Проверить и нормализовать название задачи."""
+          if not isinstance(title, str) or not title.strip():
+              raise ValueError("название задачи не может быть пустым")
+          return title.strip()
+
+
+      def validate_priority(priority):
+          """Проверить, что приоритет — low, medium или high."""
+          if priority not in PRIORITIES:
+              raise ValueError("приоритет должен быть одним из: low, medium, high")
+          return priority
+
+
+      def validate_due(due):
+          """Проверить срок в формате ГГГГ-ММ-ДД; None — срока нет."""
+          if due is None:
+              return None
+          try:
+              parsed = date.fromisoformat(due)
+          except (TypeError, ValueError):
+              parsed = None
+          if parsed is None or parsed.isoformat() != due:
+              raise ValueError(f"дата должна быть в формате ГГГГ-ММ-ДД, получено {due!r}")
+          return due
+
+
+      def make_task(task_id, title, priority="medium", due=None):
+          """Создать словарь задачи после проверки полей."""
+          return {
+              "id": task_id,
+              "title": validate_title(title),
+              "priority": validate_priority(priority),
+              "due": validate_due(due),
+              "done": False,
+          }
+
+      def next_id(tasks):
+          """Вернуть номер для новой задачи: на единицу больше максимального."""
+          return max((task["id"] for task in tasks), default=0) + 1
+
+
+      def add_task(tasks, title, priority="medium", due=None):
+          """Создать задачу, добавить её в список и вернуть."""
+          task = make_task(next_id(tasks), title, priority, due)
+          tasks.append(task)
+          return task
+
+      class TaskNotFoundError(Exception):
+          """Задача с таким номером не найдена."""
+
+
+      VALIDATORS = {"title": validate_title, "priority": validate_priority, "due": validate_due}
+
+
+      def find_task(tasks, task_id):
+          """Найти задачу по номеру или бросить TaskNotFoundError."""
+          for task in tasks:
+              if task["id"] == task_id:
+                  return task
+          raise TaskNotFoundError(f"задача #{task_id} не найдена")
+
+
+      def complete_task(tasks, task_id):
+          """Отметить задачу выполненной и вернуть её."""
+          task = find_task(tasks, task_id)
+          task["done"] = True
+          return task
+
+
+      def update_task(tasks, task_id, **changes):
+          """Изменить поля задачи (title, priority, due) после проверки."""
+          task = find_task(tasks, task_id)
+          for field in changes:
+              if field not in VALIDATORS:
+                  raise ValueError(f"поле {field} нельзя изменить")
+          validated = {field: VALIDATORS[field](value) for field, value in changes.items()}
+          task.update(validated)
+          return task
+
+
+      def delete_task(tasks, task_id):
+          """Удалить задачу из списка и вернуть её."""
+          task = find_task(tasks, task_id)
+          tasks.remove(task)
+          return task
+
+      PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+      def filter_tasks(tasks, *, done=None, priority=None, query=None, due_before=None):
+          """Вернуть задачи, подходящие под все заданные условия."""
+          result = []
+          for task in tasks:
+              if done is not None and task["done"] != done:
+                  continue
+              if priority is not None and task["priority"] != priority:
+                  continue
+              if query and query.lower() not in task["title"].lower():
+                  continue
+              if due_before is not None and (task["due"] is None or task["due"] >= due_before):
+                  continue
+              result.append(task)
+          return result
+
+
+      def sort_tasks(tasks):
+          """Вернуть задачи по порядку: невыполненные, по приоритету, по сроку, по номеру."""
+          return sorted(
+              tasks,
+              key=lambda task: (
+                  task["done"],
+                  PRIORITY_RANK[task["priority"]],
+                  task["due"] is None,
+                  task["due"] or "",
+                  task["id"],
+              ),
+          )
+
+      import json
+
+
+      class StorageError(Exception):
+          """Файл с задачами повреждён."""
+
+
+      def save_tasks(path, tasks):
+          """Сохранить задачи в JSON-файл."""
+          with open(path, "w", encoding="utf-8") as file:
+              json.dump(tasks, file, ensure_ascii=False, indent=2)
+
+
+      def load_tasks(path):
+          """Загрузить задачи из JSON-файла; нет файла — пустой список."""
+          try:
+              with open(path, encoding="utf-8") as file:
+                  data = json.load(file)
+          except FileNotFoundError:
+              return []
+          except json.JSONDecodeError as error:
+              raise StorageError(f"файл {path} повреждён") from error
+          if not isinstance(data, list):
+              raise StorageError(f"файл {path} должен содержать список задач")
+          return data
+
+      def is_overdue(task, today):
+          """Проверить, просрочена ли невыполненная задача на дату today."""
+          return not task["done"] and task["due"] is not None and task["due"] < today
+
+
+      def format_task(task, today=None):
+          """Собрать строку задачи для вывода."""
+          mark = "x" if task["done"] else " "
+          details = task["priority"]
+          if task["due"]:
+              details += f", до {task['due']}"
+          line = f"[{mark}] #{task['id']} {task['title']} ({details})"
+          if today and is_overdue(task, today):
+              line += " — просрочено"
+          return line
+
+
+      def task_stats(tasks, today):
+          """Посчитать статистику по задачам."""
+          done = sum(1 for task in tasks if task["done"])
+          return {
+              "total": len(tasks),
+              "done": done,
+              "active": len(tasks) - done,
+              "overdue": sum(1 for task in tasks if is_overdue(task, today)),
+          }
+    tests:
+    - name: Добавление
+      call: handle_command([], 'add Купить молоко !high @2026-10-20', '2026-10-17')
+      expected: '''Добавлена: [ ] #1 Купить молоко (high, до 2026-10-20)'''
+    - name: 'Сценарий: done, list, stats'
+      code: |
+        tasks = []
+        handle_command(tasks, 'add Отчёт !high', '2026-10-17')
+        handle_command(tasks, 'add Хлеб !low', '2026-10-17')
+        assert handle_command(tasks, 'done 2', '2026-10-17') == 'Выполнена: #2 Хлеб'
+        assert handle_command(tasks, 'list', '2026-10-17') == '[ ] #1 Отчёт (high)'
+        assert handle_command(tasks, 'list all', '2026-10-17') == '[ ] #1 Отчёт (high)\n[x] #2 Хлеб (low)'
+        assert handle_command(tasks, 'stats', '2026-10-17') == 'Всего: 2, выполнено: 1, активных: 1, просрочено: 0'
+    - name: Ошибки ввода
+      code: |
+        tasks = []
+        assert handle_command(tasks, 'done abc', '2026-10-17') == 'Ошибка: номер задачи должен быть числом'
+        assert handle_command(tasks, 'del 5', '2026-10-17') == 'Ошибка: задача #5 не найдена'
+        assert handle_command(tasks, 'add', '2026-10-17') == 'Ошибка: название задачи не может быть пустым'
+        assert handle_command(tasks, 'add X !super', '2026-10-17').startswith('Ошибка: приоритет')
+    - name: Поиск и переименование
+      code: |
+        tasks = []
+        handle_command(tasks, 'add Купить хлеб', '2026-10-17')
+        assert handle_command(tasks, 'rename 1 Купить батон', '2026-10-17') == 'Изменена: [ ] #1 Купить батон (medium)'
+        assert handle_command(tasks, 'find батон', '2026-10-17') == '[ ] #1 Купить батон (medium)'
+        assert handle_command(tasks, 'find молоко', '2026-10-17') == 'Ничего не найдено'
+    - name: Пустой список и неизвестная команда
+      code: |
+        assert handle_command([], 'list', '2026-10-17') == 'Задач нет'
+        assert handle_command([], 'fly', '2026-10-17') == 'Неизвестная команда: fly. Введите help'
+        assert handle_command([], '   ', '2026-10-17') == ''
+        assert handle_command([], 'help', '2026-10-17').startswith('Команды:')
+    - name: Просрочка в списке
+      code: |
+        tasks = []
+        handle_command(tasks, 'add Сдать отчёт @2026-10-01', '2026-10-17')
+        assert handle_command(tasks, 'list', '2026-10-17') == '[ ] #1 Сдать отчёт (medium, до 2026-10-01) — просрочено'
+    timeout: 10
+- id: stage-08
+  title: Главный цикл программы
+  description: |
+    Соберите всё в работающее приложение. Функция `main()`:
+
+    1. берёт текущую дату `date.today().isoformat()`;
+    2. загружает задачи из `tasks.json` (при `StorageError` печатает `Ошибка: <сообщение>. Начинаем с пустого списка.` и начинает с пустого списка);
+    3. печатает приветствие `Менеджер задач. Введите help для списка команд, выход — для завершения.`;
+    4. в цикле читает команды через `input("> ")`, пока не встретит `выход` или `exit` (или конец ввода — `EOFError`);
+    5. печатает непустые ответы `handle_command`;
+    6. после команд, меняющих задачи (`add`, `done`, `del`, `rename`), сохраняет файл;
+    7. в конце печатает `До встречи!`.
+
+    Запуск `main()` — под `if __name__ == "__main__":`. Запустите программу кнопкой «Запустить», введя команды в поле ввода по одной на строку.
+  hints:
+  - Приглашение `> ` в input при проверке не учитывается — проверяется только то, что печатает print.
+  tasks:
+  - id: t1
+    title: main
+    difficulty: 3
+    statement: |
+      Напишите функцию `main()` по описанию этапа и запуск под `if __name__ == "__main__":`.
+    starter: |
+      # функции этапов 1–7 уже доступны
+      STORAGE = "tasks.json"
+
+
+      def main():
+          pass
+
+
+      if __name__ == "__main__":
+          main()
+    hints:
+    - 'Цикл: `while True:` + `try: line = input("> ") except EOFError: break`.'
+    - 'Проверка изменяющей команды: `words = line.split()` и `if words and words[0] in {"add", "done", "del", "rename"}: save_tasks(STORAGE, tasks)`.'
+    solution: |
+      STORAGE = "tasks.json"
+      CHANGING_COMMANDS = {"add", "done", "del", "rename"}
+
+
+      def main():
+          """Запустить интерактивный менеджер задач."""
+          today = date.today().isoformat()
+          try:
+              tasks = load_tasks(STORAGE)
+          except StorageError as error:
+              print(f"Ошибка: {error}. Начинаем с пустого списка.")
+              tasks = []
+          print("Менеджер задач. Введите help для списка команд, выход — для завершения.")
+          while True:
+              try:
+                  line = input("> ")
+              except EOFError:
+                  break
+              if line.strip() in ("выход", "exit"):
+                  break
+              result = handle_command(tasks, line, today)
+              if result:
+                  print(result)
+              words = line.split()
+              if words and words[0] in CHANGING_COMMANDS:
+                  save_tasks(STORAGE, tasks)
+          print("До встречи!")
+
+
+      if __name__ == "__main__":
+          main()
+    solution_explanation: |
+      Эталонная реализация этапа. Обратите внимание на docstring у каждой функции, охранные проверки в начале и на то, что функции возвращают результат, а не печатают его. Полный разбор проекта — в эталонном решении внизу страницы.
+    setup: |
+      from datetime import date
+
+      PRIORITIES = ("low", "medium", "high")
+
+
+      def validate_title(title):
+          """Проверить и нормализовать название задачи."""
+          if not isinstance(title, str) or not title.strip():
+              raise ValueError("название задачи не может быть пустым")
+          return title.strip()
+
+
+      def validate_priority(priority):
+          """Проверить, что приоритет — low, medium или high."""
+          if priority not in PRIORITIES:
+              raise ValueError("приоритет должен быть одним из: low, medium, high")
+          return priority
+
+
+      def validate_due(due):
+          """Проверить срок в формате ГГГГ-ММ-ДД; None — срока нет."""
+          if due is None:
+              return None
+          try:
+              parsed = date.fromisoformat(due)
+          except (TypeError, ValueError):
+              parsed = None
+          if parsed is None or parsed.isoformat() != due:
+              raise ValueError(f"дата должна быть в формате ГГГГ-ММ-ДД, получено {due!r}")
+          return due
+
+
+      def make_task(task_id, title, priority="medium", due=None):
+          """Создать словарь задачи после проверки полей."""
+          return {
+              "id": task_id,
+              "title": validate_title(title),
+              "priority": validate_priority(priority),
+              "due": validate_due(due),
+              "done": False,
+          }
+
+      def next_id(tasks):
+          """Вернуть номер для новой задачи: на единицу больше максимального."""
+          return max((task["id"] for task in tasks), default=0) + 1
+
+
+      def add_task(tasks, title, priority="medium", due=None):
+          """Создать задачу, добавить её в список и вернуть."""
+          task = make_task(next_id(tasks), title, priority, due)
+          tasks.append(task)
+          return task
+
+      class TaskNotFoundError(Exception):
+          """Задача с таким номером не найдена."""
+
+
+      VALIDATORS = {"title": validate_title, "priority": validate_priority, "due": validate_due}
+
+
+      def find_task(tasks, task_id):
+          """Найти задачу по номеру или бросить TaskNotFoundError."""
+          for task in tasks:
+              if task["id"] == task_id:
+                  return task
+          raise TaskNotFoundError(f"задача #{task_id} не найдена")
+
+
+      def complete_task(tasks, task_id):
+          """Отметить задачу выполненной и вернуть её."""
+          task = find_task(tasks, task_id)
+          task["done"] = True
+          return task
+
+
+      def update_task(tasks, task_id, **changes):
+          """Изменить поля задачи (title, priority, due) после проверки."""
+          task = find_task(tasks, task_id)
+          for field in changes:
+              if field not in VALIDATORS:
+                  raise ValueError(f"поле {field} нельзя изменить")
+          validated = {field: VALIDATORS[field](value) for field, value in changes.items()}
+          task.update(validated)
+          return task
+
+
+      def delete_task(tasks, task_id):
+          """Удалить задачу из списка и вернуть её."""
+          task = find_task(tasks, task_id)
+          tasks.remove(task)
+          return task
+
+      PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+      def filter_tasks(tasks, *, done=None, priority=None, query=None, due_before=None):
+          """Вернуть задачи, подходящие под все заданные условия."""
+          result = []
+          for task in tasks:
+              if done is not None and task["done"] != done:
+                  continue
+              if priority is not None and task["priority"] != priority:
+                  continue
+              if query and query.lower() not in task["title"].lower():
+                  continue
+              if due_before is not None and (task["due"] is None or task["due"] >= due_before):
+                  continue
+              result.append(task)
+          return result
+
+
+      def sort_tasks(tasks):
+          """Вернуть задачи по порядку: невыполненные, по приоритету, по сроку, по номеру."""
+          return sorted(
+              tasks,
+              key=lambda task: (
+                  task["done"],
+                  PRIORITY_RANK[task["priority"]],
+                  task["due"] is None,
+                  task["due"] or "",
+                  task["id"],
+              ),
+          )
+
+      import json
+
+
+      class StorageError(Exception):
+          """Файл с задачами повреждён."""
+
+
+      def save_tasks(path, tasks):
+          """Сохранить задачи в JSON-файл."""
+          with open(path, "w", encoding="utf-8") as file:
+              json.dump(tasks, file, ensure_ascii=False, indent=2)
+
+
+      def load_tasks(path):
+          """Загрузить задачи из JSON-файла; нет файла — пустой список."""
+          try:
+              with open(path, encoding="utf-8") as file:
+                  data = json.load(file)
+          except FileNotFoundError:
+              return []
+          except json.JSONDecodeError as error:
+              raise StorageError(f"файл {path} повреждён") from error
+          if not isinstance(data, list):
+              raise StorageError(f"файл {path} должен содержать список задач")
+          return data
+
+      def is_overdue(task, today):
+          """Проверить, просрочена ли невыполненная задача на дату today."""
+          return not task["done"] and task["due"] is not None and task["due"] < today
+
+
+      def format_task(task, today=None):
+          """Собрать строку задачи для вывода."""
+          mark = "x" if task["done"] else " "
+          details = task["priority"]
+          if task["due"]:
+              details += f", до {task['due']}"
+          line = f"[{mark}] #{task['id']} {task['title']} ({details})"
+          if today and is_overdue(task, today):
+              line += " — просрочено"
+          return line
+
+
+      def task_stats(tasks, today):
+          """Посчитать статистику по задачам."""
+          done = sum(1 for task in tasks if task["done"])
+          return {
+              "total": len(tasks),
+              "done": done,
+              "active": len(tasks) - done,
+              "overdue": sum(1 for task in tasks if is_overdue(task, today)),
+          }
+
+      HELP = (
+          "Команды: add <название> [!low|!medium|!high] [@ГГГГ-ММ-ДД], done <номер>, del <номер>, "
+          "rename <номер> <название>, list [all], find <текст>, stats, help, выход"
+      )
+
+
+      def parse_add(words):
+          """Разобрать аргументы add: слова названия, !приоритет и @срок."""
+          priority = "medium"
+          due = None
+          title_words = []
+          for word in words:
+              if word.startswith("!") and len(word) > 1:
+                  priority = word[1:]
+              elif word.startswith("@") and len(word) > 1:
+                  due = word[1:]
+              else:
+                  title_words.append(word)
+          return " ".join(title_words), priority, due
+
+
+      def parse_id(text):
+          """Преобразовать номер задачи в int с понятной ошибкой."""
+          try:
+              return int(text)
+          except ValueError:
+              raise ValueError("номер задачи должен быть числом") from None
+
+
+      def format_list(tasks, today):
+          """Отформатировать список задач в порядке sort_tasks."""
+          return "\n".join(format_task(task, today) for task in sort_tasks(tasks))
+
+
+      def handle_command(tasks, line, today):
+          """Выполнить команду пользователя и вернуть текст ответа."""
+          words = line.split()
+          try:
+              match words:
+                  case []:
+                      return ""
+                  case ["add", *rest]:
+                      title, priority, due = parse_add(rest)
+                      return "Добавлена: " + format_task(add_task(tasks, title, priority, due))
+                  case ["done", number]:
+                      task = complete_task(tasks, parse_id(number))
+                      return f"Выполнена: #{task['id']} {task['title']}"
+                  case ["del", number]:
+                      task = delete_task(tasks, parse_id(number))
+                      return f"Удалена: #{task['id']} {task['title']}"
+                  case ["rename", number, *title]:
+                      task = update_task(tasks, parse_id(number), title=" ".join(title))
+                      return "Изменена: " + format_task(task)
+                  case ["list"]:
+                      active = filter_tasks(tasks, done=False)
+                      return format_list(active, today) if active else "Задач нет"
+                  case ["list", "all"]:
+                      return format_list(tasks, today) if tasks else "Задач нет"
+                  case ["find", *query] if query:
+                      found = filter_tasks(tasks, query=" ".join(query))
+                      return format_list(found, today) if found else "Ничего не найдено"
+                  case ["stats"]:
+                      stats = task_stats(tasks, today)
+                      return (
+                          f"Всего: {stats['total']}, выполнено: {stats['done']}, "
+                          f"активных: {stats['active']}, просрочено: {stats['overdue']}"
+                      )
+                  case ["help"]:
+                      return HELP
+                  case [command, *_]:
+                      return f"Неизвестная команда: {command}. Введите help"
+          except (ValueError, TaskNotFoundError) as error:
+              return f"Ошибка: {error}"
+    tests:
+    - name: Сеанс работы
+      setup: |
+        import os
+        if os.path.exists('tasks.json'):
+            os.remove('tasks.json')
+      stdin: |
+        add Купить молоко !high @2099-01-01
+        add Позвонить
+        list
+        done 1
+        list
+        выход
+      stdout: |
+        Менеджер задач. Введите help для списка команд, выход — для завершения.
+        Добавлена: [ ] #1 Купить молоко (high, до 2099-01-01)
+        Добавлена: [ ] #2 Позвонить (medium)
+        [ ] #1 Купить молоко (high, до 2099-01-01)
+        [ ] #2 Позвонить (medium)
+        Выполнена: #1 Купить молоко
+        [ ] #2 Позвонить (medium)
+        До встречи!
+    - name: Загрузка сохранённых задач
+      setup: |
+        import json
+        with open('tasks.json', 'w', encoding='utf-8') as f:
+            json.dump([{'id': 7, 'title': 'Старая задача', 'priority': 'low', 'due': None, 'done': False}], f)
+      stdin: |
+        list
+        add Новая
+        выход
+      stdout: |
+        Менеджер задач. Введите help для списка команд, выход — для завершения.
+        [ ] #7 Старая задача (low)
+        Добавлена: [ ] #8 Новая (medium)
+        До встречи!
+    - name: Сохранение в файл
+      setup: |
+        import os
+        if os.path.exists('tasks.json'):
+            os.remove('tasks.json')
+      stdin: |
+        add Сохранить меня
+        выход
+      stdout_contains:
+      - 'Добавлена: [ ] #1 Сохранить меня (medium)'
+    - name: Повреждённый файл
+      setup: |
+        with open('tasks.json', 'w', encoding='utf-8') as f:
+            f.write('{{{')
+      stdin: |
+        list
+        выход
+      stdout: |
+        Ошибка: файл tasks.json повреждён. Начинаем с пустого списка.
+        Менеджер задач. Введите help для списка команд, выход — для завершения.
+        Задач нет
+        До встречи!
+    - name: Конец ввода без команды выход
+      setup: |
+        import os
+        if os.path.exists('tasks.json'):
+            os.remove('tasks.json')
+      stdin: 'stats
+
+        '
+      stdout: |
+        Менеджер задач. Введите help для списка команд, выход — для завершения.
+        Всего: 0, выполнено: 0, активных: 0, просрочено: 0
+        До встречи!
+    timeout: 10
+  criteria:
+  - 'Логика (этапы 1–7) отделена от ввода-вывода: `print` и `input` есть только в `main`'
+  - Каждая функция делает одну вещь и имеет docstring
+  - Ошибки пользователя не роняют программу — выводится понятное сообщение
+  - Задачи сохраняются между запусками программы

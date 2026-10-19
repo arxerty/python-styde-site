@@ -1,0 +1,986 @@
+title: "Практикум: асинхронность и сеть"
+description: |
+  Вопросы и задачи по всему блоку: async/await и цикл событий, gather и таймауты, семафоры и лимиты частоты, HTTP, httpx, переменные окружения.
+  Последняя задача — мини-проект «Асинхронный сборщик данных из публичного API с лимитом запросов» (выполняется локально, сеть подменяется MockTransport).
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: single
+    prompt: "Какую задачу асинхронность ускоряет, а какую — нет?"
+    options:
+      - text: "Ускоряет много одновременных ожиданий (сеть, диск); не ускоряет вычисления на Python"
+        correct: true
+        why: "Все задачи идут в одном потоке и чередуются в точках await."
+      - text: "Ускоряет вычисления за счёт нескольких ядер"
+        why: "Это делают процессы; asyncio работает в одном потоке."
+      - text: "Ускоряет любой код в 2–4 раза"
+        why: "Код без ожиданий асинхронность только замедлит."
+    explanation: "asyncio — для конкурентного ожидания."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import asyncio
+
+      async def double(x):
+          return x * 2
+
+      result = double(21)
+      print(type(result).__name__, asyncio.run(result))
+    options:
+      - text: "`coroutine 42`"
+        correct: true
+        why: "Вызов async-функции создаёт корутину; asyncio.run её выполняет."
+      - text: "`int 42`"
+        why: "Без await или asyncio.run тело функции не выполняется."
+      - text: "`function 42`"
+        why: "Результат вызова — объект корутины."
+    explanation: "Корутину нужно дождаться: await внутри async-функции или asyncio.run снаружи."
+
+  - id: q3
+    type: output
+    prompt: "Примерно сколько секунд выведет код?"
+    code: |
+      import asyncio
+      import time
+
+      async def job(delay):
+          await asyncio.sleep(delay)
+
+      async def main():
+          await job(0.1)
+          await asyncio.gather(job(0.2), job(0.3))
+
+      start = time.perf_counter()
+      asyncio.run(main())
+      print(round(time.perf_counter() - start, 1))
+    options:
+      - text: "`0.4`"
+        correct: true
+        why: "0.1 последовательно, затем max(0.2, 0.3) = 0.3 параллельно."
+      - text: "`0.6`"
+        why: "Внутри gather задачи ждут одновременно."
+      - text: "`0.3`"
+        why: "Первый await выполняется до запуска gather."
+    explanation: "Последовательные await складываются, gather — берёт максимум."
+
+  - id: q4
+    type: find_bug
+    prompt: "Почему эта «асинхронная» загрузка работает так же медленно, как синхронная?"
+    code: |
+      import asyncio
+      import time
+
+      async def fetch(url):
+          time.sleep(1)
+          return url
+
+      async def main(urls):
+          return await asyncio.gather(*(fetch(u) for u in urls))
+    options:
+      - text: "time.sleep блокирует цикл событий — нужен await asyncio.sleep (или асинхронный клиент)"
+        correct: true
+        why: "Блокирующий вызов не уступает управление другим задачам."
+      - text: "gather нельзя передавать генератор"
+        why: "Распаковка * превращает генератор в аргументы — это нормально."
+      - text: "Нужно добавить create_task перед gather"
+        why: "gather сам оборачивает корутины в задачи; проблема в блокирующем sleep."
+    explanation: "Один синхронный вызов в async-коде — и конкурентность пропадает."
+
+  - id: q5
+    type: multiple
+    prompt: "Что верно про `asyncio.gather`? Выберите все."
+    options:
+      - text: "Результаты возвращаются в порядке аргументов, а не завершения"
+        correct: true
+        why: "Порядок соответствует переданным корутинам."
+      - text: "С `return_exceptions=True` исключения попадают в список результатов"
+        correct: true
+        why: "Одна ошибка не прерывает сбор остальных результатов."
+      - text: "Без `return_exceptions` первое исключение пробрасывается в вызывающий код"
+        correct: true
+        why: "await gather(...) бросит его."
+      - text: "gather ограничивает число одновременных задач"
+        why: "Для этого нужен семафор."
+    explanation: "gather + семафор + return_exceptions — основа пакетных запросов."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import asyncio
+
+      async def slow():
+          await asyncio.sleep(1)
+          return "готово"
+
+      async def main():
+          try:
+              return await asyncio.wait_for(slow(), timeout=0.05)
+          except TimeoutError:
+              return "таймаут"
+
+      print(asyncio.run(main()))
+    options:
+      - text: "`таймаут`"
+        correct: true
+        why: "wait_for отменяет корутину и бросает TimeoutError."
+      - text: "`готово`"
+        why: "Корутина не успевает за 0.05 с."
+      - text: "`None`"
+        why: "Исключение перехвачено и возвращена строка."
+    explanation: "В Python 3.11+ asyncio.TimeoutError — это встроенный TimeoutError."
+
+  - id: q7
+    type: single
+    prompt: "Чем семафор отличается от ограничителя частоты (rate limiter)?"
+    options:
+      - text: "Семафор ограничивает число запросов одновременно, rate limiter — число запросов за интервал времени"
+        correct: true
+        why: "Это два разных лимита, часто их применяют вместе."
+      - text: "Ничем, это синонимы"
+        why: "При быстрых ответах семафор пропустит сотни запросов в секунду."
+      - text: "Семафор работает только с потоками"
+        why: "asyncio.Semaphore — для корутин."
+    explanation: "LLM API ограничивают и одновременность, и RPM/TPM."
+
+  - id: q8
+    type: output
+    prompt: "Сколько максимум корутин одновременно находится внутри `async with`?"
+    code: |
+      import asyncio
+
+      state = {"now": 0, "peak": 0}
+
+      async def work(semaphore):
+          async with semaphore:
+              state["now"] += 1
+              state["peak"] = max(state["peak"], state["now"])
+              await asyncio.sleep(0.01)
+              state["now"] -= 1
+
+      async def main():
+          semaphore = asyncio.Semaphore(4)
+          await asyncio.gather(*(work(semaphore) for _ in range(10)))
+
+      asyncio.run(main())
+      print(state["peak"])
+    options:
+      - text: "`4`"
+        correct: true
+        why: "Семафор выдаёт не больше 4 разрешений одновременно."
+      - text: "`10`"
+        why: "Остальные ждут освобождения разрешения."
+      - text: "`1`"
+        why: "Семафор на 4 — не мьютекс."
+    explanation: "Один общий семафор на все задачи."
+
+  - id: q9
+    type: multiple
+    prompt: "Какие ответы сервера стоит повторить с паузой? Выберите все."
+    options:
+      - text: "429 Too Many Requests"
+        correct: true
+        why: "Лимит временный; пауза из Retry-After."
+      - text: "502 Bad Gateway"
+        correct: true
+        why: "Ошибки 5xx обычно временные."
+      - text: "Таймаут чтения"
+        correct: true
+        why: "Сервер мог быть перегружен."
+      - text: "400 Bad Request"
+        why: "Запрос некорректен — повтор даст тот же ответ."
+      - text: "403 Forbidden"
+        why: "Нет прав — повтор не поможет."
+    explanation: "Повторяют только временные ошибки."
+
+  - id: q10
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from urllib.parse import urlencode
+
+      print(urlencode({"q": "мир ML", "page": 2}))
+    options:
+      - text: "`q=%D0%BC%D0%B8%D1%80+ML&page=2`"
+        correct: true
+        why: "Кириллица кодируется в UTF-8 байты, пробел — плюсом."
+      - text: "`q=мир ML&page=2`"
+        why: "Пробел и кириллицу в URL нужно кодировать."
+      - text: "`q=мир%20ML&page=2`"
+        why: "urlencode кодирует и кириллицу; пробел по умолчанию — «+»."
+    explanation: "Параметры кодирует urlencode или сам HTTP-клиент (params=)."
+
+  - id: q11
+    type: find_bug
+    prompt: "Что плохо в этом асинхронном коде?"
+    code: |
+      import httpx
+
+      async def fetch_card(name):
+          async with httpx.AsyncClient(base_url="https://api.example.com") as client:
+              r = await client.get(f"/models/{name}")
+              return r.json()
+
+      # вызывается для 5000 имён через gather
+    options:
+      - text: "Новый клиент создаётся на каждый запрос: нет переиспользования соединений, нет лимита одновременности и проверки статуса"
+        correct: true
+        why: "Клиент создают один раз и передают параметром; добавляют семафор и raise_for_status."
+      - text: "AsyncClient нельзя использовать в async with"
+        why: "Можно и нужно — так клиент корректно закрывается."
+      - text: "f-строку нельзя использовать в пути"
+        why: "Можно; base_url и путь склеиваются."
+    explanation: "Один клиент на приложение, семафор на запросы."
+
+  - id: q12
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      env = {"DEBUG": "False", "WORKERS": "4"}
+      debug = bool(env["DEBUG"])
+      workers = env.get("WORKERS", 1) * 2
+      print(debug, workers)
+    options:
+      - text: "`True 44`"
+        correct: true
+        why: "Непустая строка истинна, а \"4\" * 2 — повтор строки."
+      - text: "`False 8`"
+        why: "Значения окружения — строки, преобразования нет."
+      - text: "`True 8`"
+        why: "\"4\" * 2 = \"44\"."
+    explanation: "Преобразуйте типы явно: int(...), разбор логических значений по списку."
+
+  - id: q13
+    type: multiple
+    prompt: "Что из этого — правильная работа с API-ключом? Выберите все."
+    options:
+      - text: "Читать ключ из переменной окружения"
+        correct: true
+        why: "Ключ отделён от кода."
+      - text: "Хранить .env локально и добавить его в .gitignore"
+        correct: true
+        why: "Файл не попадёт в репозиторий."
+      - text: "Маскировать ключ при выводе конфигурации в лог"
+        correct: true
+        why: "Секреты часто утекают через логи."
+      - text: "Передавать ключ в параметре URL `?key=...`"
+        why: "URL попадает в логи серверов и прокси; ключ передают в заголовке."
+    explanation: "Окружение, .gitignore, маскировка, заголовок Authorization."
+
+tasks:
+  - id: t1
+    title: "Пакет с таймаутами"
+    difficulty: 1
+    statement: |
+      Напишите `async def run_all(coros, timeout)`: выполнить все корутины одновременно, ограничив **каждую** временем `timeout`. Вернуть список в исходном порядке: результат корутины, строку `"таймаут"`, если она не уложилась, или `"ошибка: <ТипИсключения>"`, если она бросила исключение. Общее время — около максимального из времён (не суммы).
+    examples:
+      - input: "asyncio.run(run_all([delayed(0.01, 'a'), delayed(1, 'b')], 0.1))"
+        output: "['a', 'таймаут']"
+    setup: |
+      import asyncio
+
+
+      async def delayed(seconds, value):
+          await asyncio.sleep(seconds)
+          return value
+
+
+      async def broken():
+          await asyncio.sleep(0.01)
+          raise KeyError("x")
+    starter: |
+      async def run_all(coros, timeout):
+          return [await coro for coro in coros]
+    hints:
+      - "Обёртка `async def guarded(coro): try: return await asyncio.wait_for(coro, timeout) except TimeoutError: return \"таймаут\" except Exception as e: return f\"ошибка: {type(e).__name__}\"`."
+      - "`return list(await asyncio.gather(*(guarded(c) for c in coros)))`."
+    solution: |
+      import asyncio
+
+
+      async def run_all(coros, timeout):
+          """Выполнить корутины одновременно, у каждой свой таймаут."""
+
+          async def guarded(coro):
+              try:
+                  return await asyncio.wait_for(coro, timeout)
+              except TimeoutError:
+                  return "таймаут"
+              except Exception as error:
+                  return f"ошибка: {type(error).__name__}"
+
+          return list(await asyncio.gather(*(guarded(coro) for coro in coros)))
+    solution_explanation: "Каждая корутина обёрнута в свой wait_for, а ошибки превращаются в строки внутри обёртки, поэтому gather всегда возвращает полный список в исходном порядке."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(run_all([delayed(0.01, 'a'), delayed(1, 'b')], 0.1))"
+        expected: "['a', 'таймаут']"
+      - name: "Ошибка"
+        call: "asyncio.run(run_all([broken(), delayed(0.01, 3)], 0.5))"
+        expected: "['ошибка: KeyError', 3]"
+      - name: "Одновременность"
+        code: |
+          import time
+          start = time.perf_counter()
+          result = asyncio.run(run_all([delayed(0.1, i) for i in range(5)], 1))
+          elapsed = time.perf_counter() - start
+          assert result == [0, 1, 2, 3, 4], result
+          assert elapsed < 0.3, f"{elapsed:.2f} с — корутины выполняются по очереди?"
+      - name: "Таймауты не ждут до конца"
+        code: |
+          import time
+          start = time.perf_counter()
+          result = asyncio.run(run_all([delayed(2, "x"), delayed(2, "y")], 0.1))
+          assert result == ["таймаут", "таймаут"], result
+          assert time.perf_counter() - start < 0.5
+      - name: "Пусто"
+        call: "asyncio.run(run_all([], 1))"
+        expected: "[]"
+
+  - id: t2
+    title: "Сборка HTTP-запроса"
+    difficulty: 2
+    statement: |
+      Напишите `build_request(method, base_url, path, params=None, api_key=None, body=None)` — вернуть словарь с ключами:
+
+      - `"method"` — метод в верхнем регистре;
+      - `"url"` — `base_url` и `path`, склеенные **ровно одним** `/` (у `base_url` может быть, а может не быть `/` в конце, у `path` — в начале); если `params` непустые — `?` и `urlencode(params)`;
+      - `"headers"` — словарь: `"Accept": "application/json"`; если есть `api_key` — `"Authorization": "Bearer <ключ>"`; если есть `body` — `"Content-Type": "application/json"`;
+      - `"body"` — `None` или `json.dumps(body, ensure_ascii=False)`.
+
+      Методы `GET` и `DELETE` с `body` → `ValueError`.
+    examples:
+      - input: "build_request('get', 'https://api.x/v1/', '/models', {'limit': 2})['url']"
+        output: "'https://api.x/v1/models?limit=2'"
+    starter: |
+      def build_request(method, base_url, path, params=None, api_key=None, body=None):
+          return {"method": method, "url": base_url + path, "headers": {}, "body": body}
+    hints:
+      - "URL: `base_url.rstrip(\"/\") + \"/\" + path.lstrip(\"/\")`; параметры: `from urllib.parse import urlencode`."
+      - "Проверка тела: `if body is not None and method in (\"GET\", \"DELETE\"): raise ValueError(...)` — после перевода метода в верхний регистр."
+    solution: |
+      import json
+      from urllib.parse import urlencode
+
+
+      def build_request(method, base_url, path, params=None, api_key=None, body=None):
+          """Описание HTTP-запроса в виде словаря."""
+          method = method.upper()
+          if body is not None and method in ("GET", "DELETE"):
+              raise ValueError(f"{method} не должен иметь тела")
+          url = base_url.rstrip("/") + "/" + path.lstrip("/")
+          if params:
+              url += "?" + urlencode(params)
+          headers = {"Accept": "application/json"}
+          if api_key:
+              headers["Authorization"] = f"Bearer {api_key}"
+          if body is not None:
+              headers["Content-Type"] = "application/json"
+          return {
+              "method": method,
+              "url": url,
+              "headers": headers,
+              "body": None if body is None else json.dumps(body, ensure_ascii=False),
+          }
+    solution_explanation: "rstrip/lstrip гарантируют ровно один слэш на стыке, urlencode кодирует пробелы и кириллицу, а заголовки добавляются только когда нужны — так же поступают HTTP-клиенты."
+    tests:
+      - name: "Пример"
+        call: "build_request('get', 'https://api.x/v1/', '/models', {'limit': 2})['url']"
+        expected: "'https://api.x/v1/models?limit=2'"
+      - name: "Слэши"
+        call: "[build_request('GET', b, p)['url'] for b, p in [('https://a.io', 'x'), ('https://a.io/', 'x'), ('https://a.io', '/x'), ('https://a.io/', '/x')]]"
+        expected: "['https://a.io/x'] * 4"
+      - name: "POST с телом и ключом"
+        call: "build_request('post', 'https://a.io/v1', 'chat', api_key='sk-1', body={'prompt': 'Привет'})"
+        expected: "{'method': 'POST', 'url': 'https://a.io/v1/chat', 'headers': {'Accept': 'application/json', 'Authorization': 'Bearer sk-1', 'Content-Type': 'application/json'}, 'body': '{\"prompt\": \"Привет\"}'}"
+      - name: "Кодирование параметров"
+        call: "build_request('GET', 'https://a.io', 'search', {'q': 'мир ML', 'n': 3})['url']"
+        expected: "'https://a.io/search?q=%D0%BC%D0%B8%D1%80+ML&n=3'"
+      - name: "Пустые params и только Accept"
+        call: "build_request('GET', 'https://a.io', 'x', {})"
+        expected: "{'method': 'GET', 'url': 'https://a.io/x', 'headers': {'Accept': 'application/json'}, 'body': None}"
+      - name: "GET с телом"
+        code: |
+          for method in ["get", "DELETE"]:
+              try:
+                  build_request(method, "https://a.io", "x", body={})
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"Ожидался ValueError для {method}")
+
+  - id: t3
+    title: "Резервный провайдер"
+    difficulty: 2
+    statement: |
+      Приложение может обращаться к нескольким LLM-провайдерам. Напишите `async def ask_with_fallback(providers, prompt, timeout)`:
+
+      - `providers` — список пар `(имя, async_функция)`; функция принимает промпт и возвращает ответ;
+      - провайдеры пробуются **по очереди**; на каждый — не больше `timeout` секунд;
+      - первый успешный ответ → вернуть `(имя, ответ)`;
+      - таймаут или исключение → перейти к следующему, запомнив причину: `"<имя>: таймаут"` или `"<имя>: <ТипИсключения>"`;
+      - если не сработал никто (или список пуст) → `RuntimeError` с текстом `"все провайдеры недоступны: "` + причины через `"; "`.
+    examples:
+      - input: "asyncio.run(ask_with_fallback([('a', failing), ('b', echo)], 'hi', 0.5))"
+        output: "('b', 'b-ответ: hi')"
+    setup: |
+      import asyncio
+
+
+      async def echo(prompt):
+          await asyncio.sleep(0.01)
+          return f"b-ответ: {prompt}"
+
+
+      async def failing(prompt):
+          await asyncio.sleep(0.01)
+          raise ConnectionError("down")
+
+
+      async def hanging(prompt):
+          await asyncio.sleep(10)
+          return "слишком поздно"
+    starter: |
+      async def ask_with_fallback(providers, prompt, timeout):
+          name, func = providers[0]
+          return name, await func(prompt)
+    hints:
+      - "Цикл `for name, func in providers:` с `try: answer = await asyncio.wait_for(func(prompt), timeout)` и `return name, answer`."
+      - "В `except TimeoutError` и `except Exception as error` добавляйте причину в список; после цикла — `raise RuntimeError(\"все провайдеры недоступны: \" + \"; \".join(reasons))`."
+    solution: |
+      import asyncio
+
+
+      async def ask_with_fallback(providers, prompt, timeout):
+          """Спросить провайдеров по очереди до первого успешного ответа."""
+          reasons = []
+          for name, func in providers:
+              try:
+                  answer = await asyncio.wait_for(func(prompt), timeout)
+              except TimeoutError:
+                  reasons.append(f"{name}: таймаут")
+              except Exception as error:
+                  reasons.append(f"{name}: {type(error).__name__}")
+              else:
+                  return name, answer
+          raise RuntimeError("все провайдеры недоступны: " + "; ".join(reasons))
+    solution_explanation: "Блок else выполняется только при успехе, поэтому возврат происходит на первом ответившем провайдере. Таймаут перехватывается отдельно до общего except Exception, чтобы дать понятную причину."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(ask_with_fallback([('a', failing), ('b', echo)], 'hi', 0.5))"
+        expected: "('b', 'b-ответ: hi')"
+      - name: "Первый успешен"
+        call: "asyncio.run(ask_with_fallback([('main', echo), ('backup', failing)], 'x', 0.5))"
+        expected: "('main', 'b-ответ: x')"
+      - name: "Таймаут, затем успех — быстро"
+        code: |
+          import time
+          start = time.perf_counter()
+          result = asyncio.run(ask_with_fallback([("slow", hanging), ("ok", echo)], "q", 0.1))
+          assert result == ("ok", "b-ответ: q"), result
+          assert time.perf_counter() - start < 0.5
+      - name: "Все недоступны"
+        code: |
+          try:
+              asyncio.run(ask_with_fallback([("a", failing), ("b", hanging)], "q", 0.05))
+          except RuntimeError as error:
+              assert str(error) == "все провайдеры недоступны: a: ConnectionError; b: таймаут", str(error)
+          else:
+              raise AssertionError("Ожидался RuntimeError")
+      - name: "Пустой список"
+        code: |
+          try:
+              asyncio.run(ask_with_fallback([], "q", 1))
+          except RuntimeError as error:
+              assert str(error) == "все провайдеры недоступны: ", str(error)
+          else:
+              raise AssertionError("Ожидался RuntimeError")
+
+  - id: t4
+    title: "Пакетная обработка с прогрессом"
+    difficulty: 3
+    statement: |
+      Напишите `async def process_batches(items, call, batch_size, on_progress=None)`:
+
+      - обрабатывает `items` **пачками** по `batch_size`: внутри пачки все вызовы `await call(item)` идут одновременно, следующая пачка начинается после завершения предыдущей;
+      - исключение одного вызова не прерывает пачку: результат такого элемента — `None`;
+      - после каждой пачки, если передан `on_progress`, вызывает его (обычная функция) с аргументами `(обработано_всего, всего)`;
+      - возвращает словарь `{"results": [...], "failed": [индексы с ошибкой]}`; результаты — в исходном порядке;
+      - `batch_size < 1` → `ValueError`.
+    examples:
+      - input: "asyncio.run(process_batches([1, 2, 0, 4], inverse, 2))"
+        output: "{'results': [1.0, 0.5, None, 0.25], 'failed': [2]}"
+    setup: |
+      import asyncio
+
+
+      async def inverse(x):
+          await asyncio.sleep(0.01)
+          return 1 / x
+    starter: |
+      async def process_batches(items, call, batch_size, on_progress=None):
+          results = [await call(item) for item in items]
+          return {"results": results, "failed": []}
+    hints:
+      - "Пачки: `for start in range(0, len(items), batch_size): batch = items[start:start + batch_size]`; внутри — `await asyncio.gather(*(call(x) for x in batch), return_exceptions=True)`."
+      - "Если элемент результата — экземпляр `BaseException`, запишите `None` и добавьте индекс `start + offset` в `failed`."
+    solution: |
+      import asyncio
+
+
+      async def process_batches(items, call, batch_size, on_progress=None):
+          """Обработать элементы пачками с одновременными вызовами внутри пачки."""
+          if batch_size < 1:
+              raise ValueError("batch_size должен быть не меньше 1")
+          results, failed = [], []
+          for start in range(0, len(items), batch_size):
+              batch = items[start:start + batch_size]
+              outcomes = await asyncio.gather(*(call(item) for item in batch), return_exceptions=True)
+              for offset, outcome in enumerate(outcomes):
+                  if isinstance(outcome, BaseException):
+                      results.append(None)
+                      failed.append(start + offset)
+                  else:
+                      results.append(outcome)
+              if on_progress is not None:
+                  on_progress(len(results), len(items))
+          return {"results": results, "failed": failed}
+    solution_explanation: "Пачки — простейший способ ограничить одновременность (хотя семафор эффективнее: он не ждёт самого медленного в пачке). return_exceptions=True не даёт одной ошибке прервать gather."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(process_batches([1, 2, 0, 4], inverse, 2))"
+        expected: "{'results': [1.0, 0.5, None, 0.25], 'failed': [2]}"
+      - name: "Прогресс"
+        code: |
+          progress = []
+          asyncio.run(process_batches(list(range(1, 8)), inverse, 3, on_progress=lambda done, total: progress.append((done, total))))
+          assert progress == [(3, 7), (6, 7), (7, 7)], progress
+      - name: "Пачки по очереди, внутри одновременно"
+        code: |
+          state = {"now": 0, "peak": 0}
+          async def tracked(x):
+              state["now"] += 1
+              state["peak"] = max(state["peak"], state["now"])
+              await asyncio.sleep(0.05)
+              state["now"] -= 1
+              return x
+          import time
+          start = time.perf_counter()
+          result = asyncio.run(process_batches(list(range(9)), tracked, 3))
+          elapsed = time.perf_counter() - start
+          assert result["results"] == list(range(9)) and state["peak"] == 3, (result, state)
+          assert 0.13 < elapsed < 0.4, f"{elapsed:.2f} с: ожидалось около 0.15 с (три пачки)"
+      - name: "Неверный размер"
+        code: |
+          try:
+              asyncio.run(process_batches([1], inverse, 0))
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Пусто"
+        call: "asyncio.run(process_batches([], inverse, 5))"
+        expected: "{'results': [], 'failed': []}"
+
+  - id: t5
+    title: "Мини-проект: асинхронный сборщик данных из API"
+    mini_project: true
+    mode: local
+    difficulty: 3
+    statement: |
+      Соберите асинхронный сборщик данных из публичного API (например, `https://jsonplaceholder.typicode.com/posts/1` … `/posts/100`), который вежливо относится к серверу. Скачайте архив и реализуйте в `collector.py`:
+
+      1. **`RateLimiter(per_second)`** — асинхронный `wait()`: каждый следующий вызов стартует не раньше чем через `1 / per_second` с после предыдущего, первый — сразу; `per_second <= 0` → `ValueError`.
+      2. **`async def fetch_json(client, path, *, limiter=None, retries=2, backoff=0.1)`** — GET-запрос через `httpx.AsyncClient`:
+         - перед **каждой** попыткой — `await limiter.wait()` (если передан);
+         - 200 → вернуть JSON;
+         - 429 или 5xx → пауза (`Retry-After` в секундах, если есть, иначе `backoff * 2 ** номер_попытки`) и повтор;
+         - `httpx.TimeoutException` → пауза `backoff * 2 ** номер_попытки` и повтор;
+         - другие статусы → сразу `httpx.HTTPStatusError` (`raise_for_status()`);
+         - после `retries` неудачных повторов — пробросить последнюю ошибку.
+      3. **`async def collect(client, paths, *, concurrency=5, per_second=10.0, retries=2, backoff=0.1)`** — загрузить все пути: не больше `concurrency` одновременно (семафор), не чаще `per_second` запросов в секунду (один общий `RateLimiter`). Вернуть `{"ok": {путь: json}, "failed": {путь: причина}}`, ключи в порядке `paths`; причина — `"HTTP <статус>"` или `"таймаут"`.
+      4. **`summarize(posts)`** — по списку постов (`{"userId": ..., "title": ...}`) вернуть `{"total": n, "by_user": {userId: число, ...}}` (ключи по возрастанию) и `"longest_title"` — самый длинный заголовок (при равенстве — первый; для пустого списка — `None`).
+      5. **`main()`** — читает настройки из окружения (`COLLECTOR_BASE_URL`, `COLLECTOR_COUNT`, `COLLECTOR_CONCURRENCY`, `COLLECTOR_PER_SECOND` со значениями по умолчанию), собирает данные и печатает сводку. Тесты `main` не проверяют — запустите его сами: `python collector.py`.
+
+      ```bash
+      pip install httpx pytest
+      pytest -q
+      python collector.py
+      ```
+    files:
+      collector.py: |
+        import asyncio
+        import os
+        import time
+
+        import httpx
+
+
+        class RateLimiter:
+            """Не больше per_second стартов в секунду."""
+
+            def __init__(self, per_second: float) -> None:
+                self.per_second = per_second
+
+            async def wait(self) -> None:
+                pass
+
+
+        async def fetch_json(client, path, *, limiter=None, retries=2, backoff=0.1):
+            """GET с повтором временных ошибок."""
+            response = await client.get(path)
+            return response.json()
+
+
+        async def collect(client, paths, *, concurrency=5, per_second=10.0, retries=2, backoff=0.1):
+            """Загрузить все пути с ограничением одновременности и частоты."""
+            ok = {}
+            for path in paths:
+                ok[path] = await fetch_json(client, path)
+            return {"ok": ok, "failed": {}}
+
+
+        def summarize(posts):
+            """Сводка по постам."""
+            return {"total": len(posts), "by_user": {}, "longest_title": None}
+
+
+        async def main():
+            base_url = os.getenv("COLLECTOR_BASE_URL", "https://jsonplaceholder.typicode.com")
+            count = int(os.getenv("COLLECTOR_COUNT", "20"))
+            async with httpx.AsyncClient(base_url=base_url, timeout=10) as client:
+                result = await collect(client, [f"/posts/{i}" for i in range(1, count + 1)])
+            print(summarize(list(result["ok"].values())))
+
+
+        if __name__ == "__main__":
+            asyncio.run(main())
+      test_collector.py: |
+        import asyncio
+        import time
+
+        import httpx
+        import pytest
+
+        from collector import RateLimiter, collect, fetch_json, summarize
+
+
+        def make_client(behaviour, state=None):
+            """behaviour(request, номер_вызова_для_пути) -> httpx.Response или исключение."""
+            state = state if state is not None else {}
+            state.setdefault("now", 0)
+            state.setdefault("peak", 0)
+            state.setdefault("calls", {})
+            state.setdefault("starts", [])
+
+            async def handler(request):
+                path = request.url.path
+                state["calls"][path] = state["calls"].get(path, 0) + 1
+                state["starts"].append(time.monotonic())
+                state["now"] += 1
+                state["peak"] = max(state["peak"], state["now"])
+                try:
+                    await asyncio.sleep(0.02)
+                    return behaviour(request, state["calls"][path])
+                finally:
+                    state["now"] -= 1
+
+            return httpx.AsyncClient(base_url="https://api.test", transport=httpx.MockTransport(handler)), state
+
+
+        def ok_post(request, n):
+            post_id = int(request.url.path.rsplit("/", 1)[-1])
+            return httpx.Response(200, json={"id": post_id, "userId": post_id % 3, "title": "t" * post_id})
+
+
+        def run(coro):
+            return asyncio.run(coro)
+
+
+        # --- RateLimiter ---
+
+        def test_rate_limiter_spacing():
+            async def scenario():
+                limiter = RateLimiter(20)
+                starts = []
+                for _ in range(5):
+                    await limiter.wait()
+                    starts.append(time.monotonic())
+                return starts
+
+            begin = time.monotonic()
+            starts = run(scenario())
+            assert starts[0] - begin < 0.03, "Первый вызов должен проходить сразу"
+            # 5 стартов при 20/с: 4 интервала по 0.05 с (допуск на точность таймера)
+            assert starts[-1] - starts[0] > 0.17, starts
+
+
+        def test_rate_limiter_concurrent_callers():
+            async def scenario():
+                limiter = RateLimiter(25)
+                starts = []
+
+                async def caller():
+                    await limiter.wait()
+                    starts.append(time.monotonic())
+
+                await asyncio.gather(*(caller() for _ in range(6)))
+                return sorted(starts)
+
+            starts = run(scenario())
+            assert starts[-1] - starts[0] > 0.17
+
+
+        def test_rate_limiter_invalid():
+            with pytest.raises(ValueError):
+                RateLimiter(0)
+
+
+        # --- fetch_json ---
+
+        def test_fetch_json_success():
+            async def scenario():
+                client, state = make_client(ok_post)
+                async with client:
+                    return await fetch_json(client, "/posts/2"), state
+
+            data, state = run(scenario())
+            assert data == {"id": 2, "userId": 2, "title": "tt"}
+            assert state["calls"] == {"/posts/2": 1}
+
+
+        def test_fetch_json_retry_after_then_ok():
+            def behaviour(request, n):
+                if n == 1:
+                    return httpx.Response(429, headers={"Retry-After": "0.15"})
+                return ok_post(request, n)
+
+            async def scenario():
+                client, state = make_client(behaviour)
+                async with client:
+                    start = time.perf_counter()
+                    data = await fetch_json(client, "/posts/1", backoff=0.01)
+                    return data, state, time.perf_counter() - start
+
+            data, state, elapsed = run(scenario())
+            assert data["id"] == 1
+            assert state["calls"]["/posts/1"] == 2
+            assert elapsed > 0.15, "Пауза должна браться из Retry-After"
+
+
+        def test_fetch_json_client_error_no_retry():
+            async def scenario():
+                client, state = make_client(lambda request, n: httpx.Response(404))
+                async with client:
+                    with pytest.raises(httpx.HTTPStatusError):
+                        await fetch_json(client, "/posts/999", backoff=0.01)
+                return state
+
+            assert run(scenario())["calls"] == {"/posts/999": 1}
+
+
+        def test_fetch_json_gives_up():
+            async def scenario():
+                client, state = make_client(lambda request, n: httpx.Response(500))
+                async with client:
+                    with pytest.raises(httpx.HTTPStatusError):
+                        await fetch_json(client, "/posts/1", retries=2, backoff=0.01)
+                return state
+
+            assert run(scenario())["calls"] == {"/posts/1": 3}
+
+
+        def test_fetch_json_timeout_retried():
+            def behaviour(request, n):
+                if n < 3:
+                    raise httpx.ReadTimeout("timeout", request=request)
+                return ok_post(request, n)
+
+            async def scenario():
+                client, state = make_client(behaviour)
+                async with client:
+                    return await fetch_json(client, "/posts/4", retries=2, backoff=0.01), state
+
+            data, state = run(scenario())
+            assert data["id"] == 4 and state["calls"]["/posts/4"] == 3
+
+
+        # --- collect ---
+
+        def test_collect_ok_and_failed():
+            def behaviour(request, n):
+                path = request.url.path
+                if path == "/posts/4":
+                    return httpx.Response(404)
+                if path == "/posts/5":
+                    raise httpx.ConnectTimeout("timeout", request=request)
+                if path == "/posts/6" and n == 1:
+                    return httpx.Response(503)
+                return ok_post(request, n)
+
+            paths = [f"/posts/{i}" for i in range(1, 7)]
+
+            async def scenario():
+                client, state = make_client(behaviour)
+                async with client:
+                    return await collect(client, paths, concurrency=3, per_second=1000, retries=1, backoff=0.01)
+
+            result = run(scenario())
+            assert list(result["ok"]) == ["/posts/1", "/posts/2", "/posts/3", "/posts/6"]
+            assert result["ok"]["/posts/6"]["id"] == 6
+            assert result["failed"] == {"/posts/4": "HTTP 404", "/posts/5": "таймаут"}
+
+
+        def test_collect_concurrency_limit():
+            state = {}
+
+            async def scenario():
+                client, _ = make_client(ok_post, state)
+                async with client:
+                    return await collect(client, [f"/posts/{i}" for i in range(1, 13)], concurrency=3, per_second=1000)
+
+            result = run(scenario())
+            assert len(result["ok"]) == 12
+            assert state["peak"] == 3
+
+
+        def test_collect_rate_limit():
+            state = {}
+
+            async def scenario():
+                client, _ = make_client(ok_post, state)
+                async with client:
+                    return await collect(client, [f"/posts/{i}" for i in range(1, 7)], concurrency=6, per_second=20)
+
+            run(scenario())
+            starts = sorted(state["starts"])
+            assert starts[-1] - starts[0] > 0.22, "6 запросов при 20/с должны растянуться на ~0.25 с"
+
+
+        def test_collect_empty():
+            async def scenario():
+                client, _ = make_client(ok_post)
+                async with client:
+                    return await collect(client, [])
+
+            assert run(scenario()) == {"ok": {}, "failed": {}}
+
+
+        # --- summarize ---
+
+        def test_summarize():
+            posts = [
+                {"userId": 2, "title": "abc"},
+                {"userId": 1, "title": "hello"},
+                {"userId": 2, "title": "world"},
+            ]
+            assert summarize(posts) == {"total": 3, "by_user": {1: 1, 2: 2}, "longest_title": "hello"}
+
+
+        def test_summarize_empty():
+            assert summarize([]) == {"total": 0, "by_user": {}, "longest_title": None}
+    run: "pytest -q"
+    hints:
+      - "RateLimiter без блокировок: в `wait()` вычислите `start = max(time.monotonic(), self._next)`, сразу запишите `self._next = start + self.interval` и только потом `await asyncio.sleep(start - now)` — между чтением и записью нет await, поэтому корутины не мешают друг другу."
+      - "В collect одна внутренняя корутина на путь: `async with semaphore:` → `await fetch_json(..., limiter=limiter)`; `HTTPStatusError` → `\"HTTP {error.response.status_code}\"`, `TimeoutException` → `\"таймаут\"`. gather возвращает пары `(путь, статус, данные)` в порядке paths."
+    solution_files:
+      collector.py: |
+        import asyncio
+        import os
+        import time
+        from collections import Counter
+
+        import httpx
+
+
+        class RateLimiter:
+            """Не больше per_second стартов в секунду."""
+
+            def __init__(self, per_second: float) -> None:
+                if per_second <= 0:
+                    raise ValueError("per_second должен быть положительным")
+                self.interval = 1 / per_second
+                self._next = 0.0
+
+            async def wait(self) -> None:
+                now = time.monotonic()
+                start = max(now, self._next)
+                self._next = start + self.interval
+                if start > now:
+                    await asyncio.sleep(start - now)
+
+
+        async def fetch_json(client, path, *, limiter=None, retries=2, backoff=0.1):
+            """GET с повтором временных ошибок."""
+            for attempt in range(retries + 1):
+                if limiter is not None:
+                    await limiter.wait()
+                try:
+                    response = await client.get(path)
+                except httpx.TimeoutException:
+                    if attempt == retries:
+                        raise
+                    await asyncio.sleep(backoff * 2 ** attempt)
+                    continue
+                retryable = response.status_code == 429 or response.status_code >= 500
+                if not retryable or attempt == retries:
+                    response.raise_for_status()
+                    return response.json()
+                delay = response.headers.get("retry-after")
+                await asyncio.sleep(float(delay) if delay is not None else backoff * 2 ** attempt)
+            raise AssertionError("недостижимо")
+
+
+        async def collect(client, paths, *, concurrency=5, per_second=10.0, retries=2, backoff=0.1):
+            """Загрузить все пути с ограничением одновременности и частоты."""
+            semaphore = asyncio.Semaphore(concurrency)
+            limiter = RateLimiter(per_second)
+
+            async def one(path):
+                async with semaphore:
+                    try:
+                        data = await fetch_json(client, path, limiter=limiter, retries=retries, backoff=backoff)
+                    except httpx.HTTPStatusError as error:
+                        return path, False, f"HTTP {error.response.status_code}"
+                    except httpx.TimeoutException:
+                        return path, False, "таймаут"
+                    return path, True, data
+
+            outcomes = await asyncio.gather(*(one(path) for path in paths))
+            ok = {path: value for path, success, value in outcomes if success}
+            failed = {path: value for path, success, value in outcomes if not success}
+            return {"ok": ok, "failed": failed}
+
+
+        def summarize(posts):
+            """Сводка по постам."""
+            by_user = Counter(post["userId"] for post in posts)
+            longest = max((post["title"] for post in posts), key=len, default=None)
+            return {
+                "total": len(posts),
+                "by_user": dict(sorted(by_user.items())),
+                "longest_title": longest,
+            }
+
+
+        async def main():
+            base_url = os.getenv("COLLECTOR_BASE_URL", "https://jsonplaceholder.typicode.com")
+            count = int(os.getenv("COLLECTOR_COUNT", "20"))
+            concurrency = int(os.getenv("COLLECTOR_CONCURRENCY", "5"))
+            per_second = float(os.getenv("COLLECTOR_PER_SECOND", "10"))
+            paths = [f"/posts/{i}" for i in range(1, count + 1)]
+            start = time.perf_counter()
+            async with httpx.AsyncClient(base_url=base_url, timeout=10) as client:
+                result = await collect(client, paths, concurrency=concurrency, per_second=per_second)
+            elapsed = time.perf_counter() - start
+            print(f"загружено {len(result['ok'])}, ошибок {len(result['failed'])} за {elapsed:.1f} с")
+            for path, reason in result["failed"].items():
+                print(f"  {path}: {reason}")
+            print(summarize(list(result["ok"].values())))
+
+
+        if __name__ == "__main__":
+            asyncio.run(main())
+    solution_explanation: "Два независимых ограничения работают вместе: семафор держит не больше concurrency запросов «в полёте», а общий RateLimiter раздаёт слоты времени каждой попытке, включая повторы. fetch_json отличает временные ошибки от постоянных, а collect превращает исключения в причины, чтобы один сбойный путь не прервал сбор."

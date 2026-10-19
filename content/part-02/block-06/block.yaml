@@ -1,0 +1,18 @@
+title: "Python изнутри и алгоритмы"
+description: "Объекты и ссылки, изменяемость и копирование, устройство list и dict, сложность алгоритмов и замеры, поиск и сортировка, collections и heapq, GIL, потоки и процессы."
+mini_project: "Оптимизация медленного кода с замерами до и после"
+lessons:
+  - id: lesson-01
+    title: "Объекты, ссылки, id, is и =="
+  - id: lesson-02
+    title: "Изменяемость и копирование: copy и deepcopy"
+  - id: lesson-03
+    title: "Как устроены list и dict внутри"
+  - id: lesson-04
+    title: "Сложность алгоритмов, Big O, замеры через timeit"
+  - id: lesson-05
+    title: "Поиск и сортировка: бинарный поиск, принципы сортировок"
+  - id: lesson-06
+    title: "collections: Counter, defaultdict, deque, namedtuple; heapq"
+  - id: lesson-07
+    title: "GIL, потоки и процессы"

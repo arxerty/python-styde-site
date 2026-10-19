@@ -1,0 +1,555 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from importlib.util import resolve_name
+
+      print(resolve_name("..utils.text", package="app.api.routes"))
+    options:
+      - text: "`app.api.utils.text`"
+        correct: true
+        why: "Одна точка — app.api.routes, две — родитель app.api; к нему добавляется utils.text."
+      - text: "`app.utils.text`"
+        why: "Две точки поднимают на один уровень от текущего пакета, а не на два."
+      - text: "`app.api.routes.utils.text`"
+        why: "Так было бы с одной точкой."
+    explanation: "Первая точка — текущий пакет, каждая следующая — уровень вверх."
+
+  - id: q2
+    type: single
+    prompt: "Что даёт секция `[project.scripts]` с записью `fxcli = \"fxcli.cli:main\"`?"
+    options:
+      - text: "После установки пакета в терминале появляется команда `fxcli`, вызывающая функцию `main` из модуля `fxcli.cli`"
+        correct: true
+        why: "Это консольная точка входа (entry point)."
+      - text: "Запускает `main` при каждом `import fxcli`"
+        why: "Импорт ничего не запускает; команда создаётся при установке."
+      - text: "Описывает зависимость от пакета `fxcli.cli`"
+        why: "Зависимости — в dependencies."
+      - text: "Задаёт скрипт сборки пакета"
+        why: "Сборкой занимается [build-system]."
+    explanation: "[project.scripts] превращает функцию в команду терминала."
+
+  - id: q3
+    type: find_bug
+    prompt: "В папке проекта лежат два файла. Запуск `python httpx.py` падает с `AttributeError: module 'httpx' has no attribute 'get'`. Почему?"
+    code: |
+      # httpx.py — «попробую библиотеку httpx»
+      import httpx
+
+      response = httpx.get("https://example.com")
+      print(response.status_code)
+    options:
+      - text: "Файл назван так же, как библиотека: `import httpx` импортирует сам этот файл, а не установленный пакет"
+        correct: true
+        why: "Папка скрипта стоит первой в пути поиска модулей. Переименуйте файл (и удалите __pycache__)."
+      - text: "httpx не установлен"
+        why: "Тогда была бы ModuleNotFoundError."
+      - text: "httpx.get работает только внутри async-функций"
+        why: "Синхронный httpx.get существует; проблема в имени файла."
+    explanation: "Не называйте свои модули именами стандартных и установленных библиотек."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import tomllib
+
+      data = tomllib.loads("""
+      [project]
+      name = "demo"
+      dependencies = ["httpx>=0.27", "pydantic>=2"]
+
+      [project.optional-dependencies]
+      dev = ["pytest"]
+
+      [tool.ruff]
+      line-length = 100
+      """)
+      print(len(data["project"]["dependencies"]), data["project"]["optional-dependencies"]["dev"], data["tool"]["ruff"]["line-length"])
+    options:
+      - text: "`2 ['pytest'] 100`"
+        correct: true
+        why: "Секции с точкой в имени становятся вложенными словарями."
+      - text: "`3 ['pytest'] 100`"
+        why: "pytest — в отдельной группе optional-dependencies, а не в dependencies."
+      - text: "`2 pytest 100`"
+        why: "Значение dev — список."
+    explanation: "[a.b] в TOML — это ключ b внутри словаря a."
+
+  - id: q5
+    type: multiple
+    prompt: "Что из этого обычно **коммитят** в git-репозиторий приложения? Выберите все."
+    options:
+      - text: "`pyproject.toml`"
+        correct: true
+        why: "Описание проекта и зависимостей."
+      - text: "`uv.lock` / `poetry.lock`"
+        correct: true
+        why: "Точные версии всех пакетов — основа воспроизводимости."
+      - text: "`.env.example` без секретов"
+        correct: true
+        why: "Показывает, какие переменные нужно задать."
+      - text: "Папку `.venv`"
+        why: "Окружение пересоздают командой; оно большое и привязано к ОС."
+      - text: "`.env` с API-ключами"
+        why: "Секреты в репозиторий не попадают."
+    explanation: "В репозитории — описание и lock-файл; окружение и секреты — нет."
+
+  - id: q6
+    type: single
+    prompt: "Какие версии допускает ограничение `httpx~=0.27.0`?"
+    options:
+      - text: "`>=0.27.0` и `<0.28`"
+        correct: true
+        why: "«Совместимая версия»: последнюю указанную часть можно увеличивать."
+      - text: "Только `0.27.0`"
+        why: "Ровно одна версия — это ==."
+      - text: "`>=0.27.0` и `<1.0`"
+        why: "Для ~=0.27.0 меняется только последний компонент — до 0.28."
+      - text: "Любые версии около 0.27"
+        why: "Правило строгое: >=0.27.0, ==0.27.*."
+    explanation: "~=X.Y.Z — это >=X.Y.Z, <X.(Y+1)."
+
+tasks:
+  - id: t1
+    title: "Чтение pyproject.toml"
+    difficulty: 1
+    statement: |
+      Напишите `read_project(text)` — разобрать содержимое `pyproject.toml` (строку) с помощью `tomllib` и вернуть словарь:
+
+      - `"name"`, `"version"` — из секции `[project]`; если нет секции или одного из полей → `ValueError`;
+      - `"python"` — значение `requires-python` или `None`;
+      - `"dependencies"` — список **имён** зависимостей в исходном порядке: без ограничений версий (`>=0.27`), без extras (`[socks]`) и маркеров (`; python_version < "3.12"`), в нижнем регистре, `_` заменено на `-`; нет поля — пустой список;
+      - `"scripts"` — словарь из `[project.scripts]` или `{}`.
+
+      Некорректный TOML → `ValueError` (у `tomllib.TOMLDecodeError` это родительский класс, так что его достаточно пропустить наружу).
+    examples:
+      - input: "read_project('[project]\\nname = \"x\"\\nversion = \"1.0\"\\ndependencies = [\"httpx>=0.27\"]')['dependencies']"
+        output: "['httpx']"
+    starter: |
+      import tomllib
+
+
+      def read_project(text):
+          data = tomllib.loads(text)
+          return data["project"]
+    hints:
+      - "Имя зависимости — начало строки до первого символа, который не буква, цифра, `.`, `_` или `-`: `re.match(r\"[A-Za-z0-9._-]+\", spec.strip()).group()`."
+      - "Проверку обязательных полей сделайте до сборки результата: `project = data.get(\"project\")`, затем `if not project or \"name\" not in project or \"version\" not in project: raise ValueError(...)`."
+    solution: |
+      import re
+      import tomllib
+
+
+      def _dependency_name(spec):
+          match = re.match(r"[A-Za-z0-9._-]+", spec.strip())
+          if not match:
+              raise ValueError(f"некорректная зависимость: {spec!r}")
+          return match.group().lower().replace("_", "-")
+
+
+      def read_project(text):
+          """Основные сведения о проекте из pyproject.toml."""
+          data = tomllib.loads(text)
+          project = data.get("project")
+          if not project or "name" not in project or "version" not in project:
+              raise ValueError("в [project] должны быть name и version")
+          return {
+              "name": project["name"],
+              "version": project["version"],
+              "python": project.get("requires-python"),
+              "dependencies": [_dependency_name(spec) for spec in project.get("dependencies", [])],
+              "scripts": dict(project.get("scripts", {})),
+          }
+    solution_explanation: "tomllib превращает TOML в словари и списки; дальше это обычная работа со словарём. Имя зависимости вырезается регулярным выражением до первого «служебного» символа, а нормализация регистра и подчёркиваний повторяет правила pip."
+    tests:
+      - name: "Пример"
+        call: "read_project('[project]\\nname = \"x\"\\nversion = \"1.0\"\\ndependencies = [\"httpx>=0.27\"]')['dependencies']"
+        expected: "['httpx']"
+      - name: "Полный проект"
+        code: |
+          text = '''
+          [project]
+          name = "fxcli"
+          version = "0.2.0"
+          requires-python = ">=3.11"
+          dependencies = [
+              "httpx[socks]>=0.27,<1.0",
+              "Pydantic_Core ~= 2.14",
+              "tomli; python_version < '3.11'",
+              "python-dotenv",
+          ]
+
+          [project.scripts]
+          fxcli = "fxcli.cli:main"
+          '''
+          assert read_project(text) == {
+              "name": "fxcli",
+              "version": "0.2.0",
+              "python": ">=3.11",
+              "dependencies": ["httpx", "pydantic-core", "tomli", "python-dotenv"],
+              "scripts": {"fxcli": "fxcli.cli:main"},
+          }, read_project(text)
+      - name: "Необязательные поля"
+        call: "read_project('[project]\\nname = \"a\"\\nversion = \"0.1\"')"
+        expected: "{'name': 'a', 'version': '0.1', 'python': None, 'dependencies': [], 'scripts': {}}"
+      - name: "Нет обязательных полей"
+        code: |
+          for text in ['[tool.ruff]\nline-length = 100', '[project]\nname = "a"', '[project]\nversion = "1"']:
+              try:
+                  read_project(text)
+              except ValueError:
+                  continue
+              raise AssertionError(f"Ожидался ValueError для {text!r}")
+      - name: "Некорректный TOML"
+        code: |
+          try:
+              read_project("[project\nname = ")
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+
+  - id: t2
+    title: "Проверка версий"
+    difficulty: 2
+    statement: |
+      Напишите две функции:
+
+      - `satisfies(version, spec)` — удовлетворяет ли версия (`"0.27.2"`) ограничению (`">=0.27,<1.0"`). Ограничение — условия через запятую (пробелы вокруг допустимы), все должны выполняться; пустая строка — любая версия подходит. Операторы: `==`, `!=`, `>=`, `<=`, `>`, `<`, `~=`. Версии сравниваются **покомпонентно как числа**, короткая дополняется нулями (`1.2 == 1.2.0`). `~=X.Y` означает `>=X.Y, <(X+1)`, а `~=X.Y.Z` — `>=X.Y.Z, <X.(Y+1)` (в общем случае: отбросить последний компонент и увеличить предпоследний; `~=` с одним компонентом → `ValueError`). Неизвестный оператор → `ValueError`.
+      - `best_version(available, spec)` — наибольшая из версий списка `available`, удовлетворяющая ограничению, или `None`.
+    examples:
+      - input: "satisfies('0.10.1', '>=0.9,<1.0')"
+        output: "True"
+    starter: |
+      def satisfies(version, spec):
+          return version >= spec[2:]
+
+
+      def best_version(available, spec):
+          return max(available)
+    hints:
+      - "Разбор: `tuple(int(p) for p in v.split(\".\"))`; для сравнения дополните обе версии нулями до одинаковой длины. Оператор ищите, перебирая двухсимвольные (`~=`, `==`, `!=`, `>=`, `<=`) раньше односимвольных."
+      - "`~=`: `parts = parse(v)`, `upper = parts[:-2] + (parts[-2] + 1,)` — и проверьте `version >= v and version < upper`. В `best_version` — `max(подходящие, key=parse, default=None)`."
+    solution: |
+      import operator
+
+      OPERATORS = {
+          "==": operator.eq,
+          "!=": operator.ne,
+          ">=": operator.ge,
+          "<=": operator.le,
+          ">": operator.gt,
+          "<": operator.lt,
+      }
+
+
+      def parse(version):
+          return tuple(int(part) for part in version.strip().split("."))
+
+
+      def _pad(a, b):
+          size = max(len(a), len(b))
+          return a + (0,) * (size - len(a)), b + (0,) * (size - len(b))
+
+
+      def _check(version, condition):
+          condition = condition.strip()
+          for symbol in ("~=", "==", "!=", ">=", "<=", ">", "<"):
+              if condition.startswith(symbol):
+                  bound = parse(condition[len(symbol):])
+                  break
+          else:
+              raise ValueError(f"неизвестный оператор: {condition!r}")
+          if symbol == "~=":
+              if len(bound) < 2:
+                  raise ValueError("~= требует минимум два компонента версии")
+              upper = bound[:-2] + (bound[-2] + 1,)
+              low_a, low_b = _pad(version, bound)
+              up_a, up_b = _pad(version, upper)
+              return low_a >= low_b and up_a < up_b
+          left, right = _pad(version, bound)
+          return OPERATORS[symbol](left, right)
+
+
+      def satisfies(version, spec):
+          """Удовлетворяет ли версия ограничению вида '>=0.27,<1.0'."""
+          parsed = parse(version)
+          return all(_check(parsed, part) for part in spec.split(",") if part.strip())
+
+
+      def best_version(available, spec):
+          """Наибольшая подходящая версия или None."""
+          return max((v for v in available if satisfies(v, spec)), key=parse, default=None)
+    solution_explanation: "Версии превращаются в кортежи чисел и дополняются нулями — после этого обычные операторы сравнения кортежей работают правильно. Двухсимвольные операторы проверяются раньше односимвольных, иначе `>=` распознался бы как `>`. Так в упрощённом виде работает packaging.SpecifierSet."
+    tests:
+      - name: "Пример"
+        call: "satisfies('0.10.1', '>=0.9,<1.0')"
+        expected: "True"
+      - name: "Операторы"
+        call: "[satisfies('1.2', s) for s in ['==1.2.0', '!=1.2', '>1.1.9', '<1.2', '<=1.2', ' >= 1.0 , < 2 ']]"
+        expected: "[True, False, True, False, True, True]"
+      - name: "Совместимая версия ~="
+        call: "[satisfies(v, '~=0.27.0') for v in ['0.27.0', '0.27.9', '0.28.0', '0.26.5']] + [satisfies(v, '~=2.5') for v in ['2.9.1', '3.0', '2.4']]"
+        expected: "[True, True, False, False, True, False, False]"
+      - name: "Пустое ограничение"
+        call: "satisfies('9.9.9', '')"
+        expected: "True"
+      - name: "Ошибки"
+        code: |
+          for spec in ["=>1.0", "~=1", "1.0"]:
+              try:
+                  satisfies("1.0", spec)
+              except ValueError:
+                  continue
+              raise AssertionError(f"Ожидался ValueError для {spec!r}")
+      - name: "Лучшая версия"
+        call: "best_version(['0.9.0', '0.10.2', '1.0.0', '0.10.10', '0.27.1'], '>=0.10,<1.0')"
+        expected: "'0.27.1'"
+      - name: "Числовое сравнение и None"
+        call: "(best_version(['0.9', '0.10', '0.2'], ''), best_version(['1.0'], '>=2'))"
+        expected: "('0.10', None)"
+
+  - id: t3
+    title: "Абсолютное имя для относительного импорта"
+    difficulty: 2
+    statement: |
+      Напишите `absolute_import(module, target, is_package=False)` — то, что делает Python, встречая `from <target> import ...` в модуле `module`:
+
+      - `module` — полное имя модуля, в котором написан импорт (`"app.api.routes"`); `is_package=True`, если это `__init__.py` пакета (тогда текущий пакет — сам `module`), иначе текущий пакет — `module` без последней части;
+      - `target` без точек в начале — абсолютный импорт, вернуть как есть;
+      - `target` с точками: первая точка — текущий пакет, каждая следующая — уровень вверх; затем добавляется оставшееся имя (если есть): `".models"`, `"..core.text"`, `".."`;
+      - модуль верхнего уровня, не пакет (`"main"`), и относительный импорт → `ImportError("attempted relative import with no known parent package")`;
+      - подъём выше корня → `ImportError("attempted relative import beyond top-level package")`.
+
+      Не используйте `importlib`.
+    examples:
+      - input: "absolute_import('app.api.routes', '..core.text')"
+        output: "'app.core.text'"
+    starter: |
+      def absolute_import(module, target, is_package=False):
+          return target.lstrip(".")
+    hints:
+      - "`level = len(target) - len(target.lstrip(\".\"))`; пакет — `module.split(\".\")` целиком или без последнего элемента. Пустой список частей пакета при `level > 0` — «no known parent package»."
+      - "Подняться на `level - 1` уровней: если `level - 1 >= len(parts)` — «beyond top-level package»; иначе `base = parts[:len(parts) - (level - 1)]` и добавить оставшееся имя."
+    solution: |
+      def absolute_import(module, target, is_package=False):
+          """Абсолютное имя модуля для from <target> import ... внутри module."""
+          name = target.lstrip(".")
+          level = len(target) - len(name)
+          if level == 0:
+              return target
+          parts = module.split(".")
+          if not is_package:
+              parts = parts[:-1]
+          if not parts:
+              raise ImportError("attempted relative import with no known parent package")
+          if level - 1 >= len(parts):
+              raise ImportError("attempted relative import beyond top-level package")
+          base = parts[:len(parts) - (level - 1)]
+          return ".".join(base + ([name] if name else []))
+    solution_explanation: "Сначала определяется текущий пакет: для обычного модуля это его имя без последней части, для __init__.py — само имя. Затем каждая точка после первой срезает одну часть с конца. Те же две ошибки выдаёт и Python."
+    constraints:
+      forbid: ["importlib"]
+      message: "Вычислите имя сами, без importlib."
+    tests:
+      - name: "Пример"
+        call: "absolute_import('app.api.routes', '..core.text')"
+        expected: "'app.core.text'"
+      - name: "Одна точка и абсолютный импорт"
+        call: "[absolute_import('app.api.routes', '.schemas'), absolute_import('app.api.routes', 'httpx')]"
+        expected: "['app.api.schemas', 'httpx']"
+      - name: "Импорт в __init__.py пакета"
+        call: "[absolute_import('app.api', '.routes', is_package=True), absolute_import('app.api', '..core', is_package=True)]"
+        expected: "['app.api.routes', 'app.core']"
+      - name: "Только точки"
+        call: "[absolute_import('app.api.routes', '.'), absolute_import('app.api.routes', '..')]"
+        expected: "['app.api', 'app']"
+      - name: "Нет родительского пакета"
+        code: |
+          try:
+              absolute_import("main", ".utils")
+          except ImportError as error:
+              assert str(error) == "attempted relative import with no known parent package", str(error)
+          else:
+              raise AssertionError("Ожидался ImportError")
+      - name: "Выше корня"
+        code: |
+          try:
+              absolute_import("app.api.routes", "...utils")
+          except ImportError as error:
+              assert str(error) == "attempted relative import beyond top-level package", str(error)
+          else:
+              raise AssertionError("Ожидался ImportError")
+          assert absolute_import("app.api.routes", "...utils", is_package=True) == "app.utils"
+
+  - id: t4
+    title: "Из скрипта в пакет"
+    mode: local
+    difficulty: 2
+    statement: |
+      Скачайте архив. В нём старый скрипт `old_textkit.py` с функциями `slugify` и `word_count` и тесты `test_package.py`. Оформите код как устанавливаемый пакет **textkit** в src-раскладке:
+
+      ```text
+      pyproject.toml
+      src/textkit/__init__.py     # __version__ = "0.1.0", публичные slugify и word_count
+      src/textkit/core.py         # сами функции
+      src/textkit/cli.py          # main(argv=None) -> int: печатает slugify(" ".join(argv)) и возвращает 0
+      src/textkit/__main__.py     # python -m textkit ...
+      ```
+
+      В `pyproject.toml`: секция `[project]` с `name = "textkit"`, `version = "0.1.0"`, `requires-python`, пустым списком `dependencies`, консольная команда `textkit = "textkit.cli:main"` и секция `[build-system]`. Версия в `__init__.py` должна совпадать с версией в `pyproject.toml`.
+
+      Тесты сами добавляют `src` в путь поиска модулей. Дополнительно попробуйте установить пакет и вызвать команду:
+
+      ```bash
+      pip install pytest
+      pytest -q
+      pip install -e .
+      textkit Привет, мир!
+      ```
+    files:
+      old_textkit.py: |
+        """Старый скрипт: всё в одном файле."""
+        import re
+        import sys
+
+
+        def slugify(text):
+            """'Привет, Мир!' -> 'привет-мир'."""
+            return re.sub(r"[^\w]+", "-", text.lower()).strip("-")
+
+
+        def word_count(text):
+            """Число слов."""
+            return len(re.findall(r"\w+", text))
+
+
+        if __name__ == "__main__":
+            print(slugify(" ".join(sys.argv[1:])))
+      test_package.py: |
+        """Проверка структуры пакета. Не меняйте этот файл."""
+        import os
+        import subprocess
+        import sys
+        import tomllib
+        from pathlib import Path
+
+        ROOT = Path(__file__).parent
+        SRC = ROOT / "src"
+        sys.path.insert(0, str(SRC))
+
+
+        def load_pyproject():
+            path = ROOT / "pyproject.toml"
+            assert path.exists(), "Нет pyproject.toml"
+            return tomllib.loads(path.read_text(encoding="utf-8"))
+
+
+        def test_layout():
+            for name in ["__init__.py", "core.py", "cli.py", "__main__.py"]:
+                assert (SRC / "textkit" / name).exists(), f"Нет файла src/textkit/{name}"
+
+
+        def test_pyproject_project():
+            project = load_pyproject()["project"]
+            assert project["name"] == "textkit"
+            assert project["version"] == "0.1.0"
+            assert project["requires-python"].startswith(">=3."), "Укажите requires-python, например \">=3.11\""
+            assert project["dependencies"] == []
+
+
+        def test_pyproject_script_and_build():
+            data = load_pyproject()
+            assert data["project"]["scripts"]["textkit"] == "textkit.cli:main"
+            assert data["build-system"]["build-backend"], "Нужна секция [build-system]"
+            assert data["build-system"]["requires"]
+
+
+        def test_version_matches():
+            import textkit
+
+            assert textkit.__version__ == load_pyproject()["project"]["version"]
+
+
+        def test_public_api():
+            from textkit import slugify, word_count
+            from textkit.core import slugify as core_slugify
+
+            assert slugify is core_slugify, "slugify должна быть определена в core.py и поднята в __init__.py"
+            assert slugify("  Привет, Мир!  ") == "привет-мир"
+            assert word_count("раз, два — три") == 3
+
+
+        def test_cli_main(capsys):
+            from textkit.cli import main
+
+            assert main(["Hello,", "World!"]) == 0
+            assert capsys.readouterr().out == "hello-world\n"
+
+
+        def test_python_m():
+            env = {**os.environ, "PYTHONPATH": str(SRC)}
+            completed = subprocess.run(
+                [sys.executable, "-m", "textkit", "Python", "Пакет"],
+                cwd=ROOT, capture_output=True, text=True, encoding="utf-8", env=env,
+            )
+            assert completed.returncode == 0, completed.stderr
+            assert completed.stdout.strip() == "python-пакет"
+    run: "pytest -q"
+    hints:
+      - "В `__init__.py`: `from .core import slugify, word_count` и `__version__ = \"0.1.0\"`. В `__main__.py`: `from textkit.cli import main` и `raise SystemExit(main())`."
+      - "В `cli.py` аргументы по умолчанию берутся из `sys.argv[1:]`: `args = sys.argv[1:] if argv is None else argv`. `[build-system]`: `requires = [\"hatchling\"]`, `build-backend = \"hatchling.build\"`."
+    solution_files:
+      pyproject.toml: |
+        [project]
+        name = "textkit"
+        version = "0.1.0"
+        description = "Утилиты для работы с текстом"
+        requires-python = ">=3.11"
+        dependencies = []
+
+        [project.scripts]
+        textkit = "textkit.cli:main"
+
+        [build-system]
+        requires = ["hatchling"]
+        build-backend = "hatchling.build"
+      src/textkit/__init__.py: |
+        """Утилиты для работы с текстом."""
+        from .core import slugify, word_count
+
+        __version__ = "0.1.0"
+        __all__ = ["slugify", "word_count", "__version__"]
+      src/textkit/core.py: |
+        """Функции обработки текста."""
+        import re
+
+
+        def slugify(text):
+            """'Привет, Мир!' -> 'привет-мир'."""
+            return re.sub(r"[^\w]+", "-", text.lower()).strip("-")
+
+
+        def word_count(text):
+            """Число слов."""
+            return len(re.findall(r"\w+", text))
+      src/textkit/cli.py: |
+        """Командная строка textkit."""
+        import sys
+
+        from textkit.core import slugify
+
+
+        def main(argv=None):
+            """Напечатать slug для аргументов командной строки."""
+            args = sys.argv[1:] if argv is None else argv
+            print(slugify(" ".join(args)))
+            return 0
+      src/textkit/__main__.py: |
+        from textkit.cli import main
+
+        raise SystemExit(main())
+    solution_explanation: "Логика переехала в core.py, интерфейс командной строки — в cli.py, а __init__.py только поднимает публичные имена и хранит версию. main принимает argv параметром, поэтому его легко вызвать из теста, а __main__.py и [project.scripts] дают два способа запуска: python -m textkit и команду textkit после установки."

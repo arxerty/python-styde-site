@@ -1,0 +1,873 @@
+title: "Практикум: замыкания, декораторы, контекстные менеджеры"
+description: |
+  Вопросы и задачи по всему блоку: функции как объекты, замыкания и nonlocal, декораторы с аргументами и без, functools, контекстные менеджеры.
+  Последняя задача — мини-проект «Декоратор @retry с экспоненциальной задержкой» — то, что защищает каждый вызов LLM API в продакшене.
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def apply(func, values):
+          return [func(v) for v in values]
+
+
+      print(apply(str.upper, ["a", "b"]), apply(len, ["ab", ""]))
+    options:
+      - text: "`['A', 'B'] [2, 0]`"
+        correct: true
+        why: "Функции передаются без вызова и применяются к каждому элементу."
+      - text: "TypeError: str.upper нельзя передать"
+        why: "Методы — тоже функции, их можно передавать."
+      - text: "`['A', 'B'] [2]`"
+        why: "Пустая строка тоже обрабатывается — её длина 0."
+    explanation: "Функции — объекты первого класса."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def make_counter():
+          count = 0
+
+          def inc():
+              nonlocal count
+              count += 1
+              return count
+
+          return inc
+
+
+      a = make_counter()
+      b = make_counter()
+      a()
+      a()
+      print(a(), b())
+    options:
+      - text: "`3 1`"
+        correct: true
+        why: "У каждого вызова фабрики своя переменная count."
+      - text: "`3 4`"
+        why: "Счётчики независимы."
+      - text: "`1 1`"
+        why: "nonlocal позволяет увеличивать захваченную переменную."
+    explanation: "Замыкание хранит своё состояние для каждого вызова фабрики."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      adders = [lambda x: x + n for n in range(3)]
+      fixed = [lambda x, n=n: x + n for n in range(3)]
+      print(adders[0](10), fixed[0](10))
+    options:
+      - text: "`12 10`"
+        correct: true
+        why: "Без параметра по умолчанию все lambda видят последнее n = 2."
+      - text: "`10 10`"
+        why: "Позднее связывание: adders[0] использует n на момент вызова."
+      - text: "`12 12`"
+        why: "n=n фиксирует значение при создании lambda."
+    explanation: "Замыкания захватывают переменные, а не значения."
+
+  - id: q4
+    type: single
+    prompt: "Чему эквивалентна запись `@deco` над `def f(): ...`?"
+    options:
+      - text: "`f = deco(f)` сразу после определения f"
+        correct: true
+        why: "Синтаксический сахар."
+      - text: "Вызову `deco()` перед каждым вызовом f"
+        why: "Декоратор применяется один раз."
+      - text: "`f = deco` — f заменяется декоратором"
+        why: "f заменяется результатом вызова deco(f)."
+      - text: "`deco.f = f`"
+        why: "Декоратор не становится владельцем функции."
+    explanation: "Декоратор — функция, принимающая функцию и возвращающая новую."
+
+  - id: q5
+    type: find_bug
+    prompt: "Что не так с этим декоратором?"
+    code: |
+      def log(func):
+          def wrapper(*args, **kwargs):
+              print("вызов", func.__name__)
+              return func(*args, **kwargs)
+          return wrapper
+
+
+      @log
+      def search(query):
+          """Найти документы."""
+          return []
+    options:
+      - text: "Нет @functools.wraps(func): у search теперь __name__ = 'wrapper' и нет docstring"
+        correct: true
+        why: "Метаданные исходной функции потеряны."
+      - text: "Обёртка не возвращает результат"
+        why: "return func(...) есть."
+      - text: "Обёртка не принимает именованные аргументы"
+        why: "**kwargs принимает."
+    explanation: "Каждую обёртку помечайте @wraps(func)."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def add_tag(tag):
+          def decorator(func):
+              def wrapper():
+                  return f"<{tag}>{func()}</{tag}>"
+              return wrapper
+          return decorator
+
+
+      @add_tag("b")
+      @add_tag("i")
+      def text():
+          return "x"
+
+
+      print(text())
+    options:
+      - text: "`<b><i>x</i></b>`"
+        correct: true
+        why: "Нижний декоратор применяется первым, верхний оборачивает его результат."
+      - text: "`<i><b>x</b></i>`"
+        why: "Внешний тег — от верхнего декоратора."
+      - text: "`<b>x</b>`"
+        why: "Оба декоратора срабатывают."
+    explanation: "Декораторы применяются снизу вверх."
+
+  - id: q7
+    type: single
+    prompt: "Почему декоратор `@retry` должен повторять только определённые исключения?"
+    options:
+      - text: "Постоянные ошибки (неверные аргументы, KeyError) повторять бессмысленно — результат будет тем же"
+        correct: true
+        why: "Повторяют только временные сбои: сеть, таймаут, лимит запросов."
+      - text: "Python не позволяет перехватывать все исключения"
+        why: "Позволяет, но это плохая практика."
+      - text: "Чтобы retry работал быстрее"
+        why: "Дело в корректности поведения, а не в скорости."
+      - text: "Иначе декоратор не сохранит __name__"
+        why: "Метаданные сохраняет wraps."
+    explanation: "Retry — для временных ошибок."
+
+  - id: q8
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from functools import lru_cache
+
+      calls = 0
+
+
+      @lru_cache(maxsize=None)
+      def slow(x):
+          global calls
+          calls += 1
+          return x * 2
+
+
+      print(sum(slow(i % 3) for i in range(9)), calls)
+    options:
+      - text: "`18 3`"
+        correct: true
+        why: "Аргументы 0, 1, 2 вычислены по одному разу; сумма (0+2+4)·3 = 18."
+      - text: "`18 9`"
+        why: "Повторные аргументы берутся из кэша."
+      - text: "`6 3`"
+        why: "Функция вызывается 9 раз — результаты суммируются все."
+    explanation: "lru_cache вычисляет функцию один раз на уникальный набор аргументов."
+
+  - id: q9
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from functools import partial
+
+
+      def greet(greeting, name, mark="!"):
+          return f"{greeting}, {name}{mark}"
+
+
+      hi = partial(greet, "Привет")
+      print(hi("Ада"), hi("Алан", mark="?"))
+    options:
+      - text: "`Привет, Ада! Привет, Алан?`"
+        correct: true
+        why: "partial зафиксировал первый позиционный аргумент greeting."
+      - text: "`Ада, Привет! Алан, Привет?`"
+        why: "Зафиксированные позиционные аргументы идут первыми."
+      - text: "TypeError"
+        why: "Оставшиеся аргументы передаются при вызове."
+    explanation: "partial(func, a) — функция, где первый аргумент уже подставлен."
+
+  - id: q10
+    type: multiple
+    prompt: "Какие функции можно безопасно кэшировать через `@lru_cache`? Выберите все."
+    options:
+      - text: "`tokenize(text: str)` — разбиение строки на слова"
+        correct: true
+        why: "Чистая функция с хешируемым аргументом."
+      - text: "`grid_paths(rows, cols)`"
+        correct: true
+        why: "Чистая функция от чисел."
+      - text: "`mean(values: list)`"
+        why: "Список нехешируемый — TypeError."
+      - text: "`now_iso()` — текущее время строкой"
+        why: "Результат меняется со временем — кэш вернёт устаревшее значение."
+    explanation: "Кэшируйте чистые функции с хешируемыми аргументами."
+
+  - id: q11
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Guard:
+          def __enter__(self):
+              print("вход")
+              return self
+
+          def __exit__(self, exc_type, exc, tb):
+              print("выход")
+              return exc_type is ZeroDivisionError
+
+
+      with Guard():
+          1 / 0
+      print("дальше")
+    options:
+      - text: |
+          ```
+          вход
+          выход
+          дальше
+          ```
+        correct: true
+        why: "__exit__ вернул True для ZeroDivisionError — исключение подавлено."
+      - text: |
+          ```
+          вход
+          выход
+          ```
+        why: "Исключение подавлено, программа продолжает работу."
+      - text: |
+          ```
+          вход
+          дальше
+          ```
+        why: "__exit__ выполняется при выходе из блока."
+    explanation: "Истинный результат __exit__ подавляет исключение."
+
+  - id: q12
+    type: find_bug
+    prompt: "Почему соединение не закрывается, если в блоке `with connect() as conn:` возникла ошибка?"
+    code: |
+      from contextlib import contextmanager
+
+
+      @contextmanager
+      def connect():
+          conn = open_connection()
+          yield conn
+          conn.close()
+    options:
+      - text: "yield не обёрнут в try/finally — при исключении код после yield не выполняется"
+        correct: true
+        why: "try: yield conn / finally: conn.close()."
+      - text: "Нужно вернуть conn через return"
+        why: "В @contextmanager значение отдаётся через yield."
+      - text: "contextmanager нельзя использовать с соединениями"
+        why: "Можно — это типичный случай."
+    explanation: "Освобождение ресурса — в finally."
+
+  - id: q13
+    type: multiple
+    prompt: "Что верно? Выберите все."
+    options:
+      - text: "Код декоратора вне обёртки выполняется при определении функции"
+        correct: true
+        why: "Например, при импорте модуля."
+      - text: "Декоратор с аргументами — это фабрика, возвращающая декоратор"
+        correct: true
+        why: "Три уровня вложенности."
+      - text: "`__exit__` вызывается и при return из блока with"
+        correct: true
+        why: "При любом выходе."
+      - text: "nonlocal нужен, чтобы вызвать append у захваченного списка"
+        why: "Метод меняет объект, а не переприсваивает имя — nonlocal не нужен."
+    explanation: "Ключевые механизмы блока."
+
+tasks:
+  - id: t1
+    title: "Фабрика валидаторов"
+    difficulty: 2
+    statement: |
+      Напишите фабрики, возвращающие функции-валидаторы. Валидатор принимает значение и возвращает `None`, если всё хорошо, или строку с ошибкой:
+
+      - `in_range(low, high)` — число от `low` до `high` включительно, иначе `"должно быть от <low> до <high>"`;
+      - `one_of(*options)` — значение из списка, иначе `"допустимо: a, b, c"` (через запятую с пробелом, как переданы);
+      - `max_length(n)` — длина не больше `n`, иначе `"не длиннее <n> символов"`.
+
+      Функция `validate(value, *validators)` возвращает список всех ошибок (пустой, если ошибок нет).
+    examples:
+      - input: "validate(5, in_range(0, 2), one_of(1, 2))"
+        output: "['должно быть от 0 до 2', 'допустимо: 1, 2']"
+    starter: |
+      def in_range(low, high):
+          return low <= high
+    hints:
+      - "Каждая фабрика объявляет внутреннюю функцию `check(value)` и возвращает её."
+      - "`\", \".join(str(option) for option in options)`; validate — `[error for error in (v(value) for v in validators) if error]`."
+    solution: |
+      def in_range(low, high):
+          def check(value):
+              if not low <= value <= high:
+                  return f"должно быть от {low} до {high}"
+              return None
+          return check
+
+
+      def one_of(*options):
+          def check(value):
+              if value not in options:
+                  return "допустимо: " + ", ".join(str(option) for option in options)
+              return None
+          return check
+
+
+      def max_length(n):
+          def check(value):
+              if len(value) > n:
+                  return f"не длиннее {n} символов"
+              return None
+          return check
+
+
+      def validate(value, *validators):
+          """Все ошибки значения."""
+          errors = (validator(value) for validator in validators)
+          return [error for error in errors if error]
+    solution_explanation: "Каждый валидатор — замыкание с собственными параметрами. validate не знает, какие проверки ей передали, — это функции высшего порядка в действии."
+    tests:
+      - name: "Пример"
+        call: "validate(5, in_range(0, 2), one_of(1, 2))"
+        expected: "['должно быть от 0 до 2', 'допустимо: 1, 2']"
+      - name: "Без ошибок"
+        call: "validate(\"bert\", one_of(\"bert\", \"gpt\"), max_length(10))"
+        expected: "[]"
+      - name: "max_length"
+        call: "max_length(3)(\"длинный\")"
+        expected: "'не длиннее 3 символов'"
+      - name: "Границы диапазона"
+        call: "[in_range(0, 1)(0), in_range(0, 1)(1), in_range(0, 1)(1.01)]"
+        expected: "[None, None, 'должно быть от 0 до 1']"
+      - name: "Независимые валидаторы"
+        code: |
+          small = in_range(0, 10)
+          big = in_range(100, 200)
+          assert small(5) is None and big(5) is not None
+
+  - id: t2
+    title: "Логирующий декоратор с уровнем"
+    difficulty: 2
+    statement: |
+      Напишите декоратор с аргументами `logged(sink, level="INFO")`, где `sink` — список, куда пишутся строки:
+
+      - после успешного вызова: `"<level> <имя>(<аргументы>) -> <repr результата>"`; аргументы — `repr` позиционных и `ключ=repr` именованных через `", "`;
+      - при исключении: `"ERROR <имя>: <ТипИсключения>: <сообщение>"`, исключение пробрасывается;
+      - метаданные функции сохраняются.
+    examples:
+      - input: "log = []\n@logged(log)\ndef add(a, b=0): return a + b\n\nadd(2, b=3); log"
+        output: "['INFO add(2, b=3) -> 5']"
+    starter: |
+      def logged(sink, level="INFO"):
+          def decorator(func):
+              return func
+          return decorator
+    hints:
+      - "Аргументы: `parts = [repr(a) for a in args] + [f\"{k}={v!r}\" for k, v in kwargs.items()]`, затем `\", \".join(parts)`."
+      - "`try: result = func(...)` / `except Exception as error: sink.append(...); raise`; после — запись об успехе и `return result`."
+    solution: |
+      from functools import wraps
+
+
+      def logged(sink, level="INFO"):
+          """Записывать вызовы функции в список sink."""
+          def decorator(func):
+              @wraps(func)
+              def wrapper(*args, **kwargs):
+                  parts = [repr(a) for a in args] + [f"{k}={v!r}" for k, v in kwargs.items()]
+                  try:
+                      result = func(*args, **kwargs)
+                  except Exception as error:
+                      sink.append(f"ERROR {func.__name__}: {type(error).__name__}: {error}")
+                      raise
+                  sink.append(f"{level} {func.__name__}({', '.join(parts)}) -> {result!r}")
+                  return result
+              return wrapper
+          return decorator
+    solution_explanation: "Фабрика запоминает приёмник логов и уровень, обёртка формирует строку из аргументов и результата. Ошибка записывается и пробрасывается дальше — логирование не должно менять поведение программы."
+    tests:
+      - name: "Пример"
+        code: |
+          log = []
+          @logged(log)
+          def add(a, b=0):
+              return a + b
+          add(2, b=3)
+          assert log == ["INFO add(2, b=3) -> 5"], log
+      - name: "Строки и уровень"
+        code: |
+          log = []
+          @logged(log, level="DEBUG")
+          def greet(name):
+              return f"привет, {name}"
+          greet("Ада")
+          assert log == ["DEBUG greet('Ада') -> 'привет, Ада'"], log
+      - name: "Исключение"
+        code: |
+          log = []
+          @logged(log)
+          def parse(text):
+              return int(text)
+          try:
+              parse("x")
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Исключение должно пробрасываться")
+          assert len(log) == 1 and log[0].startswith("ERROR parse: ValueError:"), log
+      - name: "Метаданные"
+        code: |
+          @logged([])
+          def f():
+              """Док."""
+          assert f.__name__ == "f" and f.__doc__ == "Док."
+      - name: "Без аргументов"
+        code: |
+          log = []
+          @logged(log)
+          def ping():
+              return None
+          ping()
+          assert log == ["INFO ping() -> None"]
+
+  - id: t3
+    title: "Кэш с временем жизни"
+    difficulty: 3
+    statement: |
+      Ответы API устаревают, поэтому их кэшируют на ограниченное время. Напишите декоратор `ttl_cache(seconds, clock=time.monotonic)`:
+
+      - результат для набора позиционных аргументов хранится `seconds` секунд (по часам `clock`); запись, которой `seconds` или больше, считается устаревшей и вычисляется заново;
+      - атрибуты обёртки `hits` и `misses`;
+      - `seconds <= 0` → `ValueError` при создании.
+    examples:
+      - input: "now = [0]; @ttl_cache(10, clock=lambda: now[0])\ndef rate(c): return c\n\nrate(\"usd\"); now[0] = 5; rate(\"usd\"); (rate.hits, rate.misses)"
+        output: "(1, 1)"
+    starter: |
+      import time
+
+
+      def ttl_cache(seconds, clock=time.monotonic):
+          def decorator(func):
+              cache = {}
+              def wrapper(*args):
+                  if args not in cache:
+                      cache[args] = func(*args)
+                  return cache[args]
+              return wrapper
+          return decorator
+    hints:
+      - "Храните `cache[args] = (value, stored_at)`."
+      - "Попадание: `args in cache and clock() - cache[args][1] < seconds`; иначе — промах, вычисление и новая запись с текущим временем."
+    solution: |
+      import time
+      from functools import wraps
+
+
+      def ttl_cache(seconds, clock=time.monotonic):
+          """Кэш с ограниченным временем жизни записей."""
+          if seconds <= 0:
+              raise ValueError("seconds должно быть положительным")
+
+          def decorator(func):
+              cache = {}
+
+              @wraps(func)
+              def wrapper(*args):
+                  now = clock()
+                  if args in cache:
+                      value, stored_at = cache[args]
+                      if now - stored_at < seconds:
+                          wrapper.hits += 1
+                          return value
+                  wrapper.misses += 1
+                  value = func(*args)
+                  cache[args] = (value, now)
+                  return value
+
+              wrapper.hits = 0
+              wrapper.misses = 0
+              return wrapper
+          return decorator
+    solution_explanation: "Вместе со значением хранится момент записи; при обращении сравнивается возраст записи с TTL. Часы передаются параметром — тесты управляют «временем» без ожидания."
+    tests:
+      - name: "Пример"
+        code: |
+          now = [0]
+          @ttl_cache(10, clock=lambda: now[0])
+          def rate(currency):
+              return currency
+          rate("usd")
+          now[0] = 5
+          rate("usd")
+          assert (rate.hits, rate.misses) == (1, 1)
+      - name: "Устаревание"
+        code: |
+          now = [0]
+          calls = []
+          @ttl_cache(10, clock=lambda: now[0])
+          def fetch(key):
+              calls.append(key)
+              return len(calls)
+          assert fetch("a") == 1
+          now[0] = 10
+          assert fetch("a") == 2, "Запись возрастом 10 секунд при TTL 10 устарела"
+          now[0] = 15
+          assert fetch("a") == 2 and calls == ["a", "a"]
+      - name: "Разные аргументы"
+        code: |
+          now = [0]
+          @ttl_cache(5, clock=lambda: now[0])
+          def square(x):
+              return x * x
+          square(2)
+          square(3)
+          square(2)
+          assert (square.hits, square.misses) == (1, 2)
+      - name: "Неверный TTL"
+        code: |
+          try:
+              ttl_cache(0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Метаданные"
+        code: |
+          @ttl_cache(1)
+          def named():
+              """Док."""
+              return 1
+          assert named.__name__ == "named" and named() == 1
+
+  - id: t4
+    title: "Бюджет токенов"
+    difficulty: 2
+    statement: |
+      1. Исключение `BudgetExceeded(Exception)`.
+      2. Класс-контекстный менеджер `TokenBudget(limit)`:
+         - при входе в `with` счётчик `used` обнуляется, `__enter__` возвращает сам объект;
+         - метод `spend(tokens)` — если `used + tokens > limit`, бросает `BudgetExceeded` (и `used` не меняется), иначе увеличивает `used`;
+         - свойство `left` — сколько осталось;
+         - при выходе из блока значение `used` добавляется в список `history`; исключения не подавляются.
+    examples:
+      - input: "b = TokenBudget(100)\nwith b: b.spend(30); b.spend(50)\n(b.left, b.history)"
+        output: "(20, [80])"
+    starter: |
+      class TokenBudget:
+          def __init__(self, limit):
+              self.limit = limit
+              self.used = 0
+
+          def spend(self, tokens):
+              self.used += tokens
+    hints:
+      - "`__enter__`: `self.used = 0`, `return self`. `__exit__`: `self.history.append(self.used)`, `return False`."
+      - "Свойство left: `return self.limit - self.used`."
+    solution: |
+      class BudgetExceeded(Exception):
+          """Превышен бюджет токенов."""
+
+
+      class TokenBudget:
+          """Бюджет токенов на один блок работы."""
+
+          def __init__(self, limit):
+              self.limit = limit
+              self.used = 0
+              self.history = []
+
+          def __enter__(self):
+              self.used = 0
+              return self
+
+          def __exit__(self, exc_type, exc_value, tb):
+              self.history.append(self.used)
+              return False
+
+          def spend(self, tokens):
+              if self.used + tokens > self.limit:
+                  raise BudgetExceeded(f"нужно {tokens}, осталось {self.left}")
+              self.used += tokens
+
+          @property
+          def left(self):
+              return self.limit - self.used
+    solution_explanation: "Каждый блок with — отдельная «сессия» с обнулённым счётчиком, а история сохраняет расход всех сессий, включая прерванные исключением."
+    tests:
+      - name: "Пример"
+        code: |
+          b = TokenBudget(100)
+          with b:
+              b.spend(30)
+              b.spend(50)
+          assert (b.left, b.history) == (20, [80])
+      - name: "Превышение"
+        code: |
+          b = TokenBudget(50)
+          try:
+              with b:
+                  b.spend(40)
+                  b.spend(20)
+          except BudgetExceeded:
+              pass
+          else:
+              raise AssertionError("Ожидался BudgetExceeded")
+          assert b.history == [40], "Неудачная трата не учитывается, а сессия записывается"
+      - name: "Новая сессия обнуляет счётчик"
+        code: |
+          b = TokenBudget(10)
+          with b:
+              b.spend(10)
+          with b as same:
+              assert same is b and b.left == 10
+              b.spend(3)
+          assert b.history == [10, 3]
+      - name: "Ровно по лимиту"
+        code: |
+          b = TokenBudget(5)
+          with b:
+              b.spend(5)
+          assert b.left == 0
+      - name: "Наследование исключения"
+        code: |
+          assert issubclass(BudgetExceeded, Exception)
+
+  - id: t5
+    title: "Мини-проект: @retry с экспоненциальной задержкой"
+    difficulty: 3
+    mini_project: true
+    statement: |
+      LLM API регулярно отвечают ошибками 429 (слишком много запросов) и 5xx (перегрузка). Стандартная защита — повторять запрос с **экспоненциально растущей** задержкой: 1 с, 2 с, 4 с, 8 с… Напишите такой декоратор.
+
+      **Исключения**:
+
+      - `RetryError(Exception)` — бросается, когда попытки исчерпаны; атрибуты `attempts` (сколько было попыток) и `last_exception`; исходное исключение указывается как причина (`raise ... from`).
+
+      **Функция `backoff_delay(attempt, base_delay, factor, max_delay)`** — задержка после неудачной попытки номер `attempt` (с 1): `min(base_delay * factor ** (attempt - 1), max_delay)`.
+
+      **Декоратор `retry(max_attempts=5, base_delay=1.0, factor=2.0, max_delay=30.0, jitter=0.0, exceptions=(Exception,), retry_if=None, on_retry=None, sleep=time.sleep, rng=random.random)`**:
+
+      - параметры проверяются при создании: `max_attempts >= 1`, `base_delay >= 0`, `factor >= 1`, `0 <= jitter <= 1`, иначе `ValueError`;
+      - повторяются только исключения из `exceptions`; если задан `retry_if(exc)` и он вернул `False` — исключение пробрасывается сразу, без повтора;
+      - перед повтором вычисляется задержка `backoff_delay(...)`; с джиттером к ней добавляется случайная доля: `delay + delay * jitter * rng()`; затем вызывается `on_retry(attempt, exc, delay)` (если задан) и `sleep(delay)`;
+      - после последней неудачной попытки — `RetryError` (без вызова `sleep`);
+      - у обёртки словарь `stats`: `{"calls": вызовов обёртки, "retries": всего повторов, "failures": вызовов, закончившихся RetryError}`;
+      - метаданные функции сохраняются.
+    examples:
+      - input: "[backoff_delay(k, 1.0, 2.0, 30.0) for k in range(1, 7)]"
+        output: "[1.0, 2.0, 4.0, 8.0, 16.0, 30.0]"
+    setup: |
+      import random
+      import time
+
+
+      class APIError(Exception):
+          def __init__(self, status):
+              super().__init__(f"HTTP {status}")
+              self.status = status
+
+
+      def make_api(statuses):
+          """Фейковый API: по очереди бросает ошибки с кодами из списка, затем отвечает."""
+          state = {"calls": 0}
+          def call(prompt):
+              state["calls"] += 1
+              if statuses:
+                  raise APIError(statuses.pop(0))
+              return f"ответ: {prompt}"
+          call.state = state
+          return call
+    starter: |
+      import time
+
+
+      def retry(max_attempts=5, base_delay=1.0):
+          def decorator(func):
+              def wrapper(*args, **kwargs):
+                  for _ in range(max_attempts):
+                      try:
+                          return func(*args, **kwargs)
+                      except Exception:
+                          time.sleep(base_delay)
+              return wrapper
+          return decorator
+    hints:
+      - "Структура: проверки параметров в `retry` → `decorator(func)` → `wrapper`. В цикле `for attempt in range(1, max_attempts + 1):` — `try: return func(...)` / `except exceptions as error:`; если `retry_if` есть и вернул False — `raise`; если попытка последняя — `wrapper.stats[\"failures\"] += 1` и `raise RetryError(...) from error`."
+      - "Иначе: `delay = backoff_delay(attempt, base_delay, factor, max_delay)`, `if jitter: delay += delay * jitter * rng()`, вызов on_retry, `wrapper.stats[\"retries\"] += 1`, `sleep(delay)`. Не забудьте `wrapper.stats = {...}` после определения обёртки и `stats[\"calls\"] += 1` в её начале."
+    solution: |
+      import random
+      import time
+      from functools import wraps
+
+
+      class RetryError(Exception):
+          """Все попытки исчерпаны."""
+
+          def __init__(self, attempts, last_exception):
+              super().__init__(f"не удалось за {attempts} попыток: {last_exception!r}")
+              self.attempts = attempts
+              self.last_exception = last_exception
+
+
+      def backoff_delay(attempt, base_delay, factor, max_delay):
+          """Экспоненциальная задержка после неудачной попытки attempt."""
+          return min(base_delay * factor ** (attempt - 1), max_delay)
+
+
+      def retry(
+          max_attempts=5,
+          base_delay=1.0,
+          factor=2.0,
+          max_delay=30.0,
+          jitter=0.0,
+          exceptions=(Exception,),
+          retry_if=None,
+          on_retry=None,
+          sleep=time.sleep,
+          rng=random.random,
+      ):
+          """Повторять вызов при временных ошибках с экспоненциальной задержкой."""
+          if max_attempts < 1:
+              raise ValueError("max_attempts должно быть не меньше 1")
+          if base_delay < 0:
+              raise ValueError("base_delay не может быть отрицательной")
+          if factor < 1:
+              raise ValueError("factor должен быть не меньше 1")
+          if not 0 <= jitter <= 1:
+              raise ValueError("jitter должен быть от 0 до 1")
+
+          def decorator(func):
+              @wraps(func)
+              def wrapper(*args, **kwargs):
+                  wrapper.stats["calls"] += 1
+                  for attempt in range(1, max_attempts + 1):
+                      try:
+                          return func(*args, **kwargs)
+                      except exceptions as error:
+                          if retry_if is not None and not retry_if(error):
+                              raise
+                          if attempt == max_attempts:
+                              wrapper.stats["failures"] += 1
+                              raise RetryError(attempt, error) from error
+                          delay = backoff_delay(attempt, base_delay, factor, max_delay)
+                          if jitter:
+                              delay += delay * jitter * rng()
+                          if on_retry is not None:
+                              on_retry(attempt, error, delay)
+                          wrapper.stats["retries"] += 1
+                          sleep(delay)
+
+              wrapper.stats = {"calls": 0, "retries": 0, "failures": 0}
+              return wrapper
+          return decorator
+    solution_explanation: |
+      Декоратор собирает всё из блока:
+
+      - **фабрика с параметрами** проверяет настройки сразу — ошибка конфигурации обнаружится при импорте, а не в момент первого сбоя в продакшене;
+      - **замыкание** хранит параметры, **обёртка** с `@wraps` — состояние в атрибуте `stats`;
+      - **функции как параметры**: `retry_if`, `on_retry`, `sleep` и `rng` делают поведение настраиваемым и тестируемым — тесты не ждут реальных секунд и не зависят от случайности;
+      - `raise RetryError(...) from error` сохраняет исходную ошибку как причину — в трассировке видны обе.
+
+      **Зачем джиттер.** Если тысяча клиентов получила ошибку одновременно, без случайной добавки они все повторят запрос через ровно 1, 2, 4 секунды — и снова «положат» сервер. Случайный разброс размазывает повторы по времени.
+
+      **retry_if** позволяет повторять только «временные» коды: `retry_if=lambda e: e.status in (429, 500, 502, 503)` — ошибка 400 (неверный запрос) или 401 (неверный ключ) не исправится повтором. Ровно так настроены повторы в SDK OpenAI и Anthropic и в библиотеке `tenacity`.
+    tests:
+      - name: "backoff_delay"
+        call: "[backoff_delay(k, 1.0, 2.0, 30.0) for k in range(1, 7)]"
+        expected: "[1.0, 2.0, 4.0, 8.0, 16.0, 30.0]"
+      - name: "Успех после сбоев: задержки и статистика"
+        code: |
+          sleeps = []
+          api = retry(sleep=sleeps.append)(make_api([429, 503]))
+          assert api("привет") == "ответ: привет"
+          assert sleeps == [1.0, 2.0], sleeps
+          assert api.stats == {"calls": 1, "retries": 2, "failures": 0}, api.stats
+      - name: "Попытки исчерпаны"
+        code: |
+          sleeps = []
+          api = retry(max_attempts=3, base_delay=0.5, sleep=sleeps.append)(make_api([500] * 10))
+          try:
+              api("x")
+          except RetryError as error:
+              assert error.attempts == 3 and isinstance(error.last_exception, APIError)
+              assert error.__cause__ is error.last_exception, "Используйте raise ... from"
+          else:
+              raise AssertionError("Ожидался RetryError")
+          assert sleeps == [0.5, 1.0] and api.stats["failures"] == 1
+      - name: "retry_if: постоянные ошибки не повторяются"
+        code: |
+          sleeps = []
+          raw = make_api([401])
+          api = retry(retry_if=lambda e: e.status in (429, 500, 503), sleep=sleeps.append)(raw)
+          try:
+              api("x")
+          except APIError as error:
+              assert error.status == 401
+          else:
+              raise AssertionError("401 должна пробрасываться сразу")
+          assert sleeps == [] and raw.state["calls"] == 1
+      - name: "Неперечисленные исключения пробрасываются"
+        code: |
+          @retry(exceptions=(APIError,), sleep=lambda s: None)
+          def broken():
+              raise KeyError("k")
+          try:
+              broken()
+          except KeyError:
+              pass
+          else:
+              raise AssertionError("KeyError не входит в exceptions")
+          assert broken.stats["retries"] == 0
+      - name: "max_delay, джиттер и on_retry"
+        code: |
+          sleeps, events = [], []
+          api = retry(
+              max_attempts=6, base_delay=2.0, factor=3.0, max_delay=20.0, jitter=0.5,
+              sleep=sleeps.append, rng=lambda: 1.0,
+              on_retry=lambda attempt, exc, delay: events.append((attempt, exc.status, delay)),
+          )(make_api([503] * 4))
+          assert api("x") == "ответ: x"
+          assert sleeps == [3.0, 9.0, 27.0, 30.0], sleeps
+          assert events[0] == (1, 503, 3.0) and len(events) == 4
+      - name: "Проверка параметров"
+        code: |
+          for kwargs in ({"max_attempts": 0}, {"base_delay": -1}, {"factor": 0.5}, {"jitter": 2}):
+              try:
+                  retry(**kwargs)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"{kwargs} должен вызывать ValueError")
+      - name: "Метаданные и аргументы"
+        code: |
+          @retry(sleep=lambda s: None)
+          def ask(prompt, temperature=0.0):
+              """Спросить модель."""
+              return (prompt, temperature)
+          assert ask("q", temperature=0.7) == ("q", 0.7)
+          assert ask.__name__ == "ask" and ask.__doc__ == "Спросить модель."
+          assert issubclass(RetryError, Exception)

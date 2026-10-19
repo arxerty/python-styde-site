@@ -1,0 +1,722 @@
+title: "Практикум: ошибки, файлы, модули"
+description: |
+  Вопросы и задачи по всему блоку: исключения, raise и свои ошибки, файлы, JSON, CSV, модули и зависимости.
+  Последняя задача — мини-проект «Конвертер CSV → JSON с обработкой ошибок».
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def f(x):
+          try:
+              return 10 / x
+          except ZeroDivisionError:
+              return "деление на ноль"
+          finally:
+              print("готово")
+
+
+      print(f(0))
+    options:
+      - text: |
+          ```
+          готово
+          деление на ноль
+          ```
+        correct: true
+        why: "finally выполняется перед фактическим возвратом из функции, затем внешний print печатает результат."
+      - text: "`деление на ноль`"
+        why: "finally выполняется всегда."
+      - text: |
+          ```
+          деление на ноль
+          готово
+          ```
+        why: "Внешний print срабатывает после завершения функции, а finally — внутри неё."
+    explanation: "finally гарантированно выполняется даже при return в except."
+
+  - id: q2
+    type: find_bug
+    prompt: "Почему программа молча выдаёт неверный результат вместо ошибки?"
+    code: |
+      total = 0
+      for value in ["10", "x", "20"]:
+          try:
+              total += int(value)
+          except:
+              pass
+      print(total)
+    options:
+      - text: "Голый except: pass проглатывает любые ошибки без следа — проблемная запись пропадает незаметно"
+        correct: true
+        why: "Ловите ValueError и хотя бы считайте или логируйте пропущенные значения."
+      - text: "int не умеет преобразовывать строки"
+        why: "Умеет, если строка — число."
+      - text: "try нельзя использовать в цикле"
+        why: "Можно."
+    explanation: "Не проглатывайте ошибки молча — данные теряются незаметно."
+
+  - id: q3
+    type: single
+    prompt: "Какую конструкцию использовать, чтобы перехватить ошибку, записать её в лог и пробросить дальше без изменений?"
+    options:
+      - text: "Голый `raise` внутри блока except"
+        correct: true
+        why: "Повторно бросает текущее исключение с исходным traceback."
+      - text: "`return None` в except"
+        why: "Ошибка будет проглочена."
+      - text: "`raise Exception()`"
+        why: "Создаст новое, менее информативное исключение."
+      - text: "`pass`"
+        why: "Ошибка исчезнет."
+    explanation: "except + логирование + raise — частый шаблон."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class AppError(Exception):
+          pass
+
+
+      class DataError(AppError):
+          pass
+
+
+      try:
+          raise DataError("битая строка")
+      except ValueError:
+          print("value")
+      except AppError as e:
+          print("app:", e)
+    options:
+      - text: "`app: битая строка`"
+        correct: true
+        why: "DataError — наследник AppError, не ValueError."
+      - text: "`value`"
+        why: "DataError не связан с ValueError."
+      - text: "Исключение не перехвачено"
+        why: "Второй except подходит."
+    explanation: "Своя иерархия исключений позволяет ловить их группой."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие утверждения о файлах верны? Выберите все."
+    options:
+      - text: "Режим \"w\" стирает существующий файл сразу при открытии"
+        correct: true
+        why: "Даже если ничего не записать."
+      - text: "`for line in file` читает файл потоково, по строке"
+        correct: true
+        why: "Не загружает файл целиком в память."
+      - text: "Кодировку стоит указывать явно: encoding=\"utf-8\""
+        correct: true
+        why: "Иначе зависит от ОС."
+      - text: "write автоматически добавляет перевод строки"
+        why: "Не добавляет — это делает print."
+    explanation: "with + encoding + правильный режим — основа работы с файлами."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import json
+      text = json.dumps({"ok": True, "n": None}, ensure_ascii=False)
+      print(text, json.loads(text)["ok"])
+    options:
+      - text: "`{\"ok\": true, \"n\": null} True`"
+        correct: true
+        why: "В JSON — true/null, после loads — снова True."
+      - text: "`{'ok': True, 'n': None} True`"
+        why: "dumps возвращает JSON, а не repr словаря."
+      - text: "`{\"ok\": true, \"n\": null} true`"
+        why: "loads превращает true обратно в Python-значение True."
+    explanation: "JSON ↔ Python: true/True, null/None."
+
+  - id: q7
+    type: single
+    prompt: "Почему для датасетов часто выбирают JSONL, а не один JSON-массив?"
+    options:
+      - text: "JSONL читается построчно, допускает дозапись и не ломается целиком из-за одной битой строки"
+        correct: true
+        why: "Это формат «по объекту на строку»."
+      - text: "JSONL компактнее в два раза"
+        why: "Размер почти такой же."
+      - text: "JSON-массив не поддерживает кириллицу"
+        why: "Поддерживает."
+      - text: "JSONL не требует кавычек"
+        why: "Каждая строка — обычный JSON с кавычками."
+    explanation: "Потоковое чтение и устойчивость — главные плюсы JSONL."
+
+  - id: q8
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import csv
+      import io
+      rows = list(csv.DictReader(io.StringIO('name,age\n"Ада, графиня",36\n')))
+      print(rows[0]["name"], rows[0]["age"] + "1")
+    options:
+      - text: "`Ада, графиня 361`"
+        correct: true
+        why: "Запятая в кавычках — часть значения; все значения — строки, поэтому склейка «36» + «1»."
+      - text: "`Ада, графиня 37`"
+        why: "Значения CSV — строки, + склеивает."
+      - text: "`Ада 361`"
+        why: "csv корректно разбирает значение в кавычках."
+    explanation: "csv разбирает кавычки, но типы не определяет."
+
+  - id: q9
+    type: find_bug
+    prompt: "Скрипт перестал видеть функции модуля `json` после того, как в папке проекта появился файл. Какой?"
+    code: |
+      import json
+      print(json.dumps({"a": 1}))
+    options:
+      - text: "Файл json.py в папке проекта — он перекрывает стандартный модуль"
+        correct: true
+        why: "Папка скрипта стоит в sys.path первой."
+      - text: "Файл requirements.txt"
+        why: "Он не влияет на импорт."
+      - text: "Файл data.json"
+        why: "Данные с расширением .json не перекрывают модуль."
+    explanation: "Не называйте свои модули как стандартные."
+
+  - id: q10
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from pathlib import Path
+      p = Path("data") / "raw" / "train.csv"
+      print(p.suffix, p.stem, p.parent.name)
+    options:
+      - text: "`.csv train raw`"
+        correct: true
+        why: "suffix — расширение, stem — имя без расширения, parent — папка raw."
+      - text: "`csv train.csv data`"
+        why: "suffix включает точку, stem — без расширения, parent — ближайшая папка."
+      - text: "`.csv train data`"
+        why: "Родитель файла — папка raw."
+    explanation: "Path разбирает путь на составные части."
+
+  - id: q11
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import random
+      a = random.Random(3)
+      b = random.Random(3)
+      print([a.randint(1, 100) for _ in range(3)] == [b.randint(1, 100) for _ in range(3)])
+    options:
+      - text: "`True`"
+        correct: true
+        why: "Генераторы с одинаковым seed дают одинаковые последовательности."
+      - text: "`False`"
+        why: "Псевдослучайность детерминирована зерном."
+      - text: "Ошибку"
+        why: "Код корректен."
+    explanation: "Фиксируйте seed для воспроизводимости."
+
+  - id: q12
+    type: multiple
+    prompt: "Какие действия правильны при старте нового Python-проекта? Выберите все."
+    options:
+      - text: "Создать виртуальное окружение `python -m venv .venv`"
+        correct: true
+        why: "Изоляция зависимостей."
+      - text: "Ставить пакеты через `python -m pip install`"
+        correct: true
+        why: "Гарантирует нужный интерпретатор."
+      - text: "Сохранить зависимости в requirements.txt"
+        correct: true
+        why: "Для воспроизводимости."
+      - text: "Добавить папку .venv в git-репозиторий"
+        why: "Её добавляют в .gitignore."
+    explanation: "venv + requirements.txt — минимальный стандарт."
+
+  - id: q13
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      results = []
+      for raw in ["1", "", "x", "4"]:
+          try:
+              results.append(int(raw))
+          except ValueError as error:
+              results.append(type(error).__name__[0])
+      print(results)
+    answer: "[1, 'V', 'V', 4]"
+    explanation: "Пустая строка и «x» дают ValueError — в список попадает первая буква имени исключения."
+
+tasks:
+  - id: t1
+    title: "Безопасные вычисления"
+    difficulty: 1
+    statement: |
+      Напишите `safe_ratios(pairs)`: для каждой пары `(a, b)` вычислить `a / b`, округлённое до 3 знаков. Если деление невозможно (`b == 0` или значения не числа) — поставить `None`. Вернуть список результатов.
+    examples:
+      - input: "safe_ratios([(1, 3), (5, 0), (\"x\", 2)])"
+        output: "[0.333, None, None]"
+    starter: |
+      def safe_ratios(pairs):
+          return [round(a / b, 3) for a, b in pairs]
+    hints:
+      - "Цикл с try/except вокруг деления."
+      - "Перехватите кортеж исключений: `(ZeroDivisionError, TypeError)`."
+    solution: |
+      def safe_ratios(pairs):
+          """Вернуть отношения a / b для пар; None, если деление невозможно."""
+          results = []
+          for a, b in pairs:
+              try:
+                  results.append(round(a / b, 3))
+              except (ZeroDivisionError, TypeError):
+                  results.append(None)
+          return results
+    solution_explanation: "Ошибка в одной паре не останавливает обработку остальных; перехватываются только ожидаемые типы ошибок."
+    tests:
+      - name: "Пример"
+        call: "safe_ratios([(1, 3), (5, 0), (\"x\", 2)])"
+        expected: "[0.333, None, None]"
+      - name: "Пусто"
+        call: "safe_ratios([])"
+        expected: "[]"
+      - name: "Все корректные"
+        call: "safe_ratios([(10, 4), (-9, 3)])"
+        expected: "[2.5, -3.0]"
+      - name: "None как значение"
+        call: "safe_ratios([(None, 1)])"
+        expected: "[None]"
+      - name: "Ноль в числителе"
+        call: "safe_ratios([(0, 5)])"
+        expected: "[0.0]"
+
+  - id: t2
+    title: "Частоты слов в JSON"
+    difficulty: 2
+    statement: |
+      Напишите `save_top_words(text_path, json_path, top=3)`: прочитать текстовый файл, посчитать слова (нижний регистр, без знаков `.,!?;:—-«»"()` по краям) и сохранить в JSON-файл (UTF-8, `ensure_ascii=False`) список объектов `{"word": ..., "count": ...}` для `top` самых частых (при равенстве — по первому появлению). Вернуть количество различных слов в тексте.
+    examples:
+      - input: "save_top_words(\"text.txt\", \"top.json\", 2)"
+        output: "4  (top.json: [{\"word\": \"кот\", \"count\": 3}, {\"word\": \"спит\", \"count\": 2}])"
+    files:
+      text.txt: "Кот спит.\nКот ест, кот спит!\nПёс лает."
+    starter: |
+      import json
+
+
+      def save_top_words(text_path, json_path, top=3):
+          return 0
+    hints:
+      - "Читайте файл построчно и считайте словарём: `counts[w] = counts.get(w, 0) + 1`."
+      - "Топ: `sorted(counts, key=counts.get, reverse=True)[:top]`; сохранение — json.dump с ensure_ascii=False."
+    solution: |
+      import json
+
+      PUNCTUATION = ".,!?;:—-«»\"()"
+
+
+      def save_top_words(text_path, json_path, top=3):
+          """Сохранить top самых частых слов в JSON; вернуть число различных слов."""
+          counts = {}
+          with open(text_path, encoding="utf-8") as file:
+              for line in file:
+                  for token in line.lower().split():
+                      word = token.strip(PUNCTUATION)
+                      if word:
+                          counts[word] = counts.get(word, 0) + 1
+          best = sorted(counts, key=counts.get, reverse=True)[:top]
+          with open(json_path, "w", encoding="utf-8") as file:
+              json.dump([{"word": w, "count": counts[w]} for w in best], file, ensure_ascii=False)
+          return len(counts)
+    solution_explanation: "Потоковое чтение, подсчёт словарём, стабильная сортировка и запись JSON — весь путь «файл → статистика → файл» за один проход по данным."
+    tests:
+      - name: "Пример"
+        code: |
+          import json
+          n = save_top_words("text.txt", "top.json", 2)
+          with open("top.json", encoding="utf-8") as f:
+              data = json.load(f)
+          assert n == 5, f"Различных слов 5 (кот, спит, ест, пёс, лает), получено {n}"
+          assert data == [{"word": "кот", "count": 3}, {"word": "спит", "count": 2}], data
+      - name: "Кириллица читаема"
+        code: |
+          save_top_words("text.txt", "t2.json", 1)
+          with open("t2.json", encoding="utf-8") as f:
+              assert "кот" in f.read()
+      - name: "top больше числа слов"
+        code: |
+          import json
+          with open("small.txt", "w", encoding="utf-8") as f:
+              f.write("да нет да")
+          save_top_words("small.txt", "s.json", 10)
+          with open("s.json", encoding="utf-8") as f:
+              assert json.load(f) == [{"word": "да", "count": 2}, {"word": "нет", "count": 1}]
+      - name: "Пустой файл"
+        code: |
+          import json
+          with open("e.txt", "w", encoding="utf-8") as f:
+              f.write("")
+          assert save_top_words("e.txt", "e.json") == 0
+          with open("e.json", encoding="utf-8") as f:
+              assert json.load(f) == []
+      - name: "По умолчанию три"
+        code: |
+          import json
+          save_top_words("text.txt", "d.json")
+          with open("d.json", encoding="utf-8") as f:
+              assert len(json.load(f)) == 3
+
+  - id: t3
+    title: "Журнал событий в JSONL"
+    difficulty: 2
+    statement: |
+      Напишите две функции для журнала событий LLM-сервиса:
+
+      - `append_event(path, event, **fields)` — дописать в файл строку JSON `{"event": event, ...fields}` (UTF-8, `ensure_ascii=False`);
+      - `read_events(path, event=None)` — прочитать все записи (битые строки пропустить); если задан `event` — только записи этого типа. Если файла нет — пустой список.
+    examples:
+      - input: "append_event(\"log.jsonl\", \"request\", tokens=120); read_events(\"log.jsonl\")"
+        output: "[{'event': 'request', 'tokens': 120}]"
+    starter: |
+      import json
+
+
+      def append_event(path, event, **fields):
+          pass
+
+
+      def read_events(path, event=None):
+          return []
+    hints:
+      - "Запись: `record = {\"event\": event, **fields}`, режим \"a\", `json.dumps(record, ensure_ascii=False) + \"\\n\"`."
+      - "Чтение: try/except FileNotFoundError снаружи и JSONDecodeError для каждой строки."
+    solution: |
+      import json
+
+
+      def append_event(path, event, **fields):
+          """Дописать событие в JSONL-журнал."""
+          record = {"event": event, **fields}
+          with open(path, "a", encoding="utf-8") as file:
+              file.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+      def read_events(path, event=None):
+          """Прочитать события журнала, при необходимости отфильтровав по типу."""
+          records = []
+          try:
+              with open(path, encoding="utf-8") as file:
+                  for line in file:
+                      try:
+                          record = json.loads(line)
+                      except json.JSONDecodeError:
+                          continue
+                      if event is None or record.get("event") == event:
+                          records.append(record)
+          except FileNotFoundError:
+              return []
+          return records
+    solution_explanation: "**fields собирает произвольные поля события, `{\"event\": event, **fields}` — слияние в один словарь. Режим \"a\" дописывает, не стирая журнал. Чтение устойчиво к отсутствию файла и битым строкам."
+    tests:
+      - name: "Запись и чтение"
+        code: |
+          append_event("log.jsonl", "request", tokens=120)
+          assert read_events("log.jsonl") == [{"event": "request", "tokens": 120}]
+      - name: "Дозапись и фильтр"
+        code: |
+          append_event("l2.jsonl", "request", tokens=10)
+          append_event("l2.jsonl", "error", code=429)
+          append_event("l2.jsonl", "request", tokens=20)
+          assert [r["tokens"] for r in read_events("l2.jsonl", "request")] == [10, 20]
+          assert len(read_events("l2.jsonl")) == 3
+      - name: "Нет файла"
+        call: "read_events(\"nope.jsonl\")"
+        expected: "[]"
+      - name: "Битые строки пропускаются"
+        code: |
+          with open("l3.jsonl", "w", encoding="utf-8") as f:
+              f.write('{"event": "a"}\nмусор\n{"event": "b"}\n')
+          assert [r["event"] for r in read_events("l3.jsonl")] == ["a", "b"]
+      - name: "Кириллица в файле"
+        code: |
+          append_event("l4.jsonl", "ответ", text="Привет")
+          with open("l4.jsonl", encoding="utf-8") as f:
+              assert "Привет" in f.read()
+
+  - id: t4
+    title: "Загрузка настроек с валидацией"
+    difficulty: 3
+    statement: |
+      Создайте исключение `SettingsError` и функцию `load_settings(path, defaults)`:
+
+      - если файла нет — вернуть **копию** `defaults`;
+      - если файл — невалидный JSON или не объект — `SettingsError` (с сохранением причины через `from` для JSON-ошибки);
+      - если в файле есть ключ, которого нет в `defaults` — `SettingsError` с именем ключа в сообщении;
+      - если тип значения отличается от типа значения по умолчанию (int и float считаются совместимыми) — `SettingsError` с именем ключа;
+      - иначе вернуть `defaults`, обновлённые значениями из файла (сам `defaults` не изменять).
+    examples:
+      - input: "load_settings(\"s.json\", {\"model\": \"mini\", \"temperature\": 0.7})"
+        output: "{'model': 'mini', 'temperature': 0.2}  (если в s.json {\"temperature\": 0.2})"
+    files:
+      good.json: "{\"temperature\": 0.2}"
+      unknown.json: "{\"temprature\": 0.2}"
+      wrong_type.json: "{\"temperature\": \"горячо\"}"
+      broken.json: "{temperature: 0.2}"
+      int_ok.json: "{\"temperature\": 1}"
+    starter: |
+      import json
+
+
+      def load_settings(path, defaults):
+          with open(path) as f:
+              return json.load(f)
+    hints:
+      - "Каркас: try/open/json.load; except FileNotFoundError → `return dict(defaults)`; except json.JSONDecodeError as error → `raise SettingsError(...) from error`."
+      - "Совместимость типов: `isinstance(value, (int, float)) and isinstance(default, (int, float))` или `type(value) is type(default)`; bool лучше проверить отдельно."
+    solution: |
+      import json
+
+
+      class SettingsError(Exception):
+          """Ошибка в файле настроек."""
+
+
+      def _compatible(value, default):
+          numbers = (int, float)
+          if isinstance(value, bool) or isinstance(default, bool):
+              return isinstance(value, bool) and isinstance(default, bool)
+          if isinstance(value, numbers) and isinstance(default, numbers):
+              return True
+          return type(value) is type(default)
+
+
+      def load_settings(path, defaults):
+          """Загрузить настройки из JSON поверх значений по умолчанию."""
+          try:
+              with open(path, encoding="utf-8") as file:
+                  data = json.load(file)
+          except FileNotFoundError:
+              return dict(defaults)
+          except json.JSONDecodeError as error:
+              raise SettingsError(f"{path}: невалидный JSON") from error
+          if not isinstance(data, dict):
+              raise SettingsError(f"{path}: ожидался JSON-объект")
+          for key, value in data.items():
+              if key not in defaults:
+                  raise SettingsError(f"неизвестный параметр: {key}")
+              if not _compatible(value, defaults[key]):
+                  raise SettingsError(f"неверный тип параметра {key}: {type(value).__name__}")
+          return defaults | data
+    solution_explanation: "Валидация до использования: опечатка в имени параметра (temprature) или неверный тип обнаруживаются сразу с понятным сообщением, а не через час обучения. `defaults | data` создаёт новый словарь, не трогая значения по умолчанию."
+    tests:
+      - name: "Переопределение"
+        call: "load_settings(\"good.json\", {\"model\": \"mini\", \"temperature\": 0.7})"
+        expected: "{'model': 'mini', 'temperature': 0.2}"
+      - name: "Нет файла — копия"
+        code: |
+          defaults = {"a": 1}
+          result = load_settings("missing.json", defaults)
+          assert result == defaults and result is not defaults, "Нужно вернуть копию defaults"
+      - name: "Опечатка в имени"
+        code: |
+          try:
+              load_settings("unknown.json", {"temperature": 0.7})
+          except SettingsError as error:
+              assert "temprature" in str(error)
+          else:
+              raise AssertionError("Ожидался SettingsError")
+      - name: "Неверный тип"
+        code: |
+          try:
+              load_settings("wrong_type.json", {"temperature": 0.7})
+          except SettingsError as error:
+              assert "temperature" in str(error)
+          else:
+              raise AssertionError("Ожидался SettingsError")
+      - name: "Битый JSON с причиной"
+        code: |
+          try:
+              load_settings("broken.json", {"temperature": 0.7})
+          except SettingsError as error:
+              assert isinstance(error.__cause__, ValueError), "Сохраните причину через raise ... from"
+          else:
+              raise AssertionError("Ожидался SettingsError")
+      - name: "int вместо float допустим, defaults не меняется"
+        code: |
+          defaults = {"temperature": 0.7}
+          assert load_settings("int_ok.json", defaults) == {"temperature": 1}
+          assert defaults == {"temperature": 0.7}
+
+  - id: t5
+    title: "Конвертер CSV → JSON"
+    mini_project: true
+    difficulty: 3
+    statement: |
+      **Мини-проект.** Напишите конвертер CSV-файлов в JSON с обработкой ошибок.
+
+      Создайте исключение `ConverterError` и функцию:
+
+      ```python
+      convert(csv_path, json_path, *, delimiter=",", types=None)
+      ```
+
+      1. Прочитать CSV (UTF-8) через `csv.DictReader` с заданным разделителем. Если файла нет — `ConverterError` с именем файла.
+      2. `types` — словарь `столбец → "int" | "float" | "bool" | "str"` (по умолчанию все `str`). Если в `types` указан столбец, которого нет в заголовке, — `ConverterError` с именем столбца.
+      3. Преобразование значения:
+         - пустая строка (после strip) → `None` для любого типа;
+         - `"int"` / `"float"` — числа (для float допускается десятичная запятая);
+         - `"bool"` — `true/yes/1/да` → `True`, `false/no/0/нет` → `False` (без учёта регистра), иное — ошибка;
+         - `"str"` — строка без пробелов по краям.
+      4. Строки, в которых хотя бы одно значение не преобразуется, **пропускаются**; их номера в файле (заголовок — строка 1) собираются.
+      5. Записать в `json_path` список объектов (UTF-8, `ensure_ascii=False`, `indent=2`).
+      6. Вернуть отчёт: `{"rows": <записано>, "skipped": [номера строк], "columns": [имена столбцов]}`.
+    examples:
+      - input: "convert(\"people.csv\", \"people.json\", types={\"age\": \"int\", \"active\": \"bool\"})"
+        output: "{'rows': 2, 'skipped': [3], 'columns': ['name', 'age', 'active']}"
+    files:
+      people.csv: "name,age,active\nАда,36,да\nАлан,сорок,нет\nГрейс,,yes\n"
+      prices.csv: "товар;цена;в наличии\nКофе;199,90;1\nЧай;89,5;0\n"
+    starter: |
+      import csv
+      import json
+
+
+      def convert(csv_path, json_path, *, delimiter=",", types=None):
+          with open(csv_path) as f:
+              rows = list(csv.DictReader(f))
+          with open(json_path, "w") as f:
+              json.dump(rows, f)
+    hints:
+      - "Разбейте задачу на функции: `convert_value(text, kind)` (бросает ValueError при неудаче) и основная `convert`. Таблица конвертеров — словарь `{\"int\": ..., \"float\": ..., \"bool\": ..., \"str\": ...}`."
+      - "Номер строки файла: `enumerate(reader, start=2)`. Проверку столбцов из types делайте после чтения заголовка (`reader.fieldnames`)."
+    solution: |
+      """Конвертер CSV → JSON с приведением типов и отчётом об ошибках."""
+      import csv
+      import json
+
+      TRUE_WORDS = {"true", "yes", "1", "да"}
+      FALSE_WORDS = {"false", "no", "0", "нет"}
+
+
+      class ConverterError(Exception):
+          """Ошибка конвертации, при которой результат получить нельзя."""
+
+
+      def to_bool(text):
+          """Преобразовать слово в bool или бросить ValueError."""
+          word = text.lower()
+          if word in TRUE_WORDS:
+              return True
+          if word in FALSE_WORDS:
+              return False
+          raise ValueError(f"не логическое значение: {text!r}")
+
+
+      CONVERTERS = {
+          "int": int,
+          "float": lambda text: float(text.replace(",", ".")),
+          "bool": to_bool,
+          "str": str,
+      }
+
+
+      def convert_value(text, kind):
+          """Преобразовать значение ячейки в нужный тип; пустое — None."""
+          text = (text or "").strip()
+          if not text:
+              return None
+          return CONVERTERS[kind](text)
+
+
+      def convert(csv_path, json_path, *, delimiter=",", types=None):
+          """Конвертировать CSV в JSON и вернуть отчёт о результате."""
+          types = types or {}
+          try:
+              file = open(csv_path, encoding="utf-8", newline="")
+          except FileNotFoundError as error:
+              raise ConverterError(f"файл не найден: {csv_path}") from error
+          with file:
+              reader = csv.DictReader(file, delimiter=delimiter)
+              columns = reader.fieldnames or []
+              for column in types:
+                  if column not in columns:
+                      raise ConverterError(f"столбца нет в файле: {column}")
+              records = []
+              skipped = []
+              for line_number, row in enumerate(reader, start=2):
+                  try:
+                      record = {
+                          column: convert_value(row[column], types.get(column, "str"))
+                          for column in columns
+                      }
+                  except ValueError:
+                      skipped.append(line_number)
+                      continue
+                  records.append(record)
+          with open(json_path, "w", encoding="utf-8") as out:
+              json.dump(records, out, ensure_ascii=False, indent=2)
+          return {"rows": len(records), "skipped": skipped, "columns": list(columns)}
+    solution_explanation: |
+      Решение собрано из инструментов всего блока:
+
+      - **Своё исключение** `ConverterError` — для ошибок, после которых результат невозможен (нет файла, неверная схема). Причина сохраняется через `raise ... from`.
+      - **Пропуск плохих строк** — ошибки отдельных ячеек не роняют конвертацию: `ValueError` перехватывается на уровне строки, номер строки попадает в отчёт.
+      - **Таблица конвертеров** — словарь функций (урок про lambda): добавить новый тип = добавить строку в словарь.
+      - **CSV и JSON** — `DictReader` с настраиваемым разделителем, `json.dump` с `ensure_ascii=False` и `indent=2`.
+      - **Файлы** — `with` гарантирует закрытие; файл открыт до блока with, чтобы отличить «нет файла» от прочих ошибок.
+
+      Отчёт с номерами пропущенных строк — важная часть: данные не теряются молча. Именно такие конвертеры пишут первыми при подготовке данных для обучения моделей.
+    tests:
+      - name: "Пример: типы и пропуск"
+        code: |
+          import json
+          report = convert("people.csv", "people.json", types={"age": "int", "active": "bool"})
+          assert report == {"rows": 2, "skipped": [3], "columns": ["name", "age", "active"]}, report
+          with open("people.json", encoding="utf-8") as f:
+              data = json.load(f)
+          assert data == [{"name": "Ада", "age": 36, "active": True}, {"name": "Грейс", "age": None, "active": True}], data
+      - name: "Разделитель и десятичная запятая"
+        code: |
+          import json
+          report = convert("prices.csv", "prices.json", delimiter=";", types={"цена": "float", "в наличии": "bool"})
+          with open("prices.json", encoding="utf-8") as f:
+              data = json.load(f)
+          assert data == [{"товар": "Кофе", "цена": 199.9, "в наличии": True}, {"товар": "Чай", "цена": 89.5, "в наличии": False}], data
+          assert report["rows"] == 2 and report["skipped"] == []
+      - name: "Нет файла"
+        code: |
+          try:
+              convert("missing.csv", "out.json")
+          except ConverterError as error:
+              assert "missing.csv" in str(error)
+          else:
+              raise AssertionError("Ожидался ConverterError")
+      - name: "Неизвестный столбец в types"
+        code: |
+          try:
+              convert("people.csv", "out.json", types={"salary": "int"})
+          except ConverterError as error:
+              assert "salary" in str(error)
+          else:
+              raise AssertionError("Ожидался ConverterError")
+      - name: "Без types — всё строки"
+        code: |
+          import json
+          convert("people.csv", "s.json")
+          with open("s.json", encoding="utf-8") as f:
+              data = json.load(f)
+          assert data[1] == {"name": "Алан", "age": "сорок", "active": "нет"}
+      - name: "Кириллица и отступы в файле"
+        code: |
+          convert("people.csv", "pretty.json", types={"age": "int"})
+          with open("pretty.json", encoding="utf-8") as f:
+              raw = f.read()
+          assert "Ада" in raw and '\n  {' in raw, "Нужны ensure_ascii=False и indent=2"
+      - name: "Неверное логическое значение"
+        code: |
+          with open("b.csv", "w", encoding="utf-8") as f:
+              f.write("flag\nда\nможет быть\n")
+          report = convert("b.csv", "b.json", types={"flag": "bool"})
+          assert report["rows"] == 1 and report["skipped"] == [3]

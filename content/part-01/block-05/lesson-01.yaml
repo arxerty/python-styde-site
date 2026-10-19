@@ -1,0 +1,287 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      items = [1, 2, 3]
+      items.append([4, 5])
+      print(len(items), items[-1])
+    options:
+      - text: "`4 [4, 5]`"
+        correct: true
+        why: "append добавляет один элемент — список [4, 5] целиком."
+      - text: "`5 5`"
+        why: "Так было бы с extend."
+      - text: "`4 5`"
+        why: "Последний элемент — вложенный список, а не число."
+    explanation: "append — один элемент, extend — каждый элемент последовательности."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      a = [1, 2]
+      b = a
+      b.append(3)
+      c = a.copy()
+      c.append(4)
+      print(a)
+    options:
+      - text: "`[1, 2, 3]`"
+        correct: true
+        why: "b — второе имя того же списка, c — независимая копия."
+      - text: "`[1, 2]`"
+        why: "b = a не копирует список: append через b меняет и a."
+      - text: "`[1, 2, 3, 4]`"
+        why: "c — копия; изменения c не влияют на a."
+    explanation: "Присваивание не копирует список. Копия — copy(), [:] или list()."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему после этого кода `print(numbers)` выводит None?"
+    code: |
+      numbers = [3, 1, 2]
+      numbers = numbers.append(5)
+      print(numbers)
+    options:
+      - text: "append меняет список на месте и возвращает None — результат перезаписал переменную"
+        correct: true
+        why: "Нужно просто `numbers.append(5)` без присваивания."
+      - text: "append нельзя вызывать для списков чисел"
+        why: "append работает с любыми элементами."
+      - text: "Нужно писать append без скобок"
+        why: "Без скобок метод не вызывается."
+      - text: "print не умеет выводить списки"
+        why: "Умеет — проблема в значении переменной."
+    explanation: "Строковые методы возвращают новую строку, а методы изменения списка — None."
+
+  - id: q4
+    type: multiple
+    prompt: "Какие способы гарантированно убирают **последний** элемент списка `lst = [5, 3, 5]`? Выберите все."
+    options:
+      - text: "`lst.pop()`"
+        correct: true
+        why: "Удаляет и возвращает последний элемент."
+      - text: "`del lst[-1]`"
+        correct: true
+        why: "Удаление по индексу −1."
+      - text: "`lst = lst[:-1]`"
+        correct: true
+        why: "Создаёт новый список без последнего элемента и привязывает к нему имя."
+      - text: "`lst.remove(lst[-1])`"
+        why: "remove удаляет ПЕРВОЕ вхождение значения 5 — то есть элемент с индексом 0."
+    explanation: "remove работает по значению и удаляет первое вхождение — это не то же самое, что удаление по позиции."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      x = [3, 1, 2]
+      x.insert(1, 9)
+      print(x.pop(), x)
+    options:
+      - text: "`2 [3, 9, 1]`"
+        correct: true
+        why: "После insert: [3, 9, 1, 2]; pop() удаляет и возвращает последний — 2."
+      - text: "`9 [3, 1, 2]`"
+        why: "pop() без аргумента берёт последний элемент, а не вставленный."
+      - text: "`2 [3, 1, 2]`"
+        why: "insert на позицию 1 сдвигает элементы: 9 остаётся в списке."
+    explanation: "insert вставляет перед элементом с указанным индексом, pop() — удаляет с конца."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print([1, 2] * 2 + [0])
+    answer: "[1, 2, 1, 2, 0]"
+    explanation: "Как у строк: * повторяет список, + склеивает списки в новый."
+
+tasks:
+  - id: t1
+    title: "Список чётных"
+    difficulty: 1
+    statement: |
+      Программа читает строку целых чисел через пробел. Соберите новый список из чётных чисел (в исходном порядке) и выведите его, а на следующей строке — `Чётных: <количество>`.
+    examples:
+      - input: "5 8 3 4 4 7"
+        output: "[8, 4, 4]\nЧётных: 3"
+    starter: |
+      numbers = input().split()
+      evens = []
+    hints:
+      - "Перебирайте строки, превращая каждую в int: `value = int(text)`."
+      - "Чётное — `value % 2 == 0`; добавляйте через `evens.append(value)`."
+    solution: |
+      numbers = input().split()
+      evens = []
+      for text in numbers:
+          value = int(text)
+          if value % 2 == 0:
+              evens.append(value)
+      print(evens)
+      print("Чётных:", len(evens))
+    solution_explanation: "Шаблон «пустой список + append в цикле» — способ собрать новый список по условию. print выводит список в квадратных скобках."
+    tests:
+      - name: "Пример"
+        stdin: "5 8 3 4 4 7\n"
+        stdout: "[8, 4, 4]\nЧётных: 3"
+      - name: "Нет чётных"
+        stdin: "1 3 5\n"
+        stdout: "[]\nЧётных: 0"
+      - name: "Отрицательные и ноль"
+        stdin: "-2 0 -3\n"
+        stdout: "[-2, 0]\nЧётных: 2"
+      - name: "Пустая строка"
+        stdin: "\n"
+        stdout: "[]\nЧётных: 0"
+      - name: "Это int, а не строки"
+        stdin: "10 20\n"
+        stdout: "[10, 20]\nЧётных: 2"
+
+  - id: t2
+    title: "Список покупок"
+    difficulty: 2
+    statement: |
+      Программа обрабатывает команды, пока не встретит `конец`:
+
+      - `добавить <товар>` — добавить товар в конец списка;
+      - `удалить <товар>` — удалить первое вхождение; если такого нет — вывести `Нет в списке: <товар>`;
+      - `показать` — вывести товары через `, ` или `(пусто)`.
+
+      Название товара может состоять из нескольких слов.
+    examples:
+      - input: "добавить молоко\nдобавить хлеб\nудалить сыр\nпоказать\nконец"
+        output: "Нет в списке: сыр\nмолоко, хлеб"
+    starter: |
+      items = []
+      while True:
+          command = input()
+          if command == "конец":
+              break
+    hints:
+      - "Разделите команду на действие и аргумент: `action, _, item = command.partition(\" \")` или `command.split(\" \", 1)`."
+      - "Перед `remove` проверьте `if item in items:`; для вывода — `\", \".join(items)`."
+    solution: |
+      items = []
+      while True:
+          command = input()
+          if command == "конец":
+              break
+          if command == "показать":
+              print(", ".join(items) if items else "(пусто)")
+              continue
+          action, item = command.split(" ", 1)
+          if action == "добавить":
+              items.append(item)
+          elif action == "удалить":
+              if item in items:
+                  items.remove(item)
+              else:
+                  print("Нет в списке:", item)
+    solution_explanation: "split(\" \", 1) отделяет действие от названия, даже если в названии есть пробелы. Проверка `in` перед remove защищает от ValueError."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        stdin: "добавить молоко\nдобавить хлеб\nудалить сыр\nпоказать\nконец\n"
+        stdout: "Нет в списке: сыр\nмолоко, хлеб"
+      - name: "Пустой список"
+        stdin: "показать\nконец\n"
+        stdout: "(пусто)"
+      - name: "Удаление первого вхождения"
+        stdin: "добавить яблоко\nдобавить груша\nдобавить яблоко\nудалить яблоко\nпоказать\nконец\n"
+        stdout: "груша, яблоко"
+      - name: "Название из нескольких слов"
+        stdin: "добавить зелёный чай\nпоказать\nудалить зелёный чай\nпоказать\nконец\n"
+        stdout: "зелёный чай\n(пусто)"
+      - name: "Сразу конец"
+        stdin: "конец\n"
+        stdout: ""
+
+  - id: t3
+    title: "Последние k сообщений"
+    difficulty: 2
+    statement: |
+      Чат-бот хранит только последние `k` сообщений. Программа читает `k`, затем сообщения по одному, пока не встретит `стоп`. Выведите сохранённые сообщения по одному в строке (от старых к новым), затем `Отброшено: <сколько сообщений не поместилось>`.
+    examples:
+      - input: "2\nпривет\nкак дела\nотлично\nстоп"
+        output: "как дела\nотлично\nОтброшено: 1"
+    starter: |
+      k = int(input())
+      history = []
+    hints:
+      - "После каждого append проверяйте `if len(history) > k:` и удаляйте самое старое через `pop(0)`."
+      - "Счётчик отброшенных увеличивайте при каждом pop(0)."
+    solution: |
+      k = int(input())
+      history = []
+      dropped = 0
+      while True:
+          message = input()
+          if message == "стоп":
+              break
+          history.append(message)
+          if len(history) > k:
+              history.pop(0)
+              dropped += 1
+      for message in history:
+          print(message)
+      print("Отброшено:", dropped)
+    solution_explanation: "Скользящее окно: append в конец, pop(0) из начала. Так приложения обрезают историю диалога под контекстное окно модели."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        stdin: "2\nпривет\nкак дела\nотлично\nстоп\n"
+        stdout: "как дела\nотлично\nОтброшено: 1"
+      - name: "Всё помещается"
+        stdin: "5\nа\nб\nстоп\n"
+        stdout: "а\nб\nОтброшено: 0"
+      - name: "Окно 1"
+        stdin: "1\nа\nб\nв\nстоп\n"
+        stdout: "в\nОтброшено: 2"
+      - name: "Нет сообщений"
+        stdin: "3\nстоп\n"
+        stdout: "Отброшено: 0"
+      - name: "Ровно k"
+        stdin: "3\n1\n2\n3\nстоп\n"
+        stdout: "1\n2\n3\nОтброшено: 0"
+
+  - id: t4
+    title: "Дубликаты с сохранением порядка"
+    difficulty: 2
+    statement: |
+      Программа читает строку слов. Выведите слова без повторов, сохранив порядок первого появления (через пробел), а затем `Удалено повторов: <количество>`.
+    examples:
+      - input: "кот пёс кот мышь пёс кот"
+        output: "кот пёс мышь\nУдалено повторов: 3"
+    starter: |
+      words = input().split()
+      unique = []
+    hints:
+      - "Добавляйте слово в unique, только если его там ещё нет: `if word not in unique`."
+      - "Повторов удалено: `len(words) - len(unique)`."
+    solution: |
+      words = input().split()
+      unique = []
+      for word in words:
+          if word not in unique:
+              unique.append(word)
+      print(" ".join(unique))
+      print("Удалено повторов:", len(words) - len(unique))
+    solution_explanation: "Список-накопитель с проверкой `not in` сохраняет порядок появления. Проверка `in` для списка медленная на больших данных — в уроке 5 вы увидите, как множество ускорит её."
+    tests:
+      - name: "Пример"
+        stdin: "кот пёс кот мышь пёс кот\n"
+        stdout: "кот пёс мышь\nУдалено повторов: 3"
+      - name: "Без повторов"
+        stdin: "a b c\n"
+        stdout: "a b c\nУдалено повторов: 0"
+      - name: "Все одинаковые"
+        stdin: "да да да да\n"
+        stdout: "да\nУдалено повторов: 3"
+      - name: "Регистр различается"
+        stdin: "AI ai Ai\n"
+        stdout: "AI ai Ai\nУдалено повторов: 0"
+      - name: "Пусто"
+        stdin: "\n"
+        stdout: "\nУдалено повторов: 0"

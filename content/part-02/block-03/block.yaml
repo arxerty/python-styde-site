@@ -1,0 +1,16 @@
+title: "Итераторы и генераторы"
+description: "Протокол итерации, генераторы и yield, ленивые вычисления и экономия памяти, конвейеры генераторов, itertools и батчинг данных — как в DataLoader."
+mini_project: "Ленивый обработчик большого лог-файла по батчам"
+lessons:
+  - id: lesson-01
+    title: "Протокол итерации: __iter__, __next__, StopIteration"
+  - id: lesson-02
+    title: "Генераторы и yield"
+  - id: lesson-03
+    title: "Генераторные выражения, ленивые вычисления и память"
+  - id: lesson-04
+    title: "yield from и конвейеры генераторов"
+  - id: lesson-05
+    title: "itertools: chain, islice, groupby, product"
+  - id: lesson-06
+    title: "Батчинг данных генераторами — как DataLoader в ML"

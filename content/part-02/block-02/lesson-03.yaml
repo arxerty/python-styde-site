@@ -1,0 +1,462 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class User:
+          name: str
+          age: int = 18
+
+
+      print(User("Ада"), User("Ада") == User("Ада", 18))
+    options:
+      - text: "`User(name='Ада', age=18) True`"
+        correct: true
+        why: "@dataclass сгенерировал __repr__ и __eq__ по полям."
+      - text: "`<__main__.User object at 0x...> False`"
+        why: "Так было бы для обычного класса без __repr__ и __eq__."
+      - text: "`User(name='Ада', age=18) False`"
+        why: "__eq__ датакласса сравнивает поля, а не идентичность."
+    explanation: "Датакласс генерирует __init__, __repr__ и __eq__ по аннотированным полям."
+
+  - id: q2
+    type: find_bug
+    prompt: "`Item(\"чай\", 2)` падает с TypeError: слишком много аргументов. Почему?"
+    code: |
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class Item:
+          name: str
+          quantity = 1
+    options:
+      - text: "У quantity нет аннотации — это атрибут класса, а не поле, и в __init__ его нет"
+        correct: true
+        why: "Нужно quantity: int = 1."
+      - text: "Поле с умолчанием должно идти первым"
+        why: "Наоборот — поля с умолчаниями идут после полей без них."
+      - text: "Датакласс не поддерживает целые числа"
+        why: "Поддерживает любые значения."
+    explanation: "Полем датакласса становится только атрибут с аннотацией типа."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from dataclasses import dataclass, field
+
+
+      @dataclass
+      class Team:
+          members: list = field(default_factory=list)
+
+
+      a = Team()
+      b = Team()
+      a.members.append("Ада")
+      print(len(a.members), len(b.members))
+    options:
+      - text: "`1 0`"
+        correct: true
+        why: "default_factory создаёт новый список для каждого объекта."
+      - text: "`1 1`"
+        why: "Списки не общие — фабрика вызывается при каждом создании."
+      - text: "ValueError при объявлении класса"
+        why: "Ошибку даёт members: list = [], а default_factory — правильный способ."
+    explanation: "field(default_factory=list) — изменяемое умолчание без общей ловушки."
+
+  - id: q4
+    type: single
+    prompt: "Что произойдёт при `p.x = 5`, если `p` — объект `@dataclass(frozen=True)`?"
+    options:
+      - text: "`FrozenInstanceError`"
+        correct: true
+        why: "Поля замороженного датакласса менять нельзя."
+      - text: "Создастся новый объект с x = 5"
+        why: "Новый объект создаёт replace(p, x=5), а не присваивание."
+      - text: "Значение изменится, но объект станет нехешируемым"
+        why: "Присваивание запрещено."
+      - text: "Ничего — присваивание молча игнорируется"
+        why: "Будет исключение."
+    explanation: "frozen=True делает объект неизменяемым и хешируемым; изменения — через replace."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from dataclasses import dataclass
+
+
+      @dataclass(order=True)
+      class Run:
+          model: str
+          score: float
+
+
+      runs = [Run("cnn", 0.9), Run("bert", 0.7), Run("lstm", 0.8)]
+      print(max(runs).model)
+    options:
+      - text: "`lstm`"
+        correct: true
+        why: "order=True сравнивает по порядку полей: сначала model — по алфавиту lstm последний."
+      - text: "`cnn`"
+        why: "Сравнение начинается с первого поля — model, а не score."
+      - text: "TypeError: сравнение не поддерживается"
+        why: "order=True генерирует методы сравнения."
+    explanation: "order=True сравнивает объекты как кортежи полей в порядке объявления."
+
+  - id: q6
+    type: multiple
+    prompt: "Что `@dataclass` (без параметров) генерирует автоматически? Выберите все."
+    options:
+      - text: "`__init__`"
+        correct: true
+        why: "Параметры — поля в порядке объявления."
+      - text: "`__repr__`"
+        correct: true
+        why: "Показывает все поля."
+      - text: "`__eq__`"
+        correct: true
+        why: "Сравнивает поля."
+      - text: "`__lt__` и другие сравнения"
+        why: "Только с order=True."
+    explanation: "По умолчанию — __init__, __repr__, __eq__; сравнения — order=True; неизменяемость и хеш — frozen=True."
+
+tasks:
+  - id: t1
+    title: "Сообщение как датакласс"
+    difficulty: 1
+    statement: |
+      Создайте датакласс `Message`:
+
+      - поля `role: str`, `content: str`;
+      - поле `words: int`, которое **не** передаётся в конструктор и вычисляется в `__post_init__` — число слов в `content`;
+      - в `__post_init__` проверка роли (`"system"`, `"user"`, `"assistant"`, иначе `ValueError`);
+      - метод `to_api()` → `{"role": ..., "content": ...}`.
+    examples:
+      - input: "Message(\"user\", \"Привет, как дела?\")"
+        output: "Message(role='user', content='Привет, как дела?', words=3)"
+    starter: |
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class Message:
+          role: str
+          content: str
+    hints:
+      - "`words: int = field(init=False)` — импортируйте `field` из `dataclasses`."
+      - "`def __post_init__(self):` — проверка роли, затем `self.words = len(self.content.split())`."
+    solution: |
+      from dataclasses import dataclass, field
+
+      ROLES = ("system", "user", "assistant")
+
+
+      @dataclass
+      class Message:
+          """Сообщение диалога."""
+
+          role: str
+          content: str
+          words: int = field(init=False)
+
+          def __post_init__(self):
+              if self.role not in ROLES:
+                  raise ValueError(f"неизвестная роль: {self.role}")
+              self.words = len(self.content.split())
+
+          def to_api(self):
+              return {"role": self.role, "content": self.content}
+    solution_explanation: "field(init=False) убирает поле из конструктора, но оставляет его в repr и eq; значение вычисляет __post_init__, где же живёт проверка."
+    tests:
+      - name: "repr"
+        call: "repr(Message(\"user\", \"Привет, как дела?\"))"
+        expected: "\"Message(role='user', content='Привет, как дела?', words=3)\""
+      - name: "to_api"
+        call: "Message(\"assistant\", \"Готово\").to_api()"
+        expected: "{'role': 'assistant', 'content': 'Готово'}"
+      - name: "Неверная роль"
+        code: |
+          try:
+              Message("bot", "x")
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "words не в конструкторе"
+        code: |
+          try:
+              Message("user", "a b", 5)
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("words не должен передаваться в конструктор")
+      - name: "Это датакласс"
+        code: |
+          from dataclasses import is_dataclass
+          assert is_dataclass(Message), "Используйте @dataclass"
+          assert Message("user", "a") == Message("user", "a")
+
+  - id: t2
+    title: "Неизменяемая точка"
+    difficulty: 1
+    statement: |
+      Создайте замороженный датакласс `Point(x: float, y: float)`:
+
+      - `distance_to(other)` — расстояние до другой точки;
+      - `moved(dx, dy)` — **новая** точка, сдвинутая на `(dx, dy)` (используйте `replace`);
+      - точки можно класть в множество; присваивание полей → `FrozenInstanceError`.
+    examples:
+      - input: "Point(0, 0).moved(3, 4)"
+        output: "Point(x=3, y=4)"
+    starter: |
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class Point:
+          x: float
+          y: float
+
+          def moved(self, dx, dy):
+              self.x += dx
+              self.y += dy
+              return self
+    hints:
+      - "`@dataclass(frozen=True)` — и объект неизменяемый, и `__hash__` появляется сам."
+      - "`return replace(self, x=self.x + dx, y=self.y + dy)`."
+    solution: |
+      import math
+      from dataclasses import dataclass, replace
+
+
+      @dataclass(frozen=True)
+      class Point:
+          """Неизменяемая точка на плоскости."""
+
+          x: float
+          y: float
+
+          def distance_to(self, other):
+              return math.hypot(self.x - other.x, self.y - other.y)
+
+          def moved(self, dx, dy):
+              return replace(self, x=self.x + dx, y=self.y + dy)
+    solution_explanation: "frozen=True защищает точку от изменений и делает её хешируемой. «Изменение» — это создание новой точки через replace, исходная остаётся прежней."
+    tests:
+      - name: "moved"
+        call: "repr(Point(0, 0).moved(3, 4))"
+        expected: "'Point(x=3, y=4)'"
+      - name: "Исходная точка не меняется"
+        code: |
+          p = Point(1, 1)
+          q = p.moved(1, 0)
+          assert p == Point(1, 1) and q == Point(2, 1)
+      - name: "Расстояние"
+        call: "Point(0, 0).distance_to(Point(3, 4))"
+        expected: "5.0"
+      - name: "Множество"
+        call: "len({Point(1, 2), Point(1, 2), Point(2, 1)})"
+        expected: "2"
+      - name: "Неизменяемость"
+        code: |
+          from dataclasses import FrozenInstanceError
+          p = Point(1, 2)
+          try:
+              p.x = 5
+          except FrozenInstanceError:
+              pass
+          else:
+              raise AssertionError("Поля должны быть неизменяемыми")
+
+  - id: t3
+    title: "Корзина на датаклассах"
+    difficulty: 2
+    statement: |
+      Создайте два датакласса:
+
+      - `Product(name: str, price: float, quantity: int = 1)`; в `__post_init__`: `price` ≥ 0 и `quantity` ≥ 1, иначе `ValueError`;
+      - `Cart(items: list` — по умолчанию пустой список, `discount: float = 0.0)`; `discount` от 0 до 1, иначе `ValueError`.
+
+      Методы `Cart`: `add(product)`; `total()` — сумма `price * quantity` с учётом скидки, округлённая до 2 знаков; `to_dict()` — словарь через `asdict`.
+    examples:
+      - input: "c = Cart(discount=0.1); c.add(Product(\"чай\", 200, 2)); c.total()"
+        output: "360.0"
+    starter: |
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class Product:
+          name: str
+          price: float
+          quantity: int = 1
+
+
+      @dataclass
+      class Cart:
+          items: list = None
+          discount: float = 0.0
+    hints:
+      - "`items: list = field(default_factory=list)`."
+      - "total: `round(sum(p.price * p.quantity for p in self.items) * (1 - self.discount), 2)`."
+    solution: |
+      from dataclasses import dataclass, field, asdict
+
+
+      @dataclass
+      class Product:
+          name: str
+          price: float
+          quantity: int = 1
+
+          def __post_init__(self):
+              if self.price < 0:
+                  raise ValueError("цена не может быть отрицательной")
+              if self.quantity < 1:
+                  raise ValueError("количество должно быть не меньше 1")
+
+
+      @dataclass
+      class Cart:
+          items: list = field(default_factory=list)
+          discount: float = 0.0
+
+          def __post_init__(self):
+              if not 0 <= self.discount <= 1:
+                  raise ValueError("скидка должна быть от 0 до 1")
+
+          def add(self, product):
+              self.items.append(product)
+
+          def total(self):
+              subtotal = sum(product.price * product.quantity for product in self.items)
+              return round(subtotal * (1 - self.discount), 2)
+
+          def to_dict(self):
+              return asdict(self)
+    solution_explanation: "default_factory даёт каждой корзине свой список, __post_init__ проверяет значения, а asdict рекурсивно превращает и корзину, и товары в словари — готово для JSON."
+    tests:
+      - name: "Пример"
+        code: |
+          c = Cart(discount=0.1)
+          c.add(Product("чай", 200, 2))
+          assert c.total() == 360.0, c.total()
+      - name: "to_dict"
+        code: |
+          c = Cart()
+          c.add(Product("хлеб", 50))
+          assert c.to_dict() == {"items": [{"name": "хлеб", "price": 50, "quantity": 1}], "discount": 0.0}, c.to_dict()
+      - name: "Корзины независимы"
+        code: |
+          a = Cart()
+          b = Cart()
+          a.add(Product("x", 1))
+          assert b.items == []
+      - name: "Проверки"
+        code: |
+          for make in (lambda: Product("x", -1), lambda: Product("x", 1, 0), lambda: Cart(discount=1.5)):
+              try:
+                  make()
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError("Ожидался ValueError")
+      - name: "Пустая корзина"
+        call: "Cart().total()"
+        expected: "0"
+
+  - id: t4
+    title: "Таблица лидеров"
+    difficulty: 3
+    statement: |
+      Создайте датакласс `Submission` с `order=True`: поля `team: str`, `accuracy: float`, `latency_ms: float`.
+
+      Сортировка должна ставить **выше** решения с большей точностью, а при равной точности — с меньшей задержкой. Для этого добавьте **первым** скрытое поле `sort_key: tuple` (не в конструкторе, не в repr), которое `__post_init__` заполняет значением `(-accuracy, latency_ms)`. Также проверьте, что `accuracy` от 0 до 1 (`ValueError`).
+
+      Функции:
+
+      - `top(submissions, n)` — имена команд первых `n` мест;
+      - `to_rows(submissions)` — список словарей с полями `team`, `accuracy`, `latency_ms` (без `sort_key`) в порядке мест.
+    examples:
+      - input: "top([Submission(\"a\", 0.9, 50), Submission(\"b\", 0.95, 80), Submission(\"c\", 0.9, 20)], 2)"
+        output: "['b', 'c']"
+    starter: |
+      from dataclasses import dataclass
+
+
+      @dataclass(order=True)
+      class Submission:
+          team: str
+          accuracy: float
+          latency_ms: float
+
+
+      def top(submissions, n):
+          return [s.team for s in sorted(submissions)[:n]]
+    hints:
+      - "`sort_key: tuple = field(init=False, repr=False)` — объявите **первым**: поле без умолчания для конструктора не нужно, потому что init=False. Остальным полям — `compare=False`, чтобы сравнение шло только по ключу."
+      - "to_rows: `{\"team\": s.team, \"accuracy\": s.accuracy, \"latency_ms\": s.latency_ms}` для каждого в `sorted(...)`."
+    solution: |
+      from dataclasses import dataclass, field
+
+
+      @dataclass(order=True)
+      class Submission:
+          """Решение команды в соревновании."""
+
+          sort_key: tuple = field(init=False, repr=False)
+          team: str = field(compare=False)
+          accuracy: float = field(compare=False)
+          latency_ms: float = field(compare=False)
+
+          def __post_init__(self):
+              if not 0 <= self.accuracy <= 1:
+                  raise ValueError(f"accuracy вне [0, 1]: {self.accuracy}")
+              self.sort_key = (-self.accuracy, self.latency_ms)
+
+
+      def top(submissions, n):
+          """Имена команд, занявших первые n мест."""
+          return [submission.team for submission in sorted(submissions)[:n]]
+
+
+      def to_rows(submissions):
+          """Строки таблицы лидеров в порядке мест."""
+          return [
+              {"team": s.team, "accuracy": s.accuracy, "latency_ms": s.latency_ms}
+              for s in sorted(submissions)
+          ]
+    solution_explanation: "Приём «скрытый ключ сортировки»: order=True сравнивает поля по порядку, поэтому первым ставится sort_key, а остальные исключаются из сравнения через compare=False. Минус перед accuracy разворачивает порядок: большая точность — меньший ключ — выше место."
+    tests:
+      - name: "Пример"
+        call: "top([Submission(\"a\", 0.9, 50), Submission(\"b\", 0.95, 80), Submission(\"c\", 0.9, 20)], 2)"
+        expected: "['b', 'c']"
+      - name: "repr без sort_key"
+        call: "repr(Submission(\"x\", 0.5, 10))"
+        expected: "\"Submission(team='x', accuracy=0.5, latency_ms=10)\""
+      - name: "Сравнение объектов"
+        code: |
+          assert Submission("a", 0.99, 100) < Submission("b", 0.5, 1), "Большая точность — выше место (меньше)"
+          assert Submission("a", 0.8, 10) < Submission("b", 0.8, 20)
+      - name: "to_rows"
+        call: "to_rows([Submission(\"a\", 0.7, 5), Submission(\"b\", 0.8, 9)])"
+        expected: "[{'team': 'b', 'accuracy': 0.8, 'latency_ms': 9}, {'team': 'a', 'accuracy': 0.7, 'latency_ms': 5}]"
+      - name: "Проверка точности"
+        code: |
+          try:
+              Submission("x", 1.2, 10)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Конструктор без sort_key"
+        code: |
+          s = Submission(team="t", accuracy=0.6, latency_ms=3)
+          assert s.sort_key == (-0.6, 3)

@@ -1,0 +1,16 @@
+title: "ООП: продвинутый"
+description: "Специальные методы и перегрузка операторов, dataclasses, абстрактные классы и протоколы, композиция против наследования, перечисления Enum."
+mini_project: "Класс Matrix с операциями — подготовка к линейной алгебре"
+lessons:
+  - id: lesson-01
+    title: "Dunder-методы: __str__, __repr__, __eq__, __len__, __getitem__"
+  - id: lesson-02
+    title: "Перегрузка операторов: класс Vector"
+  - id: lesson-03
+    title: "dataclasses"
+  - id: lesson-04
+    title: "Абстрактные классы (abc) и протоколы"
+  - id: lesson-05
+    title: "Композиция против наследования"
+  - id: lesson-06
+    title: "Enum: перечисления"

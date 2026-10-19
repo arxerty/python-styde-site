@@ -1,0 +1,16 @@
+title: "Типизация и валидация"
+description: "Аннотации типов, Optional/Union/Literal/Callable, TypedDict и обобщённые типы, проверка mypy, Pydantic для валидации данных и разбора ответов LLM."
+mini_project: "Валидатор конфигурации ML-эксперимента на Pydantic"
+lessons:
+  - id: lesson-01
+    title: "Type hints: базовые типы, list[int], dict[str, float]"
+  - id: lesson-02
+    title: "Optional, Union, Literal, Any, Callable"
+  - id: lesson-03
+    title: "TypedDict, Generic, TypeVar"
+  - id: lesson-04
+    title: "mypy: проверка типов"
+  - id: lesson-05
+    title: "Pydantic: модели, валидация, ошибки валидации"
+  - id: lesson-06
+    title: "Pydantic для JSON: ответы API и structured output LLM"

@@ -1,0 +1,337 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      n = 3
+      while n > 0:
+          print(n)
+          n -= 1
+      print("Пуск!")
+    options:
+      - text: |
+          ```
+          3
+          2
+          1
+          Пуск!
+          ```
+        correct: true
+        why: "n = 3, 2, 1 — условие истинно; при n = 0 цикл заканчивается."
+      - text: |
+          ```
+          3
+          2
+          1
+          0
+          Пуск!
+          ```
+        why: "При n = 0 условие `n > 0` ложно — 0 не печатается."
+      - text: |
+          ```
+          2
+          1
+          0
+          Пуск!
+          ```
+        why: "print(n) стоит до уменьшения, поэтому первым печатается 3."
+    explanation: "Условие проверяется перед каждой итерацией; когда n становится 0, цикл завершается."
+
+  - id: q2
+    type: single
+    prompt: "Почему цикл ниже никогда не закончится?"
+    code: |
+      i = 0
+      while i < 10:
+          print(i)
+      i += 1
+    options:
+      - text: "`i += 1` стоит без отступа — вне тела цикла, поэтому i внутри цикла не меняется"
+        correct: true
+        why: "Тело цикла — только print(i). Условие `0 < 10` всегда истинно."
+      - text: "Условие должно быть `i <= 10`"
+        why: "Тогда цикл тоже был бы бесконечным: i не меняется."
+      - text: "while не работает с нулём"
+        why: "Начальное значение не важно — важно изменение внутри тела."
+      - text: "print() внутри цикла запрещён"
+        why: "Внутри цикла может быть любой код."
+    explanation: "Отступ определяет тело цикла. Изменение переменной условия должно быть внутри тела."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      x = 10
+      while x < 5:
+          print("внутри")
+          x += 1
+      print("x =", x)
+    options:
+      - text: "`x = 10`"
+        correct: true
+        why: "10 < 5 ложно сразу — тело не выполняется ни разу."
+      - text: |
+          ```
+          внутри
+          x = 11
+          ```
+        why: "while проверяет условие ДО первой итерации."
+      - text: "Бесконечный вывод «внутри»"
+        why: "Условие ложно с самого начала."
+    explanation: "Тело while может не выполниться ни разу — это нормальное поведение."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      count = 1
+      while count <= 5:
+          count += 2
+      print(count)
+    options:
+      - text: "`7`"
+        correct: true
+        why: "count: 1 → 3 → 5 → 7; при 7 условие ложно."
+      - text: "`5`"
+        why: "При count = 5 условие ещё истинно — выполняется ещё одна итерация."
+      - text: "`6`"
+        why: "Шаг равен 2: значения только нечётные."
+    explanation: "После цикла переменная «перешагивает» границу — это частый источник ошибок на единицу."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие из циклов **завершатся**? Выберите все."
+    options:
+      - text: |
+          ```python
+          n = 100
+          while n > 1:
+              n //= 2
+          ```
+        correct: true
+        why: "n уменьшается: 100, 50, 25, 12, 6, 3, 1 — стоп."
+      - text: |
+          ```python
+          s = 0
+          while s < 10:
+              s += 3
+          ```
+        correct: true
+        why: "s: 0, 3, 6, 9, 12 — стоп."
+      - text: |
+          ```python
+          k = 5
+          while k != 0:
+              k -= 2
+          ```
+        why: "k: 5, 3, 1, −1, −3… — никогда не станет ровно 0."
+      - text: |
+          ```python
+          x = 1
+          while x > 0:
+              x += 1
+          ```
+        why: "x растёт и всегда больше нуля."
+    explanation: "Проверяйте, что изменение действительно делает условие ложным. Условие `!= 0` опасно: значение может «перепрыгнуть» ноль."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      number = 905
+      total = 0
+      while number > 0:
+          total += number % 10
+          number //= 10
+      print(total)
+    answer: "14"
+    explanation: "Цифры 5, 0, 9 отщепляются по одной через % 10 и // 10: 5 + 0 + 9 = 14."
+
+tasks:
+  - id: t1
+    title: "Обратный отсчёт"
+    difficulty: 1
+    statement: |
+      Программа читает целое число `n` (n ≥ 0) и выводит числа от `n` до 1 по одному в строке, а затем `Старт!`.
+    examples:
+      - input: "3"
+        output: "3\n2\n1\nСтарт!"
+      - input: "0"
+        output: "Старт!"
+    starter: |
+      n = int(input())
+      while n > 0:
+          print(n)
+      print("Старт!")
+    hints:
+      - "Заготовка зависнет: n внутри цикла не меняется."
+      - "Добавьте в тело `n -= 1`."
+    solution: |
+      n = int(input())
+      while n > 0:
+          print(n)
+          n -= 1
+      print("Старт!")
+    solution_explanation: "Каждая итерация печатает текущее значение и уменьшает его. При n = 0 цикл не выполняется ни разу — сразу «Старт!»."
+    timeout: 5
+    tests:
+      - name: "3"
+        stdin: "3\n"
+        stdout: "3\n2\n1\nСтарт!"
+      - name: "Ноль"
+        stdin: "0\n"
+        stdout: "Старт!"
+      - name: "Один"
+        stdin: "1\n"
+        stdout: "1\nСтарт!"
+      - name: "Десять"
+        stdin: "10\n"
+        stdout: "10\n9\n8\n7\n6\n5\n4\n3\n2\n1\nСтарт!"
+      - name: "Количество строк для 100"
+        stdin: "100\n"
+        code: |
+          assert len(__stdout__.strip().splitlines()) == 101
+
+  - id: t2
+    title: "Сумма до нуля"
+    difficulty: 1
+    statement: |
+      Программа читает целые числа по одному в строке, пока не встретит `0`. Выведите сумму прочитанных чисел (ноль — сигнал остановки, его не считаем).
+    examples:
+      - input: "5\n3\n-2\n0"
+        output: "6"
+    starter: |
+      total = 0
+      number = int(input())
+    hints:
+      - "Шаблон: первое чтение до цикла, условие `number != 0`, следующее чтение — в конце тела."
+      - "В теле: `total += number`, затем `number = int(input())`."
+    solution: |
+      total = 0
+      number = int(input())
+      while number != 0:
+          total += number
+          number = int(input())
+      print(total)
+    solution_explanation: "Чтение с опережением: условие всегда проверяет только что прочитанное число, поэтому сигнал остановки не попадает в сумму."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        stdin: "5\n3\n-2\n0\n"
+        stdout: "6"
+      - name: "Сразу ноль"
+        stdin: "0\n"
+        stdout: "0"
+      - name: "Одно число"
+        stdin: "42\n0\n"
+        stdout: "42"
+      - name: "Отрицательные"
+        stdin: "-1\n-1\n-1\n0\n"
+        stdout: "-3"
+      - name: "Много чисел"
+        stdin: "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n0\n"
+        stdout: "55"
+
+  - id: t3
+    title: "Анализ цифр числа"
+    difficulty: 2
+    statement: |
+      Программа читает целое неотрицательное число и выводит две строки:
+
+      ```text
+      Цифр: <количество цифр>
+      Сумма: <сумма цифр>
+      ```
+
+      Решите арифметикой в цикле `while` — без превращения числа в строку. У числа 0 одна цифра.
+    examples:
+      - input: "4721"
+        output: "Цифр: 4\nСумма: 14"
+      - input: "0"
+        output: "Цифр: 1\nСумма: 0"
+    starter: |
+      number = int(input())
+      digits = 0
+      digit_sum = 0
+    hints:
+      - "Пока `number > 0`: прибавляйте `number % 10`, делите `number //= 10` и увеличивайте счётчик."
+      - "Число 0 — особый случай: цикл не выполнится, а цифра одна. Обработайте его отдельным if."
+    solution: |
+      number = int(input())
+      digits = 0
+      digit_sum = 0
+      if number == 0:
+          digits = 1
+      while number > 0:
+          digit_sum += number % 10
+          number //= 10
+          digits += 1
+      print("Цифр:", digits)
+      print("Сумма:", digit_sum)
+    solution_explanation: "`% 10` даёт последнюю цифру, `// 10` её отбрасывает. Ноль — граничный случай: цикл для него не выполняется, поэтому количество цифр задаём отдельно."
+    constraints:
+      forbid: ["str(", "len("]
+      message: "Решите арифметикой."
+    timeout: 5
+    tests:
+      - name: "4721"
+        stdin: "4721\n"
+        stdout: "Цифр: 4\nСумма: 14"
+      - name: "Ноль"
+        stdin: "0\n"
+        stdout: "Цифр: 1\nСумма: 0"
+      - name: "Одна цифра"
+        stdin: "7\n"
+        stdout: "Цифр: 1\nСумма: 7"
+      - name: "Нули внутри"
+        stdin: "10005\n"
+        stdout: "Цифр: 5\nСумма: 6"
+      - name: "Большое"
+        stdin: "999999999999\n"
+        stdout: "Цифр: 12\nСумма: 108"
+
+  - id: t4
+    title: "Удвоение вклада"
+    difficulty: 2
+    statement: |
+      Программа читает сумму вклада (дробное, больше нуля) и годовую ставку в процентах (дробное, больше нуля).
+      Проценты капитализируются раз в год. Выведите, через сколько **полных** лет сумма станет не меньше удвоенной начальной.
+    examples:
+      - input: "100000\n12"
+        output: "7"
+      - input: "1000\n100"
+        output: "1"
+    starter: |
+      amount = float(input())
+      rate = float(input())
+      years = 0
+    hints:
+      - "Запомните цель до цикла: `target = amount * 2`."
+      - "Пока `amount < target`: умножайте на `1 + rate / 100` и увеличивайте years."
+    solution: |
+      amount = float(input())
+      rate = float(input())
+      target = amount * 2
+      years = 0
+      while amount < target:
+          amount *= 1 + rate / 100
+          years += 1
+      print(years)
+    solution_explanation: "Число лет заранее неизвестно — классическая задача для while. Цель вычисляется один раз до цикла: если считать `amount * 2` в условии, цель «убегала» бы вместе с суммой и цикл стал бы бесконечным."
+    timeout: 5
+    tests:
+      - name: "12%"
+        stdin: "100000\n12\n"
+        stdout: "7"
+      - name: "100%"
+        stdin: "1000\n100\n"
+        stdout: "1"
+      - name: "7%"
+        stdin: "500\n7\n"
+        stdout: "11"
+      - name: "1%"
+        stdin: "1\n1\n"
+        stdout: "70"
+      - name: "Высокая ставка"
+        stdin: "10\n300\n"
+        stdout: "1"

@@ -1,0 +1,581 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "Почему в асинхронном коде нельзя использовать `requests.get`?"
+    options:
+      - text: "Это синхронный вызов: пока он ждёт ответа, цикл событий заблокирован и другие задачи стоят"
+        correct: true
+        why: "Нужен асинхронный клиент — httpx.AsyncClient."
+      - text: "requests не умеет отправлять JSON"
+        why: "Умеет: параметр json=."
+      - text: "requests не поддерживает HTTPS"
+        why: "Поддерживает."
+      - text: "В async-функциях запрещено импортировать модули"
+        why: "Импорт к делу не относится."
+    explanation: "Один блокирующий вызов превращает конкурентный код в последовательный."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import httpx
+
+      def handler(request):
+          return httpx.Response(200, json={"q": request.url.params["q"], "n": request.url.params["n"]})
+
+      client = httpx.Client(base_url="https://api.test", transport=httpx.MockTransport(handler))
+      data = client.get("/search", params={"q": "rag", "n": 5}).json()
+      print(data["q"], data["n"] + "0")
+    options:
+      - text: "`rag 50`"
+        correct: true
+        why: "Параметры URL — всегда строки: \"5\" + \"0\" = \"50\"."
+      - text: "`rag 5`"
+        why: "К строке \"5\" приписан \"0\"."
+      - text: "TypeError"
+        why: "Ошибки нет: n пришёл строкой, и конкатенация строк допустима."
+    explanation: "В строке запроса нет типов — всё приходит текстом."
+
+  - id: q3
+    type: find_bug
+    prompt: "Что не так с этим кодом?"
+    code: |
+      import requests
+
+      def ask(prompt):
+          r = requests.post("https://api.example.com/chat", json={"prompt": prompt})
+          return r.json()["text"]
+    options:
+      - text: "Нет timeout (запрос может висеть вечно) и нет проверки статуса — при ошибке упадёт непонятным KeyError"
+        correct: true
+        why: "Нужны timeout=... и r.raise_for_status()."
+      - text: "json= нельзя передавать в post"
+        why: "Можно — requests сам сериализует словарь."
+      - text: "r.json() нужно вызывать через await"
+        why: "В requests всё синхронное."
+    explanation: "Таймаут и проверка статуса — обязательный минимум для каждого запроса."
+
+  - id: q4
+    type: multiple
+    prompt: "Что верно про httpx? Выберите все."
+    options:
+      - text: "Есть синхронный `Client` и асинхронный `AsyncClient`"
+        correct: true
+        why: "Один API для двух режимов."
+      - text: "Таймаут по умолчанию — 5 секунд"
+        correct: true
+        why: "В отличие от requests, где ожидание бесконечно."
+      - text: "`MockTransport` позволяет проверить код без сети"
+        correct: true
+        why: "Обработчик подменяет отправку запроса."
+      - text: "Перенаправления по умолчанию выполняются автоматически"
+        why: "Нужно follow_redirects=True."
+    explanation: "httpx — основа официальных SDK OpenAI и Anthropic."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import httpx
+
+      def handler(request):
+          return httpx.Response(503)
+
+      client = httpx.Client(transport=httpx.MockTransport(handler))
+      try:
+          client.get("https://api.test/x").raise_for_status()
+      except httpx.RequestError:
+          print("сеть")
+      except httpx.HTTPStatusError as e:
+          print("статус", e.response.status_code)
+    options:
+      - text: "`статус 503`"
+        correct: true
+        why: "raise_for_status бросает HTTPStatusError — это не RequestError."
+      - text: "`сеть`"
+        why: "RequestError — ошибки отправки (таймаут, соединение), а ответ был получен."
+      - text: "Ничего: 503 не ошибка"
+        why: "5xx — ошибка сервера, raise_for_status её бросит."
+    explanation: "HTTPStatusError — плохой статус, RequestError — запрос не удался вовсе."
+
+  - id: q6
+    type: single
+    prompt: "Почему функцию лучше писать как `get_models(client)`, а не создавать клиент внутри?"
+    options:
+      - text: "Клиент переиспользуется между запросами, а в тестах можно передать клиент с MockTransport"
+        correct: true
+        why: "Внедрение зависимостей: быстрее и тестируемо."
+      - text: "Иначе httpx не разрешит отправить запрос"
+        why: "Разрешит, но это хуже по производительности и тестируемости."
+      - text: "Так требует PEP 8"
+        why: "PEP 8 об этом ничего не говорит."
+    explanation: "Создайте клиент один раз и передавайте его параметром."
+
+tasks:
+  - id: t1
+    title: "Безопасное получение JSON"
+    difficulty: 1
+    statement: |
+      Клиент передаётся параметром (как в уроке). У него есть метод `client.get(path, params=None)`, возвращающий ответ с атрибутом `status_code` и методом `json()`.
+
+      Напишите:
+
+      - класс `ApiError(Exception)` с атрибутами `status` и `message`; `str(error)` → `"HTTP <status>: <message>"`;
+      - `fetch_json(client, path, **params)` — делает `client.get(path, params=params)`; если статус 200 — возвращает `response.json()`; иначе бросает `ApiError(status, message)`, где `message` — значение ключа `"error"` из JSON-ответа, а если его нет — `"без описания"`.
+
+      В тестах используется фейковый клиент `FakeClient(routes)`: `routes` — словарь `путь → (статус, json)`; на неизвестный путь он отвечает `404` с `{"error": "not found"}`, а все вызовы записывает в `client.calls`.
+    examples:
+      - input: "fetch_json(FakeClient({'/models': (200, {'data': ['mini']})}), '/models')"
+        output: "{'data': ['mini']}"
+    setup: |
+      class FakeResponse:
+          def __init__(self, status_code, data):
+              self.status_code = status_code
+              self._data = data
+
+          def json(self):
+              return self._data
+
+
+      class FakeClient:
+          def __init__(self, routes):
+              self.routes = routes
+              self.calls = []
+
+          def get(self, path, params=None):
+              self.calls.append((path, params))
+              status, data = self.routes.get(path, (404, {"error": "not found"}))
+              return FakeResponse(status, data)
+    starter: |
+      class ApiError(Exception):
+          pass
+
+
+      def fetch_json(client, path, **params):
+          return client.get(path).json()
+    hints:
+      - "В `__init__` сохраните `status` и `message` и вызовите `super().__init__(f\"HTTP {status}: {message}\")` — тогда `str(error)` будет нужным."
+      - "Ошибочный JSON может быть словарём без `error`: `response.json().get(\"error\", \"без описания\")`."
+    solution: |
+      class ApiError(Exception):
+          """Ошибка API с HTTP-статусом."""
+
+          def __init__(self, status, message):
+              super().__init__(f"HTTP {status}: {message}")
+              self.status = status
+              self.message = message
+
+
+      def fetch_json(client, path, **params):
+          """GET-запрос; при статусе не 200 — ApiError."""
+          response = client.get(path, params=params)
+          data = response.json()
+          if response.status_code != 200:
+              message = data.get("error", "без описания") if isinstance(data, dict) else "без описания"
+              raise ApiError(response.status_code, message)
+          return data
+    solution_explanation: "Функция не знает, настоящий клиент или фейковый, — ей достаточно метода get. Ошибочный статус превращается в собственное исключение с понятным текстом, и вызывающий код ловит ApiError, а не разбирает статусы сам."
+    tests:
+      - name: "Успешный ответ"
+        call: "fetch_json(FakeClient({'/models': (200, {'data': ['mini']})}), '/models')"
+        expected: "{'data': ['mini']}"
+      - name: "Параметры передаются"
+        code: |
+          client = FakeClient({"/search": (200, [1, 2])})
+          assert fetch_json(client, "/search", q="rag", limit=2) == [1, 2]
+          assert client.calls == [("/search", {"q": "rag", "limit": 2})], client.calls
+      - name: "404 → ApiError"
+        code: |
+          try:
+              fetch_json(FakeClient({}), "/nothing")
+          except ApiError as error:
+              assert error.status == 404 and error.message == "not found", (error.status, error.message)
+              assert str(error) == "HTTP 404: not found", str(error)
+          else:
+              raise AssertionError("Ожидалась ApiError")
+      - name: "Ошибка без описания"
+        code: |
+          try:
+              fetch_json(FakeClient({"/x": (500, {})}), "/x")
+          except ApiError as error:
+              assert str(error) == "HTTP 500: без описания", str(error)
+          else:
+              raise AssertionError("Ожидалась ApiError")
+      - name: "ApiError — исключение"
+        code: |
+          assert issubclass(ApiError, Exception)
+          error = ApiError(429, "rate limit")
+          assert (error.status, error.message, str(error)) == (429, "rate limit", "HTTP 429: rate limit")
+      - name: "Статус 201 — тоже ошибка по условию"
+        code: |
+          try:
+              fetch_json(FakeClient({"/x": (201, {"error": "unexpected"})}), "/x")
+          except ApiError as error:
+              assert error.status == 201
+          else:
+              raise AssertionError("Ожидалась ApiError")
+
+  - id: t2
+    title: "Постраничная загрузка"
+    difficulty: 2
+    statement: |
+      Многие API отдают списки по страницам. Напишите **генератор** `iter_items(client, path, page_size=100, max_pages=None)`:
+
+      - запрашивает страницы `client.get(path, params={"page": n, "size": page_size})`, начиная с `n = 1`;
+      - ответ — JSON вида `{"items": [...], "has_more": bool}`; генератор выдаёт элементы `items` по одному;
+      - останавливается, когда `has_more` ложно, страница пуста или загружено `max_pages` страниц (если задано);
+      - статус не 200 → `RuntimeError` с текстом `"страница <n>: HTTP <статус>"`.
+
+      Страницы должны запрашиваться **лениво**: следующая — только когда потребитель дошёл до её элементов.
+
+      Фейковый клиент `PagedClient(items, fail_on=None)` из тестов отдаёт список `items` по страницам и записывает номера запрошенных страниц в `client.pages`; если номер страницы равен `fail_on`, отвечает статусом 500.
+    examples:
+      - input: "list(iter_items(PagedClient(list(range(5))), '/docs', page_size=2))"
+        output: "[0, 1, 2, 3, 4]"
+    setup: |
+      class FakeResponse:
+          def __init__(self, status_code, data):
+              self.status_code = status_code
+              self._data = data
+
+          def json(self):
+              return self._data
+
+
+      class PagedClient:
+          def __init__(self, items, fail_on=None):
+              self.items = items
+              self.fail_on = fail_on
+              self.pages = []
+
+          def get(self, path, params=None):
+              page, size = params["page"], params["size"]
+              self.pages.append(page)
+              if page == self.fail_on:
+                  return FakeResponse(500, {"error": "boom"})
+              chunk = self.items[(page - 1) * size: page * size]
+              return FakeResponse(200, {"items": chunk, "has_more": page * size < len(self.items)})
+    starter: |
+      def iter_items(client, path, page_size=100, max_pages=None):
+          return client.get(path, params={"page": 1, "size": page_size}).json()["items"]
+    hints:
+      - "Бесконечный цикл `page = 1; while True:` с `yield from data[\"items\"]` и `page += 1` в конце."
+      - "Перед запросом проверьте `if max_pages is not None and page > max_pages: return`; после выдачи элементов — `if not data[\"items\"] or not data[\"has_more\"]: return`."
+    solution: |
+      def iter_items(client, path, page_size=100, max_pages=None):
+          """Лениво выдавать элементы всех страниц."""
+          page = 1
+          while max_pages is None or page <= max_pages:
+              response = client.get(path, params={"page": page, "size": page_size})
+              if response.status_code != 200:
+                  raise RuntimeError(f"страница {page}: HTTP {response.status_code}")
+              data = response.json()
+              items = data["items"]
+              yield from items
+              if not items or not data["has_more"]:
+                  return
+              page += 1
+    solution_explanation: "Генератор запрашивает следующую страницу только после того, как потребитель забрал все элементы текущей, — поэтому `next()` на первом элементе делает ровно один запрос, а itertools.islice может остановить загрузку на середине."
+    tests:
+      - name: "Пример"
+        call: "list(iter_items(PagedClient(list(range(5))), '/docs', page_size=2))"
+        expected: "[0, 1, 2, 3, 4]"
+      - name: "Номера страниц"
+        code: |
+          client = PagedClient(list(range(6)))
+          assert list(iter_items(client, "/x", page_size=2)) == list(range(6))
+          assert client.pages == [1, 2, 3], client.pages
+      - name: "Ленивость"
+        code: |
+          import types
+          client = PagedClient(list(range(10)))
+          gen = iter_items(client, "/x", page_size=3)
+          assert isinstance(gen, types.GeneratorType), "Нужен генератор"
+          assert client.pages == [], "До первого next запросов быть не должно"
+          assert [next(gen) for _ in range(4)] == [0, 1, 2, 3]
+          assert client.pages == [1, 2], client.pages
+      - name: "max_pages"
+        code: |
+          client = PagedClient(list(range(10)))
+          assert list(iter_items(client, "/x", page_size=3, max_pages=2)) == [0, 1, 2, 3, 4, 5]
+          assert client.pages == [1, 2], client.pages
+      - name: "Пустой список"
+        code: |
+          client = PagedClient([])
+          assert list(iter_items(client, "/x")) == []
+          assert client.pages == [1], client.pages
+      - name: "Ошибка на второй странице"
+        code: |
+          client = PagedClient(list(range(10)), fail_on=2)
+          got = []
+          try:
+              for item in iter_items(client, "/x", page_size=3):
+                  got.append(item)
+          except RuntimeError as error:
+              assert str(error) == "страница 2: HTTP 500", str(error)
+          else:
+              raise AssertionError("Ожидался RuntimeError")
+          assert got == [0, 1, 2], got
+
+  - id: t3
+    title: "Клиент LLM с повторами на httpx"
+    mode: local
+    difficulty: 2
+    statement: |
+      Скачайте архив. В `llm_client.py` напишите `complete(client, prompt, retries=3, sleep=time.sleep)`:
+
+      - отправляет `client.post("/chat", json={"prompt": prompt})`, где `client` — `httpx.Client`;
+      - статус 200 → возвращает поле `"text"` из JSON;
+      - статус 429 или 5xx → пауза и повтор; пауза = значение заголовка `Retry-After` (секунды, может быть дробным), а если заголовка нет — `2 ** номер_попытки` (0, 1, 2… → 1, 2, 4 с);
+      - `httpx.TimeoutException` → тоже пауза `2 ** номер_попытки` и повтор;
+      - остальные статусы (4xx) → сразу `httpx.HTTPStatusError` (через `raise_for_status()`), без повторов;
+      - всего не больше `1 + retries` попыток; если все неудачны — пробросить последнюю ошибку (`HTTPStatusError` или исключение таймаута).
+
+      Тесты подменяют сервер через `httpx.MockTransport` и не обращаются к сети.
+
+      ```bash
+      pip install httpx pytest
+      pytest -q
+      ```
+    files:
+      llm_client.py: |
+        import time
+
+        import httpx
+
+
+        def complete(client: httpx.Client, prompt: str, retries: int = 3, sleep=time.sleep) -> str:
+            """Отправить промпт и вернуть текст ответа, повторяя временные ошибки."""
+            response = client.post("/chat", json={"prompt": prompt})
+            return response.json()["text"]
+      test_llm_client.py: |
+        import httpx
+        import pytest
+
+        from llm_client import complete
+
+
+        def make_client(responses):
+            """responses — список: httpx.Response или исключение-класс таймаута."""
+            calls = []
+
+            def handler(request):
+                calls.append(request)
+                item = responses[min(len(calls), len(responses)) - 1]
+                if isinstance(item, type) and issubclass(item, Exception):
+                    raise item("timeout", request=request)
+                return item
+
+            client = httpx.Client(base_url="https://llm.test", transport=httpx.MockTransport(handler))
+            return client, calls
+
+
+        def test_success_sends_prompt():
+            client, calls = make_client([httpx.Response(200, json={"text": "ok"})])
+            assert complete(client, "Привет", sleep=lambda s: None) == "ok"
+            assert len(calls) == 1
+            assert calls[0].url.path == "/chat"
+            assert calls[0].method == "POST"
+            import json
+            assert json.loads(calls[0].content) == {"prompt": "Привет"}
+
+
+        def test_retry_after_and_backoff():
+            pauses = []
+            client, calls = make_client([
+                httpx.Response(429, headers={"Retry-After": "0.5"}),
+                httpx.Response(503),
+                httpx.Response(200, json={"text": "готово"}),
+            ])
+            assert complete(client, "x", sleep=pauses.append) == "готово"
+            assert len(calls) == 3
+            assert pauses == [0.5, 2]
+
+
+        def test_client_error_no_retry():
+            pauses = []
+            client, calls = make_client([httpx.Response(401, json={"error": "bad key"})])
+            with pytest.raises(httpx.HTTPStatusError):
+                complete(client, "x", sleep=pauses.append)
+            assert len(calls) == 1 and pauses == []
+
+
+        def test_timeout_is_retried():
+            pauses = []
+            client, calls = make_client([httpx.ReadTimeout, httpx.Response(200, json={"text": "ok"})])
+            assert complete(client, "x", sleep=pauses.append) == "ok"
+            assert pauses == [1]
+
+
+        def test_gives_up_with_status_error():
+            pauses = []
+            client, calls = make_client([httpx.Response(500)])
+            with pytest.raises(httpx.HTTPStatusError):
+                complete(client, "x", retries=2, sleep=pauses.append)
+            assert len(calls) == 3
+            assert pauses == [1, 2]
+
+
+        def test_gives_up_with_timeout():
+            client, calls = make_client([httpx.ConnectTimeout])
+            with pytest.raises(httpx.TimeoutException):
+                complete(client, "x", retries=1, sleep=lambda s: None)
+            assert len(calls) == 2
+    run: "pytest -q"
+    hints:
+      - "Цикл `for attempt in range(retries + 1):`; внутри `try: response = client.post(...)` / `except httpx.TimeoutException: if attempt == retries: raise; sleep(2 ** attempt); continue`."
+      - "Для ответа: `retryable = status == 429 or status >= 500`; если `not retryable or attempt == retries` — `response.raise_for_status()` и `return response.json()[\"text\"]`; иначе `sleep(float(response.headers.get(\"retry-after\", 2 ** attempt)))`."
+    solution_files:
+      llm_client.py: |
+        import time
+
+        import httpx
+
+
+        def complete(client: httpx.Client, prompt: str, retries: int = 3, sleep=time.sleep) -> str:
+            """Отправить промпт и вернуть текст ответа, повторяя временные ошибки."""
+            for attempt in range(retries + 1):
+                try:
+                    response = client.post("/chat", json={"prompt": prompt})
+                except httpx.TimeoutException:
+                    if attempt == retries:
+                        raise
+                    sleep(2 ** attempt)
+                    continue
+                retryable = response.status_code == 429 or response.status_code >= 500
+                if not retryable or attempt == retries:
+                    response.raise_for_status()
+                    return response.json()["text"]
+                sleep(float(response.headers.get("retry-after", 2 ** attempt)))
+            raise AssertionError("недостижимо")
+    solution_explanation: "Временные ошибки (429, 5xx, таймаут) повторяются с паузой, остальные пробрасываются сразу через raise_for_status. Функция получает и клиент, и sleep параметрами, поэтому тесты проверяют всю логику мгновенно и без сети."
+
+  - id: t4
+    title: "Асинхронная загрузка карточек моделей"
+    mode: local
+    difficulty: 3
+    statement: |
+      Скачайте архив. В `models.py` напишите `async def fetch_cards(client, names, limit=3)`:
+
+      - для каждого имени делает `await client.get(f"/models/{name}")` (`client` — `httpx.AsyncClient`);
+      - одновременно выполняется не больше `limit` запросов (`asyncio.Semaphore`);
+      - возвращает словарь `имя → JSON-ответ` для успешных (200) запросов и `имя → "ошибка: <статус>"` для остальных статусов, `имя → "ошибка: таймаут"` при `httpx.TimeoutException`;
+      - порядок ключей — как в `names`; одна ошибка не прерывает остальные запросы.
+
+      ```bash
+      pip install httpx pytest
+      pytest -q
+      ```
+    files:
+      models.py: |
+        import asyncio
+
+        import httpx
+
+
+        async def fetch_cards(client: httpx.AsyncClient, names: list[str], limit: int = 3) -> dict:
+            """Загрузить карточки моделей с ограничением одновременности."""
+            result = {}
+            for name in names:
+                response = await client.get(f"/models/{name}")
+                result[name] = response.json()
+            return result
+      test_models.py: |
+        import asyncio
+        import time
+
+        import httpx
+
+        from models import fetch_cards
+
+
+        def make_client(state):
+            async def handler(request):
+                name = request.url.path.rsplit("/", 1)[-1]
+                state["now"] += 1
+                state["peak"] = max(state["peak"], state["now"])
+                try:
+                    await asyncio.sleep(0.1)
+                    if name == "slow":
+                        raise httpx.ReadTimeout("timeout", request=request)
+                    if name.startswith("missing"):
+                        return httpx.Response(404, json={"error": "not found"})
+                    return httpx.Response(200, json={"id": name, "context": len(name)})
+                finally:
+                    state["now"] -= 1
+
+            return httpx.AsyncClient(base_url="https://api.test/v1", transport=httpx.MockTransport(handler))
+
+
+        def run(names, limit=3):
+            state = {"now": 0, "peak": 0}
+
+            async def main():
+                async with make_client(state) as client:
+                    return await fetch_cards(client, names, limit)
+
+            start = time.perf_counter()
+            result = asyncio.run(main())
+            return result, state["peak"], time.perf_counter() - start
+
+
+        def test_results():
+            result, _, _ = run(["mini", "large"])
+            assert result == {"mini": {"id": "mini", "context": 4}, "large": {"id": "large", "context": 5}}
+
+
+        def test_errors_do_not_stop_others():
+            result, _, _ = run(["mini", "missing", "slow", "xl"])
+            assert result == {
+                "mini": {"id": "mini", "context": 4},
+                "missing": "ошибка: 404",
+                "slow": "ошибка: таймаут",
+                "xl": {"id": "xl", "context": 2},
+            }
+            assert list(result) == ["mini", "missing", "slow", "xl"]
+
+
+        def test_limit_and_concurrency():
+            names = [f"m{i}" for i in range(9)]
+            result, peak, elapsed = run(names, limit=3)
+            assert len(result) == 9
+            assert peak == 3
+            assert elapsed < 0.6, f"{elapsed:.2f} с — запросы идут последовательно?"
+
+
+        def test_limit_one():
+            _, peak, _ = run(["a", "b", "c"], limit=1)
+            assert peak == 1
+
+
+        def test_empty():
+            result, _, _ = run([])
+            assert result == {}
+    run: "pytest -q"
+    hints:
+      - "Внутренняя корутина `async def one(name): async with semaphore: try: response = await client.get(...)` / `except httpx.TimeoutException: return name, \"ошибка: таймаут\"`."
+      - "`pairs = await asyncio.gather(*(one(n) for n in names))` и `return dict(pairs)` — gather сохраняет порядок."
+    solution_files:
+      models.py: |
+        import asyncio
+
+        import httpx
+
+
+        async def fetch_cards(client: httpx.AsyncClient, names: list[str], limit: int = 3) -> dict:
+            """Загрузить карточки моделей с ограничением одновременности."""
+            semaphore = asyncio.Semaphore(limit)
+
+            async def one(name):
+                async with semaphore:
+                    try:
+                        response = await client.get(f"/models/{name}")
+                    except httpx.TimeoutException:
+                        return name, "ошибка: таймаут"
+                if response.status_code != 200:
+                    return name, f"ошибка: {response.status_code}"
+                return name, response.json()
+
+            pairs = await asyncio.gather(*(one(name) for name in names))
+            return dict(pairs)
+    solution_explanation: "Семафор пропускает не больше limit запросов одновременно, а каждая корутина сама превращает ошибку в строку, поэтому gather не прерывается. gather возвращает пары в порядке names, и dict сохраняет этот порядок."

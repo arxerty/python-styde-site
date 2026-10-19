@@ -1,0 +1,372 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      code = 500
+      match code:
+          case 200:
+              print("OK")
+          case 404:
+              print("Нет")
+          case _:
+              print("Другое")
+      print("Конец")
+    options:
+      - text: |
+          ```
+          Другое
+          Конец
+          ```
+        correct: true
+        why: "500 не совпадает с 200 и 404 — срабатывает `case _`, затем строка после match."
+      - text: "`Другое`"
+        why: "print(\"Конец\") находится вне match и выполняется всегда."
+      - text: "`Конец`"
+        why: "`case _` подходит к любому значению, поэтому что-то из match выполнится."
+    explanation: "`case _` — вариант «во всех остальных случаях», как else."
+
+  - id: q2
+    type: single
+    prompt: "Что означает `_` в образце `case _:`?"
+    options:
+      - text: "Любое значение, без сохранения в переменную"
+        correct: true
+        why: "Подстановочный знак подходит ко всему и ничего не захватывает."
+      - text: "Пустую строку"
+        why: "Пустая строка — это `case \"\":`."
+      - text: "Значение None"
+        why: "None — это `case None:`."
+      - text: "Переменную с именем `_`, с которой сравнивается значение"
+        why: "В образцах `_` — специальный знак, а не обычное имя."
+    explanation: "`case _:` ставят последним как вариант по умолчанию."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      fruit = "груша"
+      match fruit:
+          case "яблоко" | "груша":
+              print("семечковое")
+          case "вишня" | "слива":
+              print("косточковое")
+          case other:
+              print("не знаю:", other)
+    options:
+      - text: "`семечковое`"
+        correct: true
+        why: "«груша» совпадает со вторым вариантом первого образца."
+      - text: "`не знаю: груша`"
+        why: "Захват `other` проверяется последним, а совпадение нашлось раньше."
+      - text: |
+          ```
+          семечковое
+          не знаю: груша
+          ```
+        why: "В match нет проваливания — выполняется один case."
+    explanation: "`|` перечисляет альтернативы внутри одного образца."
+
+  - id: q4
+    type: find_bug
+    prompt: "Программа должна сравнивать ответ с правильным, но не запускается. В чём причина?"
+    code: |
+      correct = "Париж"
+      answer = input()
+      match answer:
+          case correct:
+              print("Верно")
+          case _:
+              print("Неверно")
+    options:
+      - text: "Голое имя `correct` в case — это захват любого значения, а не сравнение; дальнейшие case недостижимы"
+        correct: true
+        why: "Python сообщает: name capture 'correct' makes remaining patterns unreachable. Нужно `case a if a == correct:`."
+      - text: "match не работает со строками"
+        why: "Работает — строковые литералы самый частый образец."
+      - text: "Нельзя использовать input() перед match"
+        why: "Субъект может быть любым выражением или переменной."
+      - text: "Не хватает break после print"
+        why: "В match нет проваливания, break не нужен."
+    explanation: "Чтобы сравнить с переменной, используйте охранник: `case value if value == correct:`."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие утверждения о `match-case` верны? Выберите все."
+    options:
+      - text: "Выполняется блок первого подошедшего case"
+        correct: true
+        why: "Образцы проверяются сверху вниз."
+      - text: "Нет проваливания в следующий case, break не нужен"
+        correct: true
+        why: "В отличие от switch в C/Java."
+      - text: "Появился в Python 3.10"
+        correct: true
+        why: "На более старых версиях будет SyntaxError."
+      - text: "`case _` обязателен"
+        why: "Он необязателен: без него при отсутствии совпадений ничего не произойдёт."
+      - text: "Альтернативы в образце пишутся через `or`"
+        why: "В образцах используется `|`."
+    explanation: "match — сопоставление с образцами: первый подошедший case, без проваливания, альтернативы через `|`."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      point = (3, 0)
+      match point:
+          case (0, 0):
+              print("центр")
+          case (0, y):
+              print("ось Y", y)
+          case (x, 0):
+              print("ось X", x)
+          case _:
+              print("плоскость")
+    answer: "ось X 3"
+    explanation: "Образец (x, 0) подходит: второй элемент равен 0, первый захватывается в x = 3."
+
+tasks:
+  - id: t1
+    title: "День недели"
+    difficulty: 1
+    statement: |
+      Программа читает номер дня недели (целое) и выводит его название: 1 → `понедельник`, …, 7 → `воскресенье`.
+      Для любого другого числа — `ошибка`. Используйте `match`.
+    examples:
+      - input: "3"
+        output: "среда"
+      - input: "9"
+        output: "ошибка"
+    starter: |
+      day = int(input())
+      match day:
+          case 1:
+              print("понедельник")
+    hints:
+      - "Каждому числу — свой `case`."
+      - "Для всех остальных значений — `case _:`."
+    solution: |
+      day = int(input())
+      match day:
+          case 1:
+              print("понедельник")
+          case 2:
+              print("вторник")
+          case 3:
+              print("среда")
+          case 4:
+              print("четверг")
+          case 5:
+              print("пятница")
+          case 6:
+              print("суббота")
+          case 7:
+              print("воскресенье")
+          case _:
+              print("ошибка")
+    solution_explanation: "Каждый литерал — отдельный образец, `case _` обрабатывает некорректные номера."
+    constraints:
+      require: ["match", "case"]
+    tests:
+      - name: "Среда"
+        stdin: "3\n"
+        stdout: "среда"
+      - name: "Понедельник"
+        stdin: "1\n"
+        stdout: "понедельник"
+      - name: "Воскресенье"
+        stdin: "7\n"
+        stdout: "воскресенье"
+      - name: "Ноль"
+        stdin: "0\n"
+        stdout: "ошибка"
+      - name: "Больше 7"
+        stdin: "9\n"
+        stdout: "ошибка"
+      - name: "Пятница"
+        stdin: "5\n"
+        stdout: "пятница"
+
+  - id: t2
+    title: "Команды чат-бота"
+    difficulty: 2
+    statement: |
+      Программа читает команду и отвечает:
+
+      | Команда | Ответ |
+      |---|---|
+      | `/help` | `Команды: /help, /reset, /model` |
+      | `/reset` или `/clear` | `История очищена` |
+      | `/model` | `Текущая модель: mini` |
+      | любая другая | `Неизвестная команда: <команда>` |
+    examples:
+      - input: "/clear"
+        output: "История очищена"
+      - input: "/weather"
+        output: "Неизвестная команда: /weather"
+    starter: |
+      command = input()
+      match command:
+          case "/help":
+              print("Команды: /help, /reset, /model")
+    hints:
+      - "Два синонима в одном образце: `case \"/reset\" | \"/clear\":`."
+      - "Последний образец — захват: `case other:` и печать `other`."
+    solution: |
+      command = input()
+      match command:
+          case "/help":
+              print("Команды: /help, /reset, /model")
+          case "/reset" | "/clear":
+              print("История очищена")
+          case "/model":
+              print("Текущая модель: mini")
+          case other:
+              print("Неизвестная команда:", other)
+    solution_explanation: "Альтернативы объединяются через `|`, а захват `other` в последнем образце сохраняет неизвестную команду, чтобы показать её пользователю."
+    constraints:
+      require: ["match", "|"]
+    tests:
+      - name: "/help"
+        stdin: "/help\n"
+        stdout: "Команды: /help, /reset, /model"
+      - name: "/reset"
+        stdin: "/reset\n"
+        stdout: "История очищена"
+      - name: "/clear — синоним"
+        stdin: "/clear\n"
+        stdout: "История очищена"
+      - name: "/model"
+        stdin: "/model\n"
+        stdout: "Текущая модель: mini"
+      - name: "Неизвестная"
+        stdin: "/weather\n"
+        stdout: "Неизвестная команда: /weather"
+      - name: "Регистр важен"
+        stdin: "/HELP\n"
+        stdout: "Неизвестная команда: /HELP"
+
+  - id: t3
+    title: "Калькулятор с match"
+    difficulty: 2
+    statement: |
+      Программа читает число `a`, операцию (`+`, `-`, `*`, `/`) и число `b` — каждое на своей строке, числа дробные.
+      Выведите результат операции. При делении на ноль — `Деление на ноль`, при неизвестной операции — `Неизвестная операция`.
+    examples:
+      - input: "6\n*\n7"
+        output: "42.0"
+      - input: "1\n/\n0"
+        output: "Деление на ноль"
+    starter: |
+      a = float(input())
+      op = input()
+      b = float(input())
+    hints:
+      - "Для деления на ноль поставьте отдельный case с охранником перед обычным делением: `case \"/\" if b == 0:`."
+      - "Порядок case важен: частный случай раньше общего."
+    solution: |
+      a = float(input())
+      op = input()
+      b = float(input())
+      match op:
+          case "+":
+              print(a + b)
+          case "-":
+              print(a - b)
+          case "*":
+              print(a * b)
+          case "/" if b == 0:
+              print("Деление на ноль")
+          case "/":
+              print(a / b)
+          case _:
+              print("Неизвестная операция")
+    solution_explanation: "Охранник `if b == 0` делает образец более специфичным. Он стоит раньше обычного деления — иначе до него не дошло бы."
+    tests:
+      - name: "Умножение"
+        stdin: "6\n*\n7\n"
+        stdout: "42.0"
+      - name: "Сложение"
+        stdin: "2.5\n+\n0.5\n"
+        stdout: "3.0"
+      - name: "Вычитание"
+        stdin: "1\n-\n5\n"
+        stdout: "-4.0"
+      - name: "Деление"
+        stdin: "9\n/\n2\n"
+        stdout: "4.5"
+      - name: "Деление на ноль"
+        stdin: "1\n/\n0\n"
+        stdout: "Деление на ноль"
+      - name: "Неизвестная операция"
+        stdin: "2\n^\n3\n"
+        stdout: "Неизвестная операция"
+
+  - id: t4
+    title: "Где находится точка"
+    difficulty: 3
+    statement: |
+      Программа читает координаты `x` и `y` (целые) и с помощью `match (x, y):` выводит:
+
+      - `начало координат` — для (0, 0);
+      - `на оси X` — если y = 0 (а x ≠ 0);
+      - `на оси Y` — если x = 0 (а y ≠ 0);
+      - `четверть 1`, `четверть 2`, `четверть 3`, `четверть 4` — для остальных точек (1: x>0, y>0; 2: x<0, y>0; 3: x<0, y<0; 4: x>0, y<0).
+    examples:
+      - input: "3\n0"
+        output: "на оси X"
+      - input: "-2\n5"
+        output: "четверть 2"
+    starter: |
+      x = int(input())
+      y = int(input())
+      match (x, y):
+          case (0, 0):
+              print("начало координат")
+    hints:
+      - "Оси: образцы `(_, 0)` и `(0, _)` — после проверки начала координат."
+      - "Четверти: захват с охранником, например `case (a, b) if a > 0 and b > 0:`."
+    solution: |
+      x = int(input())
+      y = int(input())
+      match (x, y):
+          case (0, 0):
+              print("начало координат")
+          case (_, 0):
+              print("на оси X")
+          case (0, _):
+              print("на оси Y")
+          case (a, b) if a > 0 and b > 0:
+              print("четверть 1")
+          case (a, b) if a < 0 and b > 0:
+              print("четверть 2")
+          case (a, b) if a < 0 and b < 0:
+              print("четверть 3")
+          case _:
+              print("четверть 4")
+    solution_explanation: "Образцы-кортежи проверяют форму и конкретные значения, охранники — знаки координат. Порядок от частного к общему: начало координат → оси → четверти. Последней четверти охранник не нужен: все остальные случаи уже разобраны."
+    constraints:
+      require: ["match"]
+    tests:
+      - name: "Начало"
+        stdin: "0\n0\n"
+        stdout: "начало координат"
+      - name: "Ось X"
+        stdin: "3\n0\n"
+        stdout: "на оси X"
+      - name: "Ось Y"
+        stdin: "0\n-4\n"
+        stdout: "на оси Y"
+      - name: "Четверть 1"
+        stdin: "1\n1\n"
+        stdout: "четверть 1"
+      - name: "Четверть 2"
+        stdin: "-2\n5\n"
+        stdout: "четверть 2"
+      - name: "Четверть 3"
+        stdin: "-1\n-1\n"
+        stdout: "четверть 3"
+      - name: "Четверть 4"
+        stdin: "7\n-3\n"
+        stdout: "четверть 4"

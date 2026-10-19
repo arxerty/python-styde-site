@@ -1,0 +1,280 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "Какие две части обязательны в рекурсивной функции?"
+    options:
+      - text: "Базовый случай и рекурсивный шаг, приближающий к нему"
+        correct: true
+        why: "Без базового случая или без приближения к нему рекурсия бесконечна."
+      - text: "Цикл for и return"
+        why: "Цикл в рекурсивной функции не обязателен."
+      - text: "Глобальная переменная и счётчик вызовов"
+        why: "Не нужны; состояние передаётся через параметры."
+      - text: "Параметр по умолчанию и lambda"
+        why: "Не обязательны."
+    explanation: "Базовый случай — ответ без рекурсии; шаг — сведение к меньшей задаче."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def total(numbers):
+          if not numbers:
+              return 0
+          return numbers[0] + total(numbers[1:])
+
+
+      print(total([4, 5, 6]))
+    options:
+      - text: "`15`"
+        correct: true
+        why: "4 + total([5, 6]) = 4 + 5 + total([6]) = 4 + 5 + 6 + total([]) = 15."
+      - text: "`4`"
+        why: "Результат рекурсивного вызова прибавляется к первому элементу."
+      - text: "Ошибку RecursionError"
+        why: "Базовый случай — пустой список — достигается."
+    explanation: "Каждый вызов обрабатывает первый элемент и поручает остаток себе."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему `factorial(5)` возвращает None (или падает при умножении)?"
+    code: |
+      def factorial(n):
+          if n <= 1:
+              return 1
+          n * factorial(n - 1)
+    options:
+      - text: "В рекурсивном шаге нет return — результат вычисляется и теряется, функция возвращает None"
+        correct: true
+        why: "Нужно `return n * factorial(n - 1)`. А на уровне выше `n * None` даже упадёт с TypeError."
+      - text: "Базовый случай должен быть n == 0"
+        why: "n <= 1 — корректный базовый случай."
+      - text: "Функция не может вызывать саму себя"
+        why: "Может — это и есть рекурсия."
+    explanation: "Каждая ветка рекурсивной функции должна возвращать значение."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def depth(data):
+          if not isinstance(data, list):
+              return 0
+          if not data:
+              return 1
+          return 1 + max(depth(item) for item in data)
+
+
+      print(depth([1, [2, [3]]]), depth(5), depth([]))
+    options:
+      - text: "`3 0 1`"
+        correct: true
+        why: "Три уровня списков; не-список — глубина 0; пустой список — 1."
+      - text: "`2 0 0`"
+        why: "Считаются все уровни списков, включая внешний; пустой список — тоже уровень."
+      - text: "`3 1 1`"
+        why: "Число 5 — не список, глубина 0."
+    explanation: "Рекурсия естественно измеряет вложенность произвольной глубины."
+
+  - id: q5
+    type: multiple
+    prompt: "Когда в Python лучше выбрать рекурсию, а не цикл? Выберите все."
+    options:
+      - text: "Обход вложенного JSON произвольной глубины"
+        correct: true
+        why: "Структура рекурсивна, глубина неизвестна заранее."
+      - text: "Обход дерева папок с подпапками"
+        correct: true
+        why: "Папка содержит папки — рекурсивная структура."
+      - text: "Бинарный поиск («разделяй и властвуй»)"
+        correct: true
+        why: "Глубина всего log₂(n), код читается как определение."
+      - text: "Подсчёт суммы чисел от 1 до 100 000"
+        why: "Линейная задача упрётся в предел глубины; цикл проще и быстрее."
+    explanation: "Рекурсия — для рекурсивных данных и подзадач того же вида; для линейных задач — цикл."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def count_down(n):
+          if n == 0:
+              return "0"
+          return str(n) + " " + count_down(n - 1)
+
+
+      print(count_down(3))
+    answer: "3 2 1 0"
+    explanation: "Каждый вызов приклеивает своё число к результату следующего: «3 » + «2 » + «1 » + «0»."
+
+tasks:
+  - id: t1
+    title: "Сумма цифр рекурсивно"
+    difficulty: 1
+    statement: |
+      Напишите рекурсивную функцию `digit_sum(n)` для неотрицательного целого `n` — сумму его цифр. Циклы и строки не использовать.
+    examples:
+      - input: "digit_sum(1234)"
+        output: "10"
+    starter: |
+      def digit_sum(n):
+          return n % 10 + digit_sum(n // 10)
+    hints:
+      - "В заготовке нет базового случая — рекурсия бесконечна. Когда ответ известен сразу?"
+      - "`if n < 10: return n`."
+    solution: |
+      def digit_sum(n):
+          if n < 10:
+              return n
+          return n % 10 + digit_sum(n // 10)
+    solution_explanation: "Однозначное число — базовый случай. Шаг: последняя цифра плюс сумма цифр числа без неё — задача меньшего размера."
+    constraints:
+      forbid: ["for ", "while ", "str("]
+    tests:
+      - name: "1234"
+        call: "digit_sum(1234)"
+        expected: "10"
+      - name: "Одна цифра"
+        call: "digit_sum(7)"
+        expected: "7"
+      - name: "Ноль"
+        call: "digit_sum(0)"
+        expected: "0"
+      - name: "Нули внутри"
+        call: "digit_sum(10005)"
+        expected: "6"
+      - name: "Большое число"
+        call: "digit_sum(999999999999999999)"
+        expected: "162"
+
+  - id: t2
+    title: "Сплющивание списка"
+    difficulty: 2
+    statement: |
+      Напишите рекурсивную функцию `flatten(items)`, которая возвращает плоский список из вложенного списка произвольной глубины. Кортежи тоже считаются вложенными последовательностями. Строки — обычные элементы (не разворачиваются).
+    examples:
+      - input: "flatten([1, [2, (3, [4])], \"ab\"])"
+        output: "[1, 2, 3, 4, 'ab']"
+    starter: |
+      def flatten(items):
+          return [x for sub in items for x in sub]
+    hints:
+      - "Проверка вида: `isinstance(item, (list, tuple))` — кортеж типов в isinstance означает «любой из»."
+      - "Вложенный элемент: `result.extend(flatten(item))`, обычный — `result.append(item)`."
+    solution: |
+      def flatten(items):
+          result = []
+          for item in items:
+              if isinstance(item, (list, tuple)):
+                  result.extend(flatten(item))
+              else:
+                  result.append(item)
+          return result
+    solution_explanation: "Comprehension из заготовки разворачивает только один уровень (и падает на числах). Рекурсия обрабатывает любую глубину: каждый вложенный список «поручается» той же функции."
+    tests:
+      - name: "Пример"
+        call: "flatten([1, [2, (3, [4])], \"ab\"])"
+        expected: "[1, 2, 3, 4, 'ab']"
+      - name: "Уже плоский"
+        call: "flatten([1, 2, 3])"
+        expected: "[1, 2, 3]"
+      - name: "Пустые вложенные"
+        call: "flatten([[], [[]], [1]])"
+        expected: "[1]"
+      - name: "Глубокая вложенность"
+        call: "flatten([[[[[[[\"x\"]]]]]]])"
+        expected: "['x']"
+      - name: "Пустой"
+        call: "flatten([])"
+        expected: "[]"
+
+  - id: t3
+    title: "Поиск значений в JSON"
+    difficulty: 2
+    statement: |
+      Напишите `find_values(data, key)`, которая возвращает список всех значений для ключа `key` во вложенной структуре из словарей и списков произвольной глубины — в порядке обхода (словари — в порядке ключей, списки — по порядку). Значение найденного ключа в глубину **не** обходится.
+    examples:
+      - input: "find_values({\"a\": 1, \"b\": [{\"a\": 2}, {\"c\": {\"a\": 3}}]}, \"a\")"
+        output: "[1, 2, 3]"
+    starter: |
+      def find_values(data, key):
+          return [data[key]]
+    hints:
+      - "Три случая: словарь (перебрать items), список (перебрать элементы), всё остальное — пустой результат."
+      - "Для словаря: если ключ совпал — добавить значение, иначе `result.extend(find_values(value, key))`."
+    solution: |
+      def find_values(data, key):
+          result = []
+          if isinstance(data, dict):
+              for k, value in data.items():
+                  if k == key:
+                      result.append(value)
+                  else:
+                      result.extend(find_values(value, key))
+          elif isinstance(data, list):
+              for item in data:
+                  result.extend(find_values(item, key))
+          return result
+    solution_explanation: "Структура функции повторяет структуру JSON: словарь, список и «лист» (всё остальное — базовый случай с пустым результатом)."
+    tests:
+      - name: "Пример"
+        call: "find_values({\"a\": 1, \"b\": [{\"a\": 2}, {\"c\": {\"a\": 3}}]}, \"a\")"
+        expected: "[1, 2, 3]"
+      - name: "Нет ключа"
+        call: "find_values({\"x\": [1, 2]}, \"a\")"
+        expected: "[]"
+      - name: "Список на верхнем уровне"
+        call: "find_values([{\"text\": \"a\"}, {\"text\": \"b\"}], \"text\")"
+        expected: "['a', 'b']"
+      - name: "Значение — словарь, внутрь не идём"
+        call: "find_values({\"a\": {\"a\": 5}}, \"a\")"
+        expected: "[{'a': 5}]"
+      - name: "Не коллекция"
+        call: "find_values(42, \"a\")"
+        expected: "[]"
+
+  - id: t4
+    title: "Быстрые числа Фибоначчи"
+    difficulty: 3
+    statement: |
+      Напишите рекурсивную функцию `fib(n)` (fib(0) = 0, fib(1) = 1, fib(n) = fib(n−1) + fib(n−2)), которая работает быстро даже для `n = 300`: используйте мемоизацию через словарь. Не используйте изменяемое значение по умолчанию и глобальные переменные. Готовые декораторы кэширования не используйте.
+    examples:
+      - input: "fib(10)"
+        output: "55"
+    starter: |
+      def fib(n):
+          if n < 2:
+              return n
+          return fib(n - 1) + fib(n - 2)
+    hints:
+      - "Добавьте параметр `cache=None` и создавайте словарь внутри: `if cache is None: cache = {}`."
+      - "Перед вычислением проверяйте `if n in cache`; после — сохраняйте `cache[n] = ...` и передавайте cache в рекурсивные вызовы."
+    solution: |
+      def fib(n, cache=None):
+          if cache is None:
+              cache = {}
+          if n < 2:
+              return n
+          if n not in cache:
+              cache[n] = fib(n - 1, cache) + fib(n - 2, cache)
+          return cache[n]
+    solution_explanation: "Каждое значение вычисляется один раз, поэтому вызовов порядка 2n вместо экспоненты. Кэш передаётся явно и создаётся заново при каждом внешнем вызове. Глубина рекурсии ≈ n — для n = 300 далеко до предела."
+    constraints:
+      forbid: ["lru_cache", "global", "cache={}", "cache = {})"]
+    timeout: 5
+    tests:
+      - name: "fib(10)"
+        call: "fib(10)"
+        expected: "55"
+      - name: "Базовые случаи"
+        call: "(fib(0), fib(1))"
+        expected: "(0, 1)"
+      - name: "fib(50) быстро"
+        call: "fib(50)"
+        expected: "12586269025"
+      - name: "fib(300) быстро"
+        call: "fib(300)"
+        expected: "222232244629420445529739893461909967206666939096499764990979600"
+      - name: "Повторные вызовы независимы"
+        code: |
+          assert fib(20) == 6765 and fib(5) == 5

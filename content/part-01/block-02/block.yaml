@@ -1,0 +1,16 @@
+title: "Условия и логика"
+description: "Логический тип, сравнения, ветвления if/elif/else, логические операторы, truthy/falsy и match-case."
+mini_project: "Текстовый квест с ветвлениями"
+lessons:
+  - id: lesson-01
+    title: "Тип bool и операторы сравнения"
+  - id: lesson-02
+    title: "if / else и отступы"
+  - id: lesson-03
+    title: "elif и вложенные условия"
+  - id: lesson-04
+    title: "Логические операторы and, or, not"
+  - id: lesson-05
+    title: "Truthy/falsy и тернарный оператор"
+  - id: lesson-06
+    title: "match-case: структурное сопоставление"

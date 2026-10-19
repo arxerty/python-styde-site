@@ -1,0 +1,18 @@
+title: "Асинхронность и сеть"
+description: "Синхронный и асинхронный код, asyncio: корутины, gather, задачи и таймауты, семафоры и лимиты запросов, протокол HTTP, requests и httpx, переменные окружения и .env. Сетевые задания выполняются локально с моками."
+mini_project: "Асинхронный сборщик данных из публичного API с лимитом запросов"
+lessons:
+  - id: lesson-01
+    title: "Синхронный и асинхронный код: зачем это AI-приложениям"
+  - id: lesson-02
+    title: "asyncio: корутины, async/await, цикл событий"
+  - id: lesson-03
+    title: "asyncio.gather, create_task, таймауты"
+  - id: lesson-04
+    title: "Семафоры и ограничение параллельных запросов"
+  - id: lesson-05
+    title: "HTTP: методы, статус-коды, заголовки, JSON"
+  - id: lesson-06
+    title: "requests и httpx: синхронные и асинхронные запросы"
+  - id: lesson-07
+    title: "Переменные окружения и .env для API-ключей"

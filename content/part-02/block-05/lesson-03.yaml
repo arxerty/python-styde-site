@@ -1,0 +1,409 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from typing import TypedDict
+
+
+      class Point(TypedDict):
+          x: int
+          y: int
+
+
+      p = Point(x=1, y="два")
+      print(type(p).__name__, p["y"])
+    options:
+      - text: "`dict два`"
+        correct: true
+        why: "TypedDict во время выполнения — обычный словарь без проверки типов."
+      - text: "TypeError: y должен быть int"
+        why: "Проверку типов выполняет только анализатор (mypy)."
+      - text: "`Point два`"
+        why: "Создаётся обычный dict."
+    explanation: "TypedDict — инструмент статической проверки, а не валидации."
+
+  - id: q2
+    type: single
+    prompt: "Строки JSONL-датасета нужно читать, фильтровать и записывать обратно как JSON. Как описать их тип?"
+    options:
+      - text: "TypedDict — данные остаются словарями, а структура проверяется анализатором"
+        correct: true
+        why: "Никаких преобразований при чтении и записи JSON."
+      - text: "dataclass — обязательно, иначе нельзя аннотировать"
+        why: "Можно и dataclass, но понадобятся преобразования туда и обратно."
+      - text: "dict[str, Any] — самый точный вариант"
+        why: "Он ничего не говорит о ключах."
+      - text: "Типы для словарей указать невозможно"
+        why: "Для этого и существует TypedDict."
+    explanation: "TypedDict — для чужих форматов в виде словарей/JSON."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def pick[T](items: list[T], index: int, default: T) -> T:
+          return items[index] if 0 <= index < len(items) else default
+
+
+      print(pick(["a", "b"], 1, "-"), pick([1, 2], 5, 0) + 10)
+    options:
+      - text: "`b 10`"
+        correct: true
+        why: "Второй вызов выходит за границы и возвращает default 0."
+      - text: "`b 12`"
+        why: "Индекс 5 вне списка — возвращается default."
+      - text: "TypeError: T не определён"
+        why: "Синтаксис def f[T] появился в Python 3.12 и работает."
+    explanation: "Переменная типа связывает типы аргументов и результата."
+
+  - id: q4
+    type: find_bug
+    prompt: "Функция падает с KeyError на некоторых сообщениях. Почему?"
+    code: |
+      from typing import NotRequired, TypedDict
+
+
+      class Message(TypedDict):
+          role: str
+          content: str
+          name: NotRequired[str]
+
+
+      def author(message: Message) -> str:
+          return message["name"]
+    options:
+      - text: "Ключ name необязательный — его может не быть; нужно message.get(\"name\", ...)"
+        correct: true
+        why: "NotRequired означает, что ключ может отсутствовать."
+      - text: "TypedDict не поддерживает доступ через []"
+        why: "Поддерживает — это обычный словарь."
+      - text: "NotRequired нельзя использовать со строками"
+        why: "Можно с любым типом."
+    explanation: "Необязательные ключи читайте через get."
+
+  - id: q5
+    type: single
+    prompt: "Почему для параметра функции, которая только перебирает тексты, лучше `Iterable[str]`, а не `list[str]`?"
+    options:
+      - text: "Тогда функция корректно принимает и списки, и кортежи, и генераторы, и файлы"
+        correct: true
+        why: "Функции нужен только перебор."
+      - text: "Iterable работает быстрее list"
+        why: "Аннотация не влияет на скорость."
+      - text: "list[str] нельзя перебирать"
+        why: "Можно, но аннотация list сужает круг допустимых аргументов."
+      - text: "Iterable проверяется во время выполнения"
+        why: "Ни одна аннотация не проверяется интерпретатором."
+    explanation: "Параметры — широкие, результаты — конкретные."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно про обобщённые типы? Выберите все."
+    options:
+      - text: "`class Box[T]:` — обобщённый класс в синтаксисе Python 3.12"
+        correct: true
+        why: "Старый эквивалент — Generic[T]."
+      - text: "`T = TypeVar(\"T\", bound=Sized)` ограничивает T типами с __len__"
+        correct: true
+        why: "Верхняя граница."
+      - text: "`Box[int]()` и `Box()` создают одинаковые объекты во время выполнения"
+        correct: true
+        why: "Параметр типа использует только анализатор."
+      - text: "`Box[int]` запрещает класть строки во время выполнения"
+        why: "Проверки нет — только в mypy."
+    explanation: "Обобщённые типы — для анализатора; во время выполнения поведение не меняется."
+
+tasks:
+  - id: t1
+    title: "Типизированные сообщения"
+    difficulty: 1
+    statement: |
+      Опишите `Message` как TypedDict: обязательные ключи `role: str` и `content: str`, необязательный `name: str` (через `NotRequired`).
+
+      - `make_message(role: str, content: str, name: str | None = None) -> Message` — ключ `name` добавляется, только если он передан;
+      - `count_by_role(messages: list[Message]) -> dict[str, int]` — количество сообщений каждой роли.
+    examples:
+      - input: "make_message(\"tool\", \"42\", name=\"calc\")"
+        output: "{'role': 'tool', 'content': '42', 'name': 'calc'}"
+    starter: |
+      def make_message(role, content, name=None):
+          return {"role": role, "content": content, "name": name}
+    hints:
+      - "`from typing import NotRequired, TypedDict`; `class Message(TypedDict): role: str ...`."
+      - "`message: Message = {\"role\": role, \"content\": content}`, затем `if name is not None: message[\"name\"] = name`."
+    solution: |
+      from typing import NotRequired, TypedDict
+
+
+      class Message(TypedDict):
+          role: str
+          content: str
+          name: NotRequired[str]
+
+
+      def make_message(role: str, content: str, name: str | None = None) -> Message:
+          """Создать сообщение; name — только если задано."""
+          message: Message = {"role": role, "content": content}
+          if name is not None:
+              message["name"] = name
+          return message
+
+
+      def count_by_role(messages: list[Message]) -> dict[str, int]:
+          """Количество сообщений по ролям."""
+          counts: dict[str, int] = {}
+          for message in messages:
+              counts[message["role"]] = counts.get(message["role"], 0) + 1
+          return counts
+    solution_explanation: "Необязательный ключ отсутствует в словаре, а не равен None, — так требует формат многих API. TypedDict фиксирует, какие ключи обязательны."
+    tests:
+      - name: "Пример"
+        call: "make_message(\"tool\", \"42\", name=\"calc\")"
+        expected: "{'role': 'tool', 'content': '42', 'name': 'calc'}"
+      - name: "Без name"
+        call: "make_message(\"user\", \"Привет\")"
+        expected: "{'role': 'user', 'content': 'Привет'}"
+      - name: "count_by_role"
+        call: "count_by_role([make_message(\"user\", \"a\"), make_message(\"assistant\", \"b\"), make_message(\"user\", \"c\")])"
+        expected: "{'user': 2, 'assistant': 1}"
+      - name: "Структура TypedDict"
+        code: |
+          assert Message.__required_keys__ == {"role", "content"}, Message.__required_keys__
+          assert Message.__optional_keys__ == {"name"}, Message.__optional_keys__
+      - name: "Аннотации функций"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(make_message)["return"] is Message
+          assert get_type_hints(count_by_role) == {"messages": list[Message], "return": dict[str, int]}
+
+  - id: t2
+    title: "Обобщённые функции"
+    difficulty: 2
+    statement: |
+      Напишите обобщённые функции (синтаксис `def f[T](...)` или `TypeVar`):
+
+      - `first_or(items: Sequence[T], default: T) -> T` — первый элемент или `default`;
+      - `dedupe(items: Iterable[T]) -> list[T]` — элементы без повторов в исходном порядке;
+      - `group_by(items: Iterable[T], key: Callable[[T], K]) -> dict[K, list[T]]` — группировка по ключу (порядок групп — по первому появлению).
+    examples:
+      - input: "group_by([\"кот\", \"кит\", \"ёж\"], len)"
+        output: "{3: ['кот', 'кит'], 2: ['ёж']}"
+    starter: |
+      def first_or(items, default):
+          return items[0]
+    hints:
+      - "Импорты: `from collections.abc import Callable, Iterable, Sequence`; объявление — `def group_by[T, K](items: Iterable[T], key: Callable[[T], K]) -> dict[K, list[T]]:`."
+      - "dedupe: множество `seen` и список результата; group_by: `groups.setdefault(key(item), []).append(item)`."
+    solution: |
+      from collections.abc import Callable, Iterable, Sequence
+
+
+      def first_or[T](items: Sequence[T], default: T) -> T:
+          """Первый элемент или default."""
+          return items[0] if items else default
+
+
+      def dedupe[T](items: Iterable[T]) -> list[T]:
+          """Элементы без повторов в исходном порядке."""
+          seen: set[T] = set()
+          result: list[T] = []
+          for item in items:
+              if item not in seen:
+                  seen.add(item)
+                  result.append(item)
+          return result
+
+
+      def group_by[T, K](items: Iterable[T], key: Callable[[T], K]) -> dict[K, list[T]]:
+          """Сгруппировать элементы по значению key."""
+          groups: dict[K, list[T]] = {}
+          for item in items:
+              groups.setdefault(key(item), []).append(item)
+          return groups
+    solution_explanation: "Переменные типа говорят анализатору: dedupe от списка строк вернёт list[str], а group_by по len — dict[int, list[str]]. Параметры объявлены широко (Iterable, Sequence), результаты — конкретно."
+    tests:
+      - name: "Пример"
+        call: "group_by([\"кот\", \"кит\", \"ёж\"], len)"
+        expected: "{3: ['кот', 'кит'], 2: ['ёж']}"
+      - name: "first_or"
+        call: "[first_or([5, 6], 0), first_or([], \"нет\"), first_or(\"abc\", \"-\")]"
+        expected: "[5, 'нет', 'a']"
+      - name: "dedupe из генератора"
+        call: "dedupe(x % 3 for x in range(7))"
+        expected: "[0, 1, 2]"
+      - name: "Обобщённые аннотации"
+        code: |
+          from typing import TypeVar, get_type_hints
+          assert isinstance(get_type_hints(first_or)["return"], TypeVar), "Результат first_or должен быть переменной типа"
+          hints = get_type_hints(group_by)
+          assert hints["return"].__origin__ is dict, hints
+      - name: "group_by со строковым ключом"
+        call: "group_by([1, 2, 3, 4], lambda n: \"чёт\" if n % 2 == 0 else \"нечет\")"
+        expected: "{'нечет': [1, 3], 'чёт': [2, 4]}"
+
+  - id: t3
+    title: "Обобщённый LRU-кэш"
+    difficulty: 2
+    statement: |
+      Создайте обобщённый класс `LRUCache[K, V]` (или `Generic[K, V]`) с ёмкостью `capacity`:
+
+      - `get(key: K) -> V | None` — значение или `None`; найденный ключ становится «самым свежим»;
+      - `put(key: K, value: V) -> None` — записать; если ёмкость превышена, удалить давно не использовавшийся ключ;
+      - `len(cache)` и `key in cache`.
+
+      `capacity < 1` → `ValueError`.
+    examples:
+      - input: "c = LRUCache[str, int](2); c.put(\"a\", 1); c.put(\"b\", 2); c.get(\"a\"); c.put(\"c\", 3); \"b\" in c"
+        output: "False"
+    starter: |
+      class LRUCache:
+          def __init__(self, capacity):
+              self.data = {}
+    hints:
+      - "Словарь хранит порядок: при get делайте `value = self._data.pop(key)` и `self._data[key] = value`."
+      - "put: удалить старое значение ключа (если было), записать, затем `if len(self._data) > self.capacity: del self._data[next(iter(self._data))]`."
+    solution: |
+      class LRUCache[K, V]:
+          """Кэш фиксированной ёмкости с вытеснением давно не использовавшихся ключей."""
+
+          def __init__(self, capacity: int) -> None:
+              if capacity < 1:
+                  raise ValueError("ёмкость должна быть положительной")
+              self.capacity = capacity
+              self._data: dict[K, V] = {}
+
+          def get(self, key: K) -> V | None:
+              if key not in self._data:
+                  return None
+              value = self._data.pop(key)
+              self._data[key] = value
+              return value
+
+          def put(self, key: K, value: V) -> None:
+              self._data.pop(key, None)
+              self._data[key] = value
+              if len(self._data) > self.capacity:
+                  del self._data[next(iter(self._data))]
+
+          def __len__(self) -> int:
+              return len(self._data)
+
+          def __contains__(self, key: object) -> bool:
+              return key in self._data
+    solution_explanation: "Параметры K и V делают кэш типобезопасным: LRUCache[str, list[float]] — кэш эмбеддингов, и mypy не даст положить туда что-то другое. Логика LRU — та же, что в декораторе из блока 2.4."
+    tests:
+      - name: "Пример"
+        code: |
+          c = LRUCache[str, int](2)
+          c.put("a", 1)
+          c.put("b", 2)
+          c.get("a")
+          c.put("c", 3)
+          assert "b" not in c and "a" in c and "c" in c
+      - name: "get"
+        code: |
+          c = LRUCache(3)
+          c.put("x", [1.0])
+          assert c.get("x") == [1.0] and c.get("missing") is None
+      - name: "Перезапись не увеличивает размер"
+        code: |
+          c = LRUCache(2)
+          c.put("a", 1)
+          c.put("a", 5)
+          assert len(c) == 1 and c.get("a") == 5
+      - name: "Ёмкость"
+        code: |
+          try:
+              LRUCache(0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Обобщённый класс"
+        code: |
+          assert len(getattr(LRUCache, "__parameters__", ())) == 2, "Класс должен иметь два параметра типа: K и V"
+
+  - id: t4
+    title: "Типизированная загрузка датасета"
+    difficulty: 3
+    statement: |
+      Опишите `Sample` как TypedDict: `text: str`, `label: int`, необязательный `source: str`.
+
+      - `load_samples(rows: Iterable[dict[str, object]]) -> tuple[list[Sample], int]` — проверяет каждую строку вручную (TypedDict сам ничего не проверяет!): `text` — непустая строка (после `strip`), `label` — `int` (не `bool`) из `{0, 1}`, `source` — если есть, строка. Корректные строки превращаются в `Sample` (текст без пробелов по краям, лишние ключи отбрасываются), некорректные пропускаются. Возвращает список образцов и число пропущенных.
+      - `label_balance(samples: Sequence[Sample]) -> dict[int, float]` — доля каждой метки (0 и 1 всегда присутствуют), округление до 3 знаков; для пустого списка — `{0: 0.0, 1: 0.0}`.
+    examples:
+      - input: "load_samples([{\"text\": \" хорошо \", \"label\": 1, \"extra\": 5}, {\"text\": \"\", \"label\": 0}])"
+        output: "([{'text': 'хорошо', 'label': 1}], 1)"
+    starter: |
+      def load_samples(rows):
+          return list(rows), 0
+    hints:
+      - "Вспомогательная функция `_is_valid(row) -> bool` с проверками `isinstance`. Метка: `isinstance(label, int) and not isinstance(label, bool) and label in (0, 1)`."
+      - "При сборке Sample добавляйте `source`, только если ключ был в строке."
+    solution: |
+      from collections.abc import Iterable, Sequence
+      from typing import NotRequired, TypedDict
+
+
+      class Sample(TypedDict):
+          text: str
+          label: int
+          source: NotRequired[str]
+
+
+      def _is_valid(row: dict[str, object]) -> bool:
+          text = row.get("text")
+          label = row.get("label")
+          if not isinstance(text, str) or not text.strip():
+              return False
+          if not isinstance(label, int) or isinstance(label, bool) or label not in (0, 1):
+              return False
+          return "source" not in row or isinstance(row["source"], str)
+
+
+      def load_samples(rows: Iterable[dict[str, object]]) -> tuple[list[Sample], int]:
+          """Корректные образцы и число пропущенных строк."""
+          samples: list[Sample] = []
+          skipped = 0
+          for row in rows:
+              if not _is_valid(row):
+                  skipped += 1
+                  continue
+              text = row["text"]
+              label = row["label"]
+              assert isinstance(text, str) and isinstance(label, int)
+              sample: Sample = {"text": text.strip(), "label": label}
+              source = row.get("source")
+              if isinstance(source, str):
+                  sample["source"] = source
+              samples.append(sample)
+          return samples, skipped
+
+
+      def label_balance(samples: Sequence[Sample]) -> dict[int, float]:
+          """Доли меток 0 и 1."""
+          if not samples:
+              return {0: 0.0, 1: 0.0}
+          ones = sum(1 for sample in samples if sample["label"] == 1)
+          return {0: round(1 - ones / len(samples), 3), 1: round(ones / len(samples), 3)}
+    solution_explanation: "TypedDict описывает форму данных для анализатора, а проверку во время выполнения пришлось писать вручную — длинную и однообразную. Именно эту работу автоматизирует Pydantic: в следующих уроках та же задача решится объявлением модели. assert с isinstance подсказывает mypy, что значения уже проверены (сужение типа)."
+    tests:
+      - name: "Пример"
+        call: "load_samples([{\"text\": \" хорошо \", \"label\": 1, \"extra\": 5}, {\"text\": \"\", \"label\": 0}])"
+        expected: "([{'text': 'хорошо', 'label': 1}], 1)"
+      - name: "Неверные метки и типы"
+        call: "load_samples([{\"text\": \"a\", \"label\": 2}, {\"text\": \"a\", \"label\": True}, {\"text\": 5, \"label\": 1}, {\"label\": 0}, {\"text\": \"a\", \"label\": \"1\"}])"
+        expected: "([], 5)"
+      - name: "source"
+        call: "load_samples([{\"text\": \"a\", \"label\": 0, \"source\": \"web\"}, {\"text\": \"b\", \"label\": 1, \"source\": 7}])"
+        expected: "([{'text': 'a', 'label': 0, 'source': 'web'}], 1)"
+      - name: "label_balance"
+        call: "[label_balance([{\"text\": \"a\", \"label\": 1}, {\"text\": \"b\", \"label\": 0}, {\"text\": \"c\", \"label\": 1}]), label_balance([])]"
+        expected: "[{0: 0.333, 1: 0.667}, {0: 0.0, 1: 0.0}]"
+      - name: "TypedDict Sample"
+        code: |
+          assert Sample.__required_keys__ == {"text", "label"} and Sample.__optional_keys__ == {"source"}
+          rows = ({"text": str(i), "label": i % 2} for i in range(4))
+          samples, skipped = load_samples(rows)
+          assert len(samples) == 4 and skipped == 0, "load_samples должна работать с генератором"

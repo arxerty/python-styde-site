@@ -1,0 +1,1257 @@
+title: "Практикум: тесты, структура проекта, git"
+description: |
+  Вопросы и задачи по всему блоку: pytest, фикстуры и параметризация, моки, пакеты и pyproject.toml, логирование, PEP 8 и ruff, git.
+  Последняя задача — мини-проект «Покрыть тестами готовый модуль и найти в нём 3 бага» (выполняется локально).
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import pytest
+
+      print(0.1 * 3 == 0.3, 0.1 * 3 == pytest.approx(0.3), {"p": 0.30000001} == pytest.approx({"p": 0.3}))
+    options:
+      - text: "`False True True`"
+        correct: true
+        why: "0.1 * 3 = 0.30000000000000004; approx допускает относительную погрешность 1e-6 и работает со словарями."
+      - text: "`True True True`"
+        why: "Точное сравнение float здесь ложно."
+      - text: "`False True False`"
+        why: "Разница 1e-8 меньше допуска approx."
+    explanation: "Дробные результаты сравнивают через pytest.approx."
+
+  - id: q2
+    type: multiple
+    prompt: "Что верно про фикстуру с `yield`? Выберите все."
+    options:
+      - text: "Код до `yield` выполняется перед тестом, после `yield` — после теста"
+        correct: true
+        why: "Это подготовка и уборка."
+      - text: "Уборка выполняется, даже если тест упал"
+        correct: true
+        why: "Поэтому yield надёжнее, чем очистка в конце теста."
+      - text: "Тест получает значение, стоящее после `yield`"
+        correct: true
+        why: "Как при next() генератора."
+      - text: "Тест должен сам вызвать `next()`, чтобы запустить уборку"
+        why: "Уборку запускает pytest."
+    explanation: "yield-фикстура — генератор, которым управляет pytest."
+
+  - id: q3
+    type: single
+    prompt: "Сколько тестов создаст pytest и сколько из них будут отмечены как ожидаемо падающие (xfail)?"
+    code: |
+      @pytest.mark.parametrize("model", ["mini", "large"])
+      @pytest.mark.parametrize("text, expected", [
+          ("a b", 2),
+          ("", 0),
+          pytest.param("a​b", 2, marks=pytest.mark.xfail(reason="невидимый пробел")),
+      ])
+      def test_count(model, text, expected):
+          ...
+    options:
+      - text: "6 тестов, 2 из них xfail"
+        correct: true
+        why: "3 случая × 2 модели; случай с меткой xfail повторяется для обеих моделей."
+      - text: "5 тестов, 1 xfail"
+        why: "Декораторы перемножаются: 3 × 2."
+      - text: "6 тестов, 1 xfail"
+        why: "Метка принадлежит случаю и применяется во всех его комбинациях."
+    explanation: "Стопка parametrize — декартово произведение, метки pytest.param переходят во все комбинации."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from unittest.mock import Mock
+
+      m = Mock(return_value=1, side_effect=lambda x: x * 10)
+      print(m(2), m.call_count)
+    options:
+      - text: "`20 1`"
+        correct: true
+        why: "Если side_effect — функция, мок возвращает её результат."
+      - text: "`1 1`"
+        why: "side_effect-функция важнее return_value."
+      - text: "`20 0`"
+        why: "Вызов записывается в любом случае."
+    explanation: "return_value используется, только если side_effect не задан (или функция вернула mock.DEFAULT)."
+
+  - id: q5
+    type: find_bug
+    prompt: "Тест повторов всё равно ждёт секунды. Почему?"
+    code: |
+      # retry.py
+      from time import sleep
+
+      def with_retry(func, attempts=3):
+          for attempt in range(attempts):
+              try:
+                  return func()
+              except ConnectionError:
+                  sleep(2 ** attempt)
+          raise ConnectionError("не удалось")
+
+      # test_retry.py
+      @patch("time.sleep")
+      def test_retry(fake_sleep):
+          func = Mock(side_effect=[ConnectionError(), "ok"])
+          assert retry.with_retry(func) == "ok"
+    options:
+      - text: "sleep импортирован в retry через from ... import, подменять нужно `retry.sleep`"
+        correct: true
+        why: "patch подменяет имя там, где его ищут при вызове."
+      - text: "Mock не умеет бросать ConnectionError"
+        why: "Умеет — исключение в списке side_effect бросается."
+      - text: "patch нельзя использовать как декоратор"
+        why: "Можно; мок передаётся аргументом."
+    explanation: "Ещё лучше — передавать sleep параметром функции и не патчить вообще."
+
+  - id: q6
+    type: single
+    prompt: "Зачем пакет кладут в папку `src/` (src-layout)?"
+    options:
+      - text: "Тесты импортируют установленный пакет, а не случайную копию из текущей папки — ошибки упаковки видны сразу"
+        correct: true
+        why: "Из корня проекта пакет без установки не импортируется."
+      - text: "Без src Python не находит модули"
+        why: "Flat-раскладка тоже работает."
+      - text: "Так требует PEP 8"
+        why: "PEP 8 — о стиле кода, не о раскладке."
+    explanation: "src-layout + pip install -e . — рекомендуемая схема для устанавливаемых пакетов."
+
+  - id: q7
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      versions = ["1.10.0", "1.2.0", "1.9.1"]
+      print(sorted(versions)[-1], max(versions, key=lambda v: tuple(map(int, v.split(".")))))
+    options:
+      - text: "`1.9.1 1.10.0`"
+        correct: true
+        why: "Строки сравниваются посимвольно ('9' > '1'), кортежи чисел — по значениям."
+      - text: "`1.10.0 1.10.0`"
+        why: "Строковая сортировка ставит '1.9.1' после '1.10.0'."
+      - text: "`1.9.1 1.9.1`"
+        why: "Как числа 10 > 9."
+    explanation: "Версии сравнивают покомпонентно как числа."
+
+  - id: q8
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import logging
+      import sys
+
+      root = logging.getLogger()
+      root.handlers.clear()
+      root.addHandler(logging.StreamHandler(sys.stdout))
+      child = logging.getLogger("app.worker")
+      child.handlers.clear()
+      child.addHandler(logging.StreamHandler(sys.stdout))
+      child.warning("сбой")
+    options:
+      - text: |
+          ```text
+          сбой
+          сбой
+          ```
+        correct: true
+        why: "Запись обрабатывает обработчик child, а затем она передаётся (propagate) корневому логгеру с его обработчиком."
+      - text: "`сбой`"
+        why: "propagate по умолчанию True — запись уходит и корню."
+      - text: "Ничего"
+        why: "WARNING проходит уровень по умолчанию."
+    explanation: "Обработчики настраивают в одном месте (обычно у корня) или ставят propagate = False."
+
+  - id: q9
+    type: single
+    prompt: "Чем `logger.exception(\"сбой\")` отличается от `logger.error(\"сбой\")` внутри `except`?"
+    options:
+      - text: "exception пишет на уровне ERROR и добавляет traceback текущего исключения"
+        correct: true
+        why: "Это то, что нужно для разбора ошибки."
+      - text: "exception бросает исключение заново"
+        why: "Логгер ничего не бросает; для этого нужен raise."
+      - text: "exception пишет на уровне CRITICAL"
+        why: "Уровень — ERROR."
+    explanation: "Внутри except — logger.exception, чтобы сохранить traceback."
+
+  - id: q10
+    type: multiple
+    prompt: "Какие замечания ruff чаще всего указывают на **настоящие баги**, а не только на стиль? Выберите все."
+    options:
+      - text: "B006 — изменяемое значение по умолчанию"
+        correct: true
+        why: "Объект разделяется между вызовами."
+      - text: "F821 — неизвестное имя"
+        correct: true
+        why: "Опечатка, которая упадёт при выполнении этой ветки."
+      - text: "E722 — голый except"
+        correct: true
+        why: "Прячет любые ошибки, включая опечатки и KeyboardInterrupt."
+      - text: "I001 — импорты не отсортированы"
+        why: "Это порядок, на поведение не влияет."
+    explanation: "Стиль чинит форматтер, а вероятные баги требуют внимания человека."
+
+  - id: q11
+    type: find_bug
+    prompt: "У двух разных пользователей бота смешивается история. Где ошибка?"
+    code: |
+      class Conversation:
+          def __init__(self, user_id, history=[]):
+              self.user_id = user_id
+              self.history = history
+
+          def add(self, text):
+              self.history.append(text)
+
+      alice = Conversation(1)
+      bob = Conversation(2)
+      alice.add("привет")
+      print(bob.history)   # ['привет']
+    options:
+      - text: "Список по умолчанию создаётся один раз и общий для всех объектов: нужно history=None и новый список внутри"
+        correct: true
+        why: "Это правило B006 из ruff."
+      - text: "self.history нужно объявить на уровне класса"
+        why: "Атрибут класса тоже был бы общим для всех объектов."
+      - text: "append не работает с атрибутами объекта"
+        why: "Работает; проблема в общем списке."
+    explanation: "Изменяемые значения по умолчанию — классический баг, который ловит линтер."
+
+  - id: q12
+    type: single
+    prompt: "Когда `git merge feature` выполняется как **fast-forward**?"
+    options:
+      - text: "Когда в текущей ветке не появилось новых коммитов с момента ответвления feature — указатель просто сдвигается вперёд"
+        correct: true
+        why: "Текущая ветка — предок feature, слияние не нужно."
+      - text: "Когда в обеих ветках есть новые коммиты"
+        why: "Тогда создаётся merge-коммит относительно общего предка."
+      - text: "Когда есть конфликты"
+        why: "Конфликты возможны только при настоящем слиянии."
+    explanation: "Fast-forward сохраняет линейную историю без коммита слияния."
+
+  - id: q13
+    type: multiple
+    prompt: "Что должно быть в `.gitignore` Python-проекта с LLM? Выберите все."
+    options:
+      - text: "`.env`"
+        correct: true
+        why: "API-ключи не должны попадать в репозиторий."
+      - text: "`.venv/`"
+        correct: true
+        why: "Окружение пересоздают командой."
+      - text: "`__pycache__/`"
+        correct: true
+        why: "Кэш байткода генерируется автоматически."
+      - text: "`pyproject.toml`"
+        why: "Это описание проекта — его обязательно коммитят."
+      - text: "`uv.lock`"
+        why: "Lock-файл приложения коммитят ради воспроизводимости."
+    explanation: "В git — код, описание и lock-файл; секреты, окружения и кэши — нет."
+
+tasks:
+  - id: t1
+    title: "Параметризованные тесты для окон с перекрытием"
+    difficulty: 1
+    statement: |
+      Функция `sliding_chunks(items, size, overlap=0)` **уже определена** — не переопределяйте её. Она режет список на окна длиной `size`, где соседние окна перекрываются на `overlap` элементов (так готовят чанки для RAG):
+
+      - шаг между началами окон — `size - overlap`;
+      - последнее окно может быть короче; окна, целиком лежащие внутри предыдущего, не создаются: `sliding_chunks([1, 2, 3, 4, 5], 2, 1) == [[1, 2], [2, 3], [3, 4], [4, 5]]`;
+      - пустой список → `[]`;
+      - `size < 1` или `overlap` вне диапазона `0 <= overlap < size` → `ValueError`.
+
+      Напишите тесты с `@pytest.mark.parametrize` (**не меньше 6 случаев** в сумме). Они должны падать на версиях с ошибками: лишнее короткое окно в конце, потерянный хвост списка, неверный шаг `size + overlap`, нет проверки `overlap` (отрицательного или большего, чем `size`).
+    examples:
+      - input: "sliding_chunks([1, 2, 3, 4, 5], 3)"
+        output: "[[1, 2, 3], [4, 5]]"
+    setup: |
+      def sliding_chunks(items, size, overlap=0):
+          if size < 1 or not 0 <= overlap < size:
+              raise ValueError("нужно size >= 1 и 0 <= overlap < size")
+          step = size - overlap
+          chunks = []
+          for start in range(0, len(items), step):
+              chunks.append(items[start:start + size])
+              if start + size >= len(items):
+                  break
+          return chunks
+
+
+      _REFERENCE = sliding_chunks
+
+
+      def _mutant_extra(items, size, overlap=0):
+          if size < 1 or not 0 <= overlap < size:
+              raise ValueError("нужно size >= 1 и 0 <= overlap < size")
+          step = size - overlap
+          return [items[start:start + size] for start in range(0, len(items), step)]
+
+
+      def _mutant_tail(items, size, overlap=0):
+          if size < 1 or not 0 <= overlap < size:
+              raise ValueError("нужно size >= 1 и 0 <= overlap < size")
+          step = size - overlap
+          return [items[start:start + size] for start in range(0, len(items) - size + 1, step)]
+
+
+      def _mutant_step(items, size, overlap=0):
+          if size < 1 or not 0 <= overlap < size:
+              raise ValueError("нужно size >= 1 и 0 <= overlap < size")
+          step = size + overlap
+          chunks = []
+          for start in range(0, len(items), step):
+              chunks.append(items[start:start + size])
+              if start + size >= len(items):
+                  break
+          return chunks
+
+
+      def _mutant_no_overlap_check(items, size, overlap=0):
+          if size < 1:
+              raise ValueError("нужно size >= 1")
+          step = size - overlap
+          chunks = []
+          for start in range(0, len(items), step):
+              chunks.append(items[start:start + size])
+              if start + size >= len(items):
+                  break
+          return chunks
+
+
+      def _student_tests():
+          return [value for name, value in list(globals().items()) if name.startswith("test_") and callable(value)]
+
+
+      def _cases(test):
+          cases = [{}]
+          for mark in reversed(getattr(test, "pytestmark", [])):
+              if mark.name != "parametrize":
+                  continue
+              names = mark.args[0] if mark.args else mark.kwargs["argnames"]
+              values = mark.args[1] if len(mark.args) > 1 else mark.kwargs["argvalues"]
+              names = [n.strip() for n in names.split(",")] if isinstance(names, str) else list(names)
+              expanded = []
+              for row in values:
+                  if type(row).__name__ == "ParameterSet":
+                      row = row.values
+                  elif len(names) == 1:
+                      row = (row,)
+                  for case in cases:
+                      expanded.append({**case, **dict(zip(names, row))})
+              cases = expanded
+          return cases
+
+
+      def _is_parametrized(test):
+          return any(mark.name == "parametrize" for mark in getattr(test, "pytestmark", []))
+
+
+      def _failures(implementation):
+          namespace = globals()
+          saved = namespace["sliding_chunks"]
+          namespace["sliding_chunks"] = implementation
+          failed = 0
+          try:
+              for test in _student_tests():
+                  for case in _cases(test):
+                      try:
+                          test(**case)
+                      except BaseException:
+                          failed += 1
+          finally:
+              namespace["sliding_chunks"] = saved
+          return failed
+    starter: |
+      import pytest
+
+
+      @pytest.mark.parametrize("items, size, overlap, expected", [
+          ([1, 2, 3, 4], 2, 0, [[1, 2], [3, 4]]),
+      ])
+      def test_sliding_chunks(items, size, overlap, expected):
+          assert sliding_chunks(items, size, overlap) == expected
+    hints:
+      - "Нужны случаи с перекрытием (`[1..5], 2, 1`), с неровным хвостом без перекрытия (`[1..5], 3, 0`) и пустой список — на них видны лишнее окно, потерянный хвост и неверный шаг."
+      - "Ошибки — отдельным параметризованным тестом с `pytest.raises(ValueError)`: `size=0`, `overlap=-1`, `overlap=5` при `size=2` (при `overlap == size` даже испорченная версия упадёт сама — возьмите `overlap > size`)."
+    solution: |
+      import pytest
+
+
+      @pytest.mark.parametrize(
+          "items, size, overlap, expected",
+          [
+              ([1, 2, 3, 4], 2, 0, [[1, 2], [3, 4]]),
+              ([1, 2, 3, 4, 5], 3, 0, [[1, 2, 3], [4, 5]]),
+              ([1, 2, 3, 4, 5], 2, 1, [[1, 2], [2, 3], [3, 4], [4, 5]]),
+              ([1, 2, 3, 4, 5, 6], 4, 2, [[1, 2, 3, 4], [3, 4, 5, 6]]),
+              ([1, 2], 5, 0, [[1, 2]]),
+              ([], 3, 1, []),
+          ],
+      )
+      def test_sliding_chunks(items, size, overlap, expected):
+          assert sliding_chunks(items, size, overlap) == expected
+
+
+      @pytest.mark.parametrize("size, overlap", [(0, 0), (2, -1), (2, 5)])
+      def test_invalid_arguments(size, overlap):
+          with pytest.raises(ValueError):
+              sliding_chunks([1, 2, 3], size, overlap)
+    solution_explanation: "Случаи подобраны под ошибки: перекрытие показывает и шаг, и лишнее окно в конце, неровный хвост — потерю последних элементов, а отдельный тест аргументов ловит отсутствие проверки overlap (именно при overlap > size, когда range не падает сам)."
+    tests:
+      - name: "Есть параметризация"
+        code: |
+          assert any(_is_parametrized(test) for test in _student_tests()), "Используйте @pytest.mark.parametrize"
+      - name: "Не меньше 6 случаев"
+        code: |
+          total = sum(len(_cases(test)) for test in _student_tests() if _is_parametrized(test))
+          assert total >= 6, f"Параметризованных случаев: {total}"
+      - name: "Функция не переопределена"
+        code: |
+          assert sliding_chunks is _REFERENCE, "Не переопределяйте sliding_chunks — пишите только тесты"
+      - name: "Тесты проходят на правильной функции"
+        code: |
+          failed = _failures(_REFERENCE)
+          assert failed == 0, f"На правильной функции упало случаев: {failed}"
+      - name: "Ловят лишнее окно"
+        code: |
+          assert _failures(_mutant_extra) > 0, "Ни один случай не заметил лишнее короткое окно в конце"
+      - name: "Ловят потерянный хвост"
+        code: |
+          assert _failures(_mutant_tail) > 0, "Ни один случай не заметил потерю последних элементов"
+      - name: "Ловят неверный шаг"
+        code: |
+          assert _failures(_mutant_step) > 0, "Ни один случай не проверяет перекрытие"
+      - name: "Ловят отсутствие проверки overlap"
+        code: |
+          assert _failures(_mutant_no_overlap_check) > 0, "Ни один случай не проверяет ValueError для неверного overlap"
+
+  - id: t2
+    title: "Декоратор логирования вызовов"
+    difficulty: 2
+    statement: |
+      Напишите фабрику декораторов `log_calls(logger, level=logging.DEBUG)`. Декорированная функция:
+
+      - перед вызовом пишет в `logger` на уровне `level` сообщение с шаблоном `"→ %s(%s)"`: имя функции и аргументы через `", "` — позиционные как `repr`, именованные как `имя=repr`;
+      - после успешного вызова — на уровне `level` шаблон `"← %s = %r"` с именем и результатом; возвращает результат;
+      - при исключении — `logger.exception("✗ %s: %s", имя, тип_исключения)` (тип — имя класса) и пробрасывает исключение дальше;
+      - сохраняет `__name__` и `__doc__` (`functools.wraps`).
+
+      Аргументы логгеру передавайте отдельно (ленивое форматирование).
+    examples:
+      - input: "demo()"
+        output: "[('DEBUG', \"→ add(2, b=3)\"), ('DEBUG', '← add = 5')]"
+    setup: |
+      import logging
+
+
+      class _ListHandler(logging.Handler):
+          def __init__(self):
+              super().__init__()
+              self.records = []
+
+          def emit(self, record):
+              self.records.append(record)
+
+
+      def make_logger(name):
+          logger = logging.getLogger(name)
+          logger.handlers.clear()
+          handler = _ListHandler()
+          logger.addHandler(handler)
+          logger.setLevel(logging.DEBUG)
+          logger.propagate = False
+          return logger, handler.records
+
+
+      def demo():
+          logger, records = make_logger("p2.demo")
+
+          @log_calls(logger)
+          def add(a, b):
+              return a + b
+
+          add(2, b=3)
+          return [(r.levelname, r.getMessage()) for r in records]
+    starter: |
+      import logging
+
+
+      def log_calls(logger, level=logging.DEBUG):
+          def decorator(func):
+              def wrapper(*args, **kwargs):
+                  logger.info(f"вызов {func.__name__}")
+                  return func(*args, **kwargs)
+              return wrapper
+          return decorator
+    hints:
+      - "Строка аргументов: `parts = [repr(a) for a in args] + [f\"{k}={v!r}\" for k, v in kwargs.items()]`, затем `logger.log(level, \"→ %s(%s)\", func.__name__, \", \".join(parts))`."
+      - "Вызов — в `try`, в `except Exception as error:` — `logger.exception(...)` и `raise`; запись о результате — после `try` (или в `else`)."
+    solution: |
+      import functools
+      import logging
+
+
+      def log_calls(logger, level=logging.DEBUG):
+          """Декоратор: логировать вызовы, результаты и исключения."""
+
+          def decorator(func):
+              @functools.wraps(func)
+              def wrapper(*args, **kwargs):
+                  parts = [repr(arg) for arg in args] + [f"{key}={value!r}" for key, value in kwargs.items()]
+                  logger.log(level, "→ %s(%s)", func.__name__, ", ".join(parts))
+                  try:
+                      result = func(*args, **kwargs)
+                  except Exception as error:
+                      logger.exception("✗ %s: %s", func.__name__, type(error).__name__)
+                      raise
+                  logger.log(level, "← %s = %r", func.__name__, result)
+                  return result
+
+              return wrapper
+
+          return decorator
+    solution_explanation: "Декоратор с параметрами — функция, возвращающая декоратор (блок 2.3). logger.log принимает уровень параметром, а logger.exception внутри except добавляет traceback; raise без аргументов пробрасывает исходное исключение."
+    tests:
+      - name: "Пример"
+        call: "demo()"
+        expected: "[('DEBUG', \"→ add(2, b=3)\"), ('DEBUG', '← add = 5')]"
+      - name: "Уровень и repr строк"
+        code: |
+          logger, records = make_logger("p2.level")
+
+          @log_calls(logger, level=logging.INFO)
+          def greet(name, punctuation="!"):
+              return f"Привет, {name}{punctuation}"
+
+          assert greet("Мир", punctuation="?") == "Привет, Мир?"
+          got = [(r.levelname, r.getMessage()) for r in records]
+          assert got == [("INFO", "→ greet('Мир', punctuation='?')"), ("INFO", "← greet = 'Привет, Мир?'")], got
+      - name: "Исключение логируется и пробрасывается"
+        code: |
+          logger, records = make_logger("p2.error")
+
+          @log_calls(logger)
+          def divide(a, b):
+              return a / b
+
+          try:
+              divide(1, 0)
+          except ZeroDivisionError:
+              pass
+          else:
+              raise AssertionError("Исключение должно пробрасываться")
+          assert [r.getMessage() for r in records] == ["→ divide(1, 0)", "✗ divide: ZeroDivisionError"], [r.getMessage() for r in records]
+          assert records[-1].levelname == "ERROR" and records[-1].exc_info is not None, "Используйте logger.exception"
+      - name: "Ленивые аргументы"
+        code: |
+          logger, records = make_logger("p2.lazy")
+
+          @log_calls(logger)
+          def f():
+              return None
+
+          f()
+          assert all(record.args for record in records), "Передавайте значения аргументами логгера, а не f-строкой"
+          assert records[0].getMessage() == "→ f()"
+      - name: "wraps"
+        code: |
+          logger, _ = make_logger("p2.wraps")
+
+          @log_calls(logger)
+          def documented():
+              """Документация."""
+
+          assert documented.__name__ == "documented" and documented.__doc__ == "Документация."
+
+  - id: t3
+    title: "Кэш ответов LLM с TTL"
+    difficulty: 2
+    statement: |
+      Напишите класс `CachedLLM(client, ttl=60.0, clock=time.monotonic)` — кэширующую обёртку над клиентом LLM. Зависимости передаются параметрами, поэтому класс легко тестировать моками.
+
+      - `ask(prompt, **params)` — вернуть ответ `client.complete(prompt, **params)`. Ключ кэша — промпт и параметры (порядок именованных параметров не важен). Если ответ на такой же запрос получен меньше `ttl` секунд назад (по `clock()`), вернуть его из кэша, не вызывая клиент.
+      - Время берётся вызовом `clock()` **один раз** на каждый `ask`.
+      - Исключения клиента не кэшируются и пробрасываются.
+      - `stats` — словарь `{"hits": ..., "misses": ...}`: попадания в кэш и обращения к клиенту.
+      - `clear()` — очистить кэш (статистика сохраняется).
+      - `ttl <= 0` → `ValueError`.
+    examples:
+      - input: "demo()"
+        output: "(['ответ на hi', 'ответ на hi'], 1, {'hits': 1, 'misses': 1})"
+    setup: |
+      from unittest.mock import Mock
+
+
+      class FakeClock:
+          def __init__(self):
+              self.now = 0.0
+
+          def __call__(self):
+              return self.now
+
+
+      def make_client():
+          client = Mock()
+          client.complete.side_effect = lambda prompt, **params: f"ответ на {prompt}"
+          return client
+
+
+      def demo():
+          client = make_client()
+          llm = CachedLLM(client, ttl=60, clock=FakeClock())
+          answers = [llm.ask("hi"), llm.ask("hi")]
+          return answers, client.complete.call_count, llm.stats
+    starter: |
+      import time
+
+
+      class CachedLLM:
+          def __init__(self, client, ttl=60.0, clock=time.monotonic):
+              self.client = client
+              self.stats = {"hits": 0, "misses": 0}
+
+          def ask(self, prompt, **params):
+              self.stats["misses"] += 1
+              return self.client.complete(prompt, **params)
+    hints:
+      - "Ключ: `(prompt, tuple(sorted(params.items())))`; в кэше храните пару `(время, ответ)`."
+      - "В `ask`: `now = self.clock()`; если запись есть и `now - время < self.ttl` — попадание; иначе вызвать клиент **до** записи в кэш (если он бросит исключение, кэш не изменится)."
+    solution: |
+      import time
+
+
+      class CachedLLM:
+          """Кэш ответов LLM с временем жизни записей."""
+
+          def __init__(self, client, ttl=60.0, clock=time.monotonic):
+              if ttl <= 0:
+                  raise ValueError("ttl должен быть положительным")
+              self.client = client
+              self.ttl = ttl
+              self.clock = clock
+              self.stats = {"hits": 0, "misses": 0}
+              self._cache = {}
+
+          def ask(self, prompt, **params):
+              key = (prompt, tuple(sorted(params.items())))
+              now = self.clock()
+              entry = self._cache.get(key)
+              if entry is not None and now - entry[0] < self.ttl:
+                  self.stats["hits"] += 1
+                  return entry[1]
+              self.stats["misses"] += 1
+              answer = self.client.complete(prompt, **params)
+              self._cache[key] = (now, answer)
+              return answer
+
+          def clear(self):
+              self._cache.clear()
+    solution_explanation: "Клиент и часы внедрены через конструктор, поэтому тесты подставляют Mock и управляемые часы и проверяют TTL без ожидания. Ответ записывается в кэш только после успешного вызова, так что ошибки не кэшируются."
+    tests:
+      - name: "Пример"
+        call: "demo()"
+        expected: "(['ответ на hi', 'ответ на hi'], 1, {'hits': 1, 'misses': 1})"
+      - name: "Параметры входят в ключ, порядок не важен"
+        code: |
+          client = make_client()
+          llm = CachedLLM(client, clock=FakeClock())
+          llm.ask("q", temperature=0, model="mini")
+          llm.ask("q", model="mini", temperature=0)
+          llm.ask("q", model="large", temperature=0)
+          assert client.complete.call_count == 2, client.complete.call_args_list
+          client.complete.assert_called_with("q", model="large", temperature=0)
+          assert llm.stats == {"hits": 1, "misses": 2}
+      - name: "Время жизни"
+        code: |
+          clock = FakeClock()
+          client = make_client()
+          llm = CachedLLM(client, ttl=60, clock=clock)
+          llm.ask("x")
+          clock.now = 59.9
+          llm.ask("x")
+          clock.now = 60.0
+          llm.ask("x")
+          clock.now = 100.0
+          llm.ask("x")
+          assert client.complete.call_count == 2, "Запись живёт ttl секунд от момента получения ответа"
+      - name: "Ошибки не кэшируются"
+        code: |
+          client = Mock()
+          client.complete.side_effect = [TimeoutError("медленно"), "ок"]
+          llm = CachedLLM(client, clock=FakeClock())
+          try:
+              llm.ask("x")
+          except TimeoutError:
+              pass
+          else:
+              raise AssertionError("Исключение клиента нужно пробросить")
+          assert llm.ask("x") == "ок" and client.complete.call_count == 2
+      - name: "clear и один вызов clock на ask"
+        code: |
+          clock = Mock(return_value=5.0)
+          client = make_client()
+          llm = CachedLLM(client, clock=clock)
+          llm.ask("a")
+          llm.ask("a")
+          assert clock.call_count == 2, f"clock вызван {clock.call_count} раз"
+          llm.clear()
+          llm.ask("a")
+          assert client.complete.call_count == 2 and llm.stats == {"hits": 1, "misses": 2}, llm.stats
+      - name: "Неверный ttl"
+        code: |
+          for ttl in [0, -1]:
+              try:
+                  CachedLLM(make_client(), ttl=ttl)
+              except ValueError:
+                  continue
+              raise AssertionError(f"Ожидался ValueError для ttl={ttl}")
+
+  - id: t4
+    title: "Что изменилось в lock-файле"
+    difficulty: 2
+    statement: |
+      При обновлении зависимостей полезно видеть, какие пакеты добавились, удалились, обновились или откатились. Напишите `lock_diff(old, new)`, где `old` и `new` — тексты в формате `requirements.txt` с точными версиями:
+
+      - значимые строки — `имя==версия` (пробелы вокруг допустимы); пустые строки и строки с `#` в начале пропускаются, комментарий в конце строки (` # ...`) отбрасывается; другая строка → `ValueError`;
+      - имена сравниваются в нижнем регистре с заменой `_` на `-` и выводятся в таком виде;
+      - версии сравниваются покомпонентно как числа (короткая дополняется нулями).
+
+      Вернуть словарь с четырьмя списками, каждый отсортирован по имени:
+
+      - `"added"` — `"имя версия"`; `"removed"` — `"имя версия"`;
+      - `"upgraded"` и `"downgraded"` — `"имя старая -> новая"`.
+
+      Пакеты, у которых версия не изменилась (в том числе `1.0` и `1.0.0`), в результат не попадают.
+    examples:
+      - input: "lock_diff('httpx==0.27.0\\nrich==13.0', 'httpx==0.28.1\\npydantic==2.9.0')"
+        output: "{'added': ['pydantic 2.9.0'], 'removed': ['rich 13.0'], 'upgraded': ['httpx 0.27.0 -> 0.28.1'], 'downgraded': []}"
+    starter: |
+      def lock_diff(old, new):
+          old_names = set(old.split())
+          new_names = set(new.split())
+          return {"added": sorted(new_names - old_names), "removed": sorted(old_names - new_names), "upgraded": [], "downgraded": []}
+    hints:
+      - "Разбор строки: `line = line.split(\" #\")[0].strip()`; затем `re.fullmatch(r\"([A-Za-z0-9._-]+)\\s*==\\s*([0-9]+(?:\\.[0-9]+)*)\", line)`. Получите словари `имя → версия` для обоих текстов."
+      - "Сравнение: `tuple(map(int, v.split(\".\")))` и дополнение нулями до одной длины. Перебирайте `sorted(old_map.keys() | new_map.keys())`."
+    solution: |
+      import re
+
+      LINE = re.compile(r"([A-Za-z0-9._-]+)\s*==\s*([0-9]+(?:\.[0-9]+)*)")
+
+
+      def _parse(text):
+          packages = {}
+          for raw in text.splitlines():
+              line = raw.split(" #")[0].strip()
+              if not line or line.startswith("#"):
+                  continue
+              match = LINE.fullmatch(line)
+              if not match:
+                  raise ValueError(f"некорректная строка: {raw!r}")
+              name, version = match.groups()
+              packages[name.lower().replace("_", "-")] = version
+          return packages
+
+
+      def _key(version, size):
+          parts = tuple(int(part) for part in version.split("."))
+          return parts + (0,) * (size - len(parts))
+
+
+      def lock_diff(old, new):
+          """Добавленные, удалённые, обновлённые и откатившиеся пакеты."""
+          before, after = _parse(old), _parse(new)
+          result = {"added": [], "removed": [], "upgraded": [], "downgraded": []}
+          for name in sorted(before.keys() | after.keys()):
+              if name not in before:
+                  result["added"].append(f"{name} {after[name]}")
+              elif name not in after:
+                  result["removed"].append(f"{name} {before[name]}")
+              else:
+                  size = max(before[name].count("."), after[name].count(".")) + 1
+                  old_key, new_key = _key(before[name], size), _key(after[name], size)
+                  if new_key > old_key:
+                      result["upgraded"].append(f"{name} {before[name]} -> {after[name]}")
+                  elif new_key < old_key:
+                      result["downgraded"].append(f"{name} {before[name]} -> {after[name]}")
+          return result
+    solution_explanation: "Оба файла превращаются в словари с нормализованными именами, после чего задача сводится к операциям над множествами ключей. Версии сравниваются кортежами чисел одинаковой длины, поэтому 0.10 правильно считается новее 0.9, а 1.0 и 1.0.0 — одной версией."
+    tests:
+      - name: "Пример"
+        call: "lock_diff('httpx==0.27.0\\nrich==13.0', 'httpx==0.28.1\\npydantic==2.9.0')"
+        expected: "{'added': ['pydantic 2.9.0'], 'removed': ['rich 13.0'], 'upgraded': ['httpx 0.27.0 -> 0.28.1'], 'downgraded': []}"
+      - name: "Числовое сравнение и откат"
+        call: "lock_diff('a==0.9.0\\nb==2.10\\nc==1.0', 'a==0.10.0\\nb==2.9.5\\nc==1.0.0')"
+        expected: "{'added': [], 'removed': [], 'upgraded': ['a 0.9.0 -> 0.10.0'], 'downgraded': ['b 2.10 -> 2.9.5']}"
+      - name: "Нормализация имён, комментарии, пробелы"
+        call: "lock_diff('# зависимости\\nPydantic_Core == 2.20.1  # ядро\\n\\n', 'pydantic-core==2.23.0\\n')"
+        expected: "{'added': [], 'removed': [], 'upgraded': ['pydantic-core 2.20.1 -> 2.23.0'], 'downgraded': []}"
+      - name: "Сортировка по имени"
+        call: "lock_diff('', 'zeta==1\\nAlpha==2\\nmid==3')['added']"
+        expected: "['alpha 2', 'mid 3', 'zeta 1']"
+      - name: "Некорректная строка"
+        code: |
+          for bad in ["httpx>=0.27", "httpx", "httpx==latest"]:
+              try:
+                  lock_diff(bad, "")
+              except ValueError:
+                  continue
+              raise AssertionError(f"Ожидался ValueError для {bad!r}")
+      - name: "Без изменений"
+        call: "lock_diff('x==1.2.3', 'x==1.2.3')"
+        expected: "{'added': [], 'removed': [], 'upgraded': [], 'downgraded': []}"
+
+  - id: t5
+    title: "Мини-проект: покрыть тестами модуль и найти 3 бага"
+    mini_project: true
+    mode: local
+    difficulty: 3
+    statement: |
+      Вам достался модуль `chat_utils.py` — утилиты чат-приложения на LLM: оценка токенов, обрезка истории под бюджет, расчёт стоимости, разбор JSON из ответа модели, паузы для повторов. Тестов у него нет, а в коде есть **ровно три бага**. Поведение каждой функции точно описано в её docstring — это и есть техническое задание.
+
+      Что нужно сделать:
+
+      1. **Покрыть модуль тестами** в `test_chat_utils.py`: каждую функцию, обычные случаи, границы и ошибки. Используйте параметризацию и фикстуры там, где они уместны.
+      2. **Найти баги**: тесты, написанные строго по docstring, начнут падать. Каждый упавший тест — улика.
+      3. **Исправить** баги в `chat_utils.py`, не меняя поведение остального.
+      4. Описать находки в `BUGS.md`: по пункту списка (`- ...`) на каждый баг — функция, что было не так, как исправлено.
+
+      `test_quality.py` проверит работу целиком:
+
+      - модуль исправлен (приёмочные тесты по ТЗ проходят);
+      - `BUGS.md` содержит не меньше трёх пунктов;
+      - ваши тесты проходят на эталонном модуле и **падают** на каждой версии с одним из трёх исходных багов, а также на шести других испорченных версиях — то есть тесты действительно защищают модуль от регрессий.
+
+      ```bash
+      pip install pytest
+      pytest -q
+      ```
+    files:
+      chat_utils.py: |
+        """Утилиты для чат-приложения на LLM."""
+        import json
+        import re
+
+        PRICES = {"mini": (0.15, 0.60), "large": (2.50, 10.00)}  # $ за 1 млн токенов: (вход, выход)
+
+
+        def count_tokens(text):
+            """Грубая оценка числа токенов: слова и знаки препинания считаются отдельно.
+
+            count_tokens("Привет, мир!") == 4
+            """
+            return len(re.findall(r"\w+|[^\w\s]", text))
+
+
+        def message_tokens(message):
+            """Токены сообщения: текст + 4 служебных токена на сообщение."""
+            return count_tokens(message["content"]) + 4
+
+
+        def trim_history(messages, max_tokens):
+            """Оставить системные сообщения и как можно больше ПОСЛЕДНИХ остальных.
+
+            - системные сообщения (role == "system") сохраняются всегда и идут первыми;
+            - остальные добавляются начиная с последнего, пока сумма message_tokens всех
+              оставленных сообщений не превышает max_tokens (сумма, равная max_tokens, допустима);
+              как только очередное сообщение не помещается, более ранние не рассматриваются;
+            - относительный порядок сообщений сохраняется, исходный список не меняется.
+            """
+            system = [m for m in messages if m["role"] == "system"]
+            budget = max_tokens - sum(message_tokens(m) for m in system)
+            kept = []
+            for message in reversed([m for m in messages if m["role"] != "system"]):
+                cost = message_tokens(message)
+                if cost >= budget:
+                    break
+                kept.append(message)
+                budget -= cost
+            return system + kept[::-1]
+
+
+        def estimate_cost(model, input_tokens, output_tokens):
+            """Стоимость запроса в долларах, округлённая до 6 знаков. Неизвестная модель → KeyError."""
+            price_in, price_out = PRICES[model]
+            return round((input_tokens * price_in + output_tokens * price_out) / 1_000_000, 6)
+
+
+        def parse_json_answer(text):
+            """Достать JSON-объект из ответа модели.
+
+            Модель может обернуть JSON в ```json ... ``` или добавить текст вокруг.
+            Берётся фрагмент от первой «{» до последней «}». Нет объекта или он некорректен → ValueError.
+            """
+            start = text.find("{")
+            end = text.find("}")
+            if start == -1 or end < start:
+                raise ValueError("в ответе нет JSON-объекта")
+            try:
+                return json.loads(text[start:end + 1])
+            except json.JSONDecodeError as error:
+                raise ValueError(f"некорректный JSON: {error}") from error
+
+
+        def retry_delays(attempts, base=0.5, cap=8.0):
+            """Паузы перед повторами: base, 2·base, 4·base, ... но не больше cap.
+
+            retry_delays(4, base=1, cap=5) == [1, 2, 4, 5]
+            """
+            return [min(base * 2 ** attempt, cap) for attempt in range(1, attempts + 1)]
+      test_chat_utils.py: |
+        import pytest
+
+        from chat_utils import count_tokens
+
+
+        def test_count_tokens_example():
+            assert count_tokens("Привет, мир!") == 4
+      BUGS.md: |
+        # Найденные ошибки
+
+        Опишите каждую ошибку отдельным пунктом списка: функция, что было не так, как исправлено.
+      test_quality.py: |
+        """Проверка мини-проекта. Не меняйте этот файл."""
+        import base64
+        import importlib.util
+        import shutil
+        import subprocess
+        import sys
+        import zlib
+        from pathlib import Path
+
+        import pytest
+
+        HERE = Path(__file__).parent
+        STUDENT_TESTS = "test_chat_utils.py"
+
+        # Эталонный модуль упакован, чтобы не подсказывать ответ при чтении файла.
+        REFERENCE = zlib.decompress(base64.b64decode("".join("""
+        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
+        """.split()))).decode("utf-8")
+
+        ORIGINAL_BUGS = {
+            "исходный баг №1": ('if cost > budget:', 'if cost >= budget:'),
+            "исходный баг №2": ('end = text.rfind("}")', 'end = text.find("}")'),
+            "исходный баг №3": ('for attempt in range(attempts)]', 'for attempt in range(1, attempts + 1)]'),
+        }
+        MUTANTS = {
+            "служебные токены сообщения": ('count_tokens(message["content"]) + 4', 'count_tokens(message["content"]) + 3'),
+            "знаки препинания не считаются": (r'r"\w+|[^\w\s]"', r'r"\w+"'),
+            "перепутаны цены входа и выхода": (
+                "input_tokens * price_in + output_tokens * price_out",
+                "input_tokens * price_out + output_tokens * price_in",
+            ),
+            "теряются системные сообщения": ("return system + kept[::-1]", "return kept[::-1]"),
+            "нарушен порядок истории": ("return system + kept[::-1]", "return system + kept"),
+            "нет верхней границы пауз": ("min(base * 2 ** attempt, cap)", "base * 2 ** attempt"),
+        }
+
+
+        def load_student_module():
+            spec = importlib.util.spec_from_file_location("student_chat_utils", HERE / "chat_utils.py")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+
+
+        def run_student_tests(folder, source):
+            (folder / "chat_utils.py").write_text(source, encoding="utf-8")
+            shutil.copy(HERE / STUDENT_TESTS, folder / STUDENT_TESTS)
+            completed = subprocess.run(
+                [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", STUDENT_TESTS],
+                cwd=folder, capture_output=True, text=True,
+            )
+            return completed.returncode
+
+
+        def mutate(source, old, new):
+            assert old in source, "служебная ошибка проверки"
+            return source.replace(old, new, 1)
+
+
+        # --- модуль исправлен ---
+
+        def test_fixed_trim_history_exact_budget():
+            cu = load_student_module()
+            messages = [
+                {"role": "system", "content": "Ты помощник"},
+                {"role": "user", "content": "раз два"},
+                {"role": "assistant", "content": "три"},
+            ]
+            total = sum(cu.message_tokens(m) for m in messages)
+            assert cu.trim_history(messages, total) == messages
+
+
+        def test_fixed_parse_nested_json():
+            cu = load_student_module()
+            text = 'Вот ответ:\n```json\n{"intent": "order", "slots": {"item": "пицца", "count": 2}}\n```'
+            assert cu.parse_json_answer(text) == {"intent": "order", "slots": {"item": "пицца", "count": 2}}
+
+
+        def test_fixed_retry_delays():
+            cu = load_student_module()
+            assert cu.retry_delays(4, base=1, cap=5) == [1, 2, 4, 5]
+            assert cu.retry_delays(0) == []
+
+
+        def test_rest_unchanged():
+            cu = load_student_module()
+            assert cu.count_tokens("Привет, мир!") == 4
+            assert cu.estimate_cost("large", 1000, 500) == 0.0075
+            with pytest.raises(ValueError):
+                cu.parse_json_answer("JSON нет")
+
+
+        def test_bugs_md():
+            lines = (HERE / "BUGS.md").read_text(encoding="utf-8").splitlines()
+            items = [line for line in lines if line.lstrip().startswith(("- ", "* ", "1.", "2.", "3.", "4.", "5."))]
+            items = [line for line in items if len(line.strip()) > 15]
+            assert len(items) >= 3, "Опишите в BUGS.md каждый из трёх багов отдельным пунктом списка"
+
+
+        # --- качество тестов ---
+
+        def test_student_tests_pass_on_reference(tmp_path):
+            assert run_student_tests(tmp_path, REFERENCE) == 0, "Ваши тесты падают на правильном модуле"
+
+
+        @pytest.mark.parametrize("name", list(ORIGINAL_BUGS))
+        def test_original_bug_is_caught(tmp_path, name):
+            source = mutate(REFERENCE, *ORIGINAL_BUGS[name])
+            assert run_student_tests(tmp_path, source) != 0, f"Тесты не ловят {name}"
+
+
+        @pytest.mark.parametrize("name", list(MUTANTS))
+        def test_mutant_is_caught(tmp_path, name):
+            source = mutate(REFERENCE, *MUTANTS[name])
+            assert run_student_tests(tmp_path, source) != 0, f"Тесты не заметили ошибку: {name}"
+    run: "pytest -q"
+    hints:
+      - "Идите по docstring каждой функции и превращайте каждое утверждение в тест. Особенно внимательно — к словам «равная допустима», «последней», «base, 2·base, …»: баги живут на границах."
+      - "Удобные приёмы: параметризация для `count_tokens` и `estimate_cost` (`pytest.approx`), фикстура со списком сообщений для `trim_history`, `pytest.raises(ValueError)` для `parse_json_answer`, проверка, что исходный список не изменился. Для бюджета подбирайте `max_tokens` как точную сумму `message_tokens` нужных сообщений."
+    solution_files:
+      chat_utils.py: |
+        """Утилиты для чат-приложения на LLM."""
+        import json
+        import re
+
+        PRICES = {"mini": (0.15, 0.60), "large": (2.50, 10.00)}  # $ за 1 млн токенов: (вход, выход)
+
+
+        def count_tokens(text):
+            """Грубая оценка числа токенов: слова и знаки препинания считаются отдельно.
+
+            count_tokens("Привет, мир!") == 4
+            """
+            return len(re.findall(r"\w+|[^\w\s]", text))
+
+
+        def message_tokens(message):
+            """Токены сообщения: текст + 4 служебных токена на сообщение."""
+            return count_tokens(message["content"]) + 4
+
+
+        def trim_history(messages, max_tokens):
+            """Оставить системные сообщения и как можно больше ПОСЛЕДНИХ остальных.
+
+            - системные сообщения (role == "system") сохраняются всегда и идут первыми;
+            - остальные добавляются начиная с последнего, пока сумма message_tokens всех
+              оставленных сообщений не превышает max_tokens (сумма, равная max_tokens, допустима);
+              как только очередное сообщение не помещается, более ранние не рассматриваются;
+            - относительный порядок сообщений сохраняется, исходный список не меняется.
+            """
+            system = [m for m in messages if m["role"] == "system"]
+            budget = max_tokens - sum(message_tokens(m) for m in system)
+            kept = []
+            for message in reversed([m for m in messages if m["role"] != "system"]):
+                cost = message_tokens(message)
+                if cost > budget:
+                    break
+                kept.append(message)
+                budget -= cost
+            return system + kept[::-1]
+
+
+        def estimate_cost(model, input_tokens, output_tokens):
+            """Стоимость запроса в долларах, округлённая до 6 знаков. Неизвестная модель → KeyError."""
+            price_in, price_out = PRICES[model]
+            return round((input_tokens * price_in + output_tokens * price_out) / 1_000_000, 6)
+
+
+        def parse_json_answer(text):
+            """Достать JSON-объект из ответа модели.
+
+            Модель может обернуть JSON в ```json ... ``` или добавить текст вокруг.
+            Берётся фрагмент от первой «{» до последней «}». Нет объекта или он некорректен → ValueError.
+            """
+            start = text.find("{")
+            end = text.rfind("}")
+            if start == -1 or end < start:
+                raise ValueError("в ответе нет JSON-объекта")
+            try:
+                return json.loads(text[start:end + 1])
+            except json.JSONDecodeError as error:
+                raise ValueError(f"некорректный JSON: {error}") from error
+
+
+        def retry_delays(attempts, base=0.5, cap=8.0):
+            """Паузы перед повторами: base, 2·base, 4·base, ... но не больше cap.
+
+            retry_delays(4, base=1, cap=5) == [1, 2, 4, 5]
+            """
+            return [min(base * 2 ** attempt, cap) for attempt in range(attempts)]
+      test_chat_utils.py: |
+        import copy
+
+        import pytest
+
+        from chat_utils import count_tokens, estimate_cost, message_tokens, parse_json_answer, retry_delays, trim_history
+
+
+        @pytest.mark.parametrize(
+            "text, expected",
+            [
+                ("Привет, мир!", 4),
+                ("", 0),
+                ("один", 1),
+                ("a-b", 3),
+                ("  много   пробелов  ", 2),
+            ],
+        )
+        def test_count_tokens(text, expected):
+            assert count_tokens(text) == expected
+
+
+        def test_message_tokens():
+            assert message_tokens({"role": "user", "content": "Привет, мир!"}) == 8
+
+
+        @pytest.fixture
+        def history():
+            return [
+                {"role": "system", "content": "Ты помощник"},   # 2 + 4 = 6
+                {"role": "user", "content": "раз"},             # 1 + 4 = 5
+                {"role": "assistant", "content": "два три"},    # 2 + 4 = 6
+                {"role": "user", "content": "четыре"},          # 1 + 4 = 5
+            ]
+
+
+        def test_trim_keeps_everything_when_budget_is_large(history):
+            assert trim_history(history, 1000) == history
+
+
+        def test_trim_exact_budget_is_allowed(history):
+            assert trim_history(history, 22) == history
+
+
+        def test_trim_drops_oldest_and_keeps_order(history):
+            assert trim_history(history, 17) == [history[0], history[2], history[3]]
+
+
+        def test_trim_keeps_system_even_without_budget(history):
+            assert trim_history(history, 0) == [history[0]]
+
+
+        def test_trim_stops_at_first_message_that_does_not_fit(history):
+            assert trim_history(history, 12) == [history[0], history[3]]
+
+
+        def test_trim_does_not_modify_input(history):
+            original = copy.deepcopy(history)
+            trim_history(history, 10)
+            assert history == original
+
+
+        @pytest.mark.parametrize(
+            "model, input_tokens, output_tokens, expected",
+            [
+                ("mini", 1_000_000, 0, 0.15),
+                ("mini", 0, 1_000_000, 0.6),
+                ("large", 1000, 500, 0.0075),
+                ("mini", 1, 0, 0.0),
+                ("mini", 100, 0, 0.000015),
+            ],
+        )
+        def test_estimate_cost(model, input_tokens, output_tokens, expected):
+            assert estimate_cost(model, input_tokens, output_tokens) == pytest.approx(expected)
+
+
+        def test_estimate_cost_unknown_model():
+            with pytest.raises(KeyError):
+                estimate_cost("gpt-unknown", 1, 1)
+
+
+        @pytest.mark.parametrize(
+            "text, expected",
+            [
+                ('{"a": 1}', {"a": 1}),
+                ('Ответ: {"a": 1} — готово', {"a": 1}),
+                ('```json\n{"a": {"b": [1, 2]}}\n```', {"a": {"b": [1, 2]}}),
+            ],
+        )
+        def test_parse_json_answer(text, expected):
+            assert parse_json_answer(text) == expected
+
+
+        @pytest.mark.parametrize("text", ["", "нет json", '{"a": 1', "} {", '{"a": }'])
+        def test_parse_json_answer_errors(text):
+            with pytest.raises(ValueError):
+                parse_json_answer(text)
+
+
+        @pytest.mark.parametrize(
+            "args, kwargs, expected",
+            [
+                ((4,), {"base": 1, "cap": 5}, [1, 2, 4, 5]),
+                ((3,), {}, [0.5, 1.0, 2.0]),
+                ((0,), {}, []),
+                ((6,), {"base": 1, "cap": 8}, [1, 2, 4, 8, 8, 8]),
+            ],
+        )
+        def test_retry_delays(args, kwargs, expected):
+            assert retry_delays(*args, **kwargs) == expected
+      BUGS.md: |
+        # Найденные ошибки
+
+        - `trim_history`: сообщение, которое ровно заполняло оставшийся бюджет, отбрасывалось из-за сравнения `cost >= budget`. По ТЗ сумма, равная `max_tokens`, допустима — исправлено на `cost > budget`.
+        - `parse_json_answer`: конец JSON искался через `text.find("}")` — по первой закрывающей скобке, поэтому вложенные объекты обрезались и вызывали ValueError. Исправлено на `text.rfind("}")` (последняя «}»).
+        - `retry_delays`: показатель степени начинался с 1, и первая пауза была `2·base` вместо `base`. Исправлено на `range(attempts)`.
+    solution_explanation: |
+      Тесты написаны строго по docstring: каждое утверждение ТЗ превращено в проверку, а основное внимание уделено границам — точному бюджету, вложенному JSON, первой паузе. Три бага прятались именно там:
+
+      - `trim_history` — `>=` вместо `>` на границе бюджета;
+      - `parse_json_answer` — `find` вместо `rfind` для закрывающей скобки;
+      - `retry_delays` — степень с 1 вместо 0.
+
+      Полезное следствие: тот же набор тестов ловит и шесть других типичных ошибок (служебные токены, знаки препинания, перепутанные цены, потерю системных сообщений, порядок истории, отсутствие верхней границы пауз) — это и есть защита от регрессий.

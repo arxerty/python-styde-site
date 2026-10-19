@@ -1,0 +1,18 @@
+title: "Коллекции"
+description: "Списки, кортежи, словари и множества, вложенные структуры как JSON и comprehensions."
+mini_project: "Телефонная книга с поиском и статистикой"
+lessons:
+  - id: lesson-01
+    title: "Списки: создание, индексы, изменение, методы"
+  - id: lesson-02
+    title: "Перебор списков: enumerate, zip, сортировка"
+  - id: lesson-03
+    title: "Кортежи и распаковка"
+  - id: lesson-04
+    title: "Словари"
+  - id: lesson-05
+    title: "Множества"
+  - id: lesson-06
+    title: "Вложенные структуры — как JSON"
+  - id: lesson-07
+    title: "List, dict и set comprehensions"

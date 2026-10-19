@@ -1,0 +1,264 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print(ord("A"), chr(66), chr(ord("c") - 2))
+    options:
+      - text: "`65 B a`"
+        correct: true
+        why: "Код A — 65; chr(66) — B; код c минус 2 — это a."
+      - text: "`A 66 a`"
+        why: "ord возвращает число, chr — символ."
+      - text: "`65 B e`"
+        why: "Вычитание двух сдвигает назад по алфавиту."
+    explanation: "ord: символ → код; chr: код → символ; коды букв идут подряд."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      word = "привет"
+      print(len(word), len(word.encode("utf-8")))
+    options:
+      - text: "`6 12`"
+        correct: true
+        why: "6 символов, каждая кириллическая буква в UTF-8 занимает 2 байта."
+      - text: "`6 6`"
+        why: "Кириллица в UTF-8 — 2 байта на символ."
+      - text: "`12 12`"
+        why: "len строки считает символы, а не байты."
+    explanation: "Длина строки — в символах, длина bytes — в байтах."
+
+  - id: q3
+    type: single
+    prompt: "Что такое UTF-8?"
+    options:
+      - text: "Кодировка, которая записывает любой символ Unicode от 1 до 4 байтами и совместима с ASCII"
+        correct: true
+        why: "Латиница — 1 байт, кириллица — 2, иероглифы — 3, эмодзи — 4."
+      - text: "Таблица из 256 символов для русского языка"
+        why: "Это описание однобайтовых кодировок вроде CP1251."
+      - text: "Формат файлов Python"
+        why: "Исходники Python хранятся в UTF-8, но это не формат файлов."
+      - text: "Другое название Unicode"
+        why: "Unicode — таблица символов, UTF-8 — способ записи её кодов в байты."
+    explanation: "Unicode отвечает «какой номер у символа», кодировка — «как этот номер записать байтами»."
+
+  - id: q4
+    type: find_bug
+    prompt: "Почему вместо «Привет» печатаются кракозябры `РџСЂРёРІРµС‚`?"
+    code: |
+      data = "Привет".encode("utf-8")
+      print(data.decode("cp1251"))
+    options:
+      - text: "Байты закодированы в UTF-8, а декодируются как CP1251 — кодировки должны совпадать"
+        correct: true
+        why: "Нужно data.decode(\"utf-8\")."
+      - text: "encode нельзя применять к кириллице"
+        why: "UTF-8 кодирует любые символы."
+      - text: "print не умеет печатать bytes"
+        why: "Проблема в выборе кодировки при decode."
+      - text: "Нужно вызвать decode дважды"
+        why: "Повторный decode не исправит неверную кодировку."
+    explanation: "Чередование «Р» и «С» — характерный признак UTF-8, прочитанного как CP1251."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие утверждения верны? Выберите все."
+    options:
+      - text: "`str` хранит символы Unicode, `bytes` — байты"
+        correct: true
+        why: "Это два разных типа, переход — через encode/decode."
+      - text: "Буква `ё` в Unicode стоит после `я`"
+        correct: true
+        why: "Её код 1105, а у «я» — 1103."
+      - text: "`\"a\\u200bb\" == \"ab\"`"
+        why: "Пробел нулевой ширины невидим, но это отдельный символ — строки не равны."
+      - text: "Эмодзи всегда занимает ровно один символ в Python"
+        why: "Составные эмодзи (семья, флаги) — несколько кодовых точек."
+    explanation: "Символы, байты и кодовые точки — разные уровни представления текста."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print(chr(ord("а") + 1), ord("я") - ord("а"))
+    answer: "б 31"
+    explanation: "Следующий код после «а» — «б»; разница кодов «я» и «а» — 31 (букв от а до я без ё — 32)."
+
+tasks:
+  - id: t1
+    title: "Коды символов"
+    difficulty: 1
+    statement: |
+      Программа читает строку и для каждого символа выводит строку `<символ> <код>`.
+    examples:
+      - input: "Ai"
+        output: "A 65\ni 105"
+    starter: |
+      text = input()
+    hints:
+      - "Перебирайте символы циклом for."
+      - "`print(char, ord(char))`."
+    solution: |
+      text = input()
+      for char in text:
+          print(char, ord(char))
+    solution_explanation: "ord возвращает кодовую точку Unicode для любого символа: латиницы, кириллицы, эмодзи."
+    tests:
+      - name: "Ai"
+        stdin: "Ai\n"
+        stdout: "A 65\ni 105"
+      - name: "Кириллица"
+        stdin: "Яё\n"
+        stdout: "Я 1071\nё 1105"
+      - name: "Цифра и знак"
+        stdin: "0!\n"
+        stdout: "0 48\n! 33"
+      - name: "Эмодзи"
+        stdin: "🐍\n"
+        stdout: "🐍 128013"
+      - name: "Пустая строка"
+        stdin: "\n"
+        stdout: ""
+
+  - id: t2
+    title: "Шифр Цезаря"
+    difficulty: 2
+    statement: |
+      Программа читает строку и целый сдвиг (может быть отрицательным или больше 26). Сдвиньте каждую **строчную латинскую** букву на заданное число позиций по алфавиту по кругу (после `z` идёт `a`). Остальные символы оставьте без изменений.
+    examples:
+      - input: "hello, world\n3"
+        output: "khoor, zruog"
+      - input: "abc\n-1"
+        output: "zab"
+    starter: |
+      text = input()
+      shift = int(input())
+      result = ""
+    hints:
+      - "Номер буквы с нуля: `ord(char) - ord(\"a\")`. Новая позиция: `(номер + shift) % 26`."
+      - "В Python `%` с отрицательным числом даёт неотрицательный остаток: `-1 % 26 == 25` — поэтому отрицательный сдвиг работает автоматически."
+    solution: |
+      text = input()
+      shift = int(input())
+      result = ""
+      for char in text:
+          if "a" <= char <= "z":
+              position = (ord(char) - ord("a") + shift) % 26
+              result += chr(ord("a") + position)
+          else:
+              result += char
+      print(result)
+    solution_explanation: "Остаток от деления на 26 превращает алфавит в кольцо. В Python остаток всегда того же знака, что делитель, поэтому отрицательные сдвиги и сдвиги больше 26 работают без дополнительных проверок."
+    tests:
+      - name: "Сдвиг 3"
+        stdin: "hello, world\n3\n"
+        stdout: "khoor, zruog"
+      - name: "Отрицательный сдвиг"
+        stdin: "abc\n-1\n"
+        stdout: "zab"
+      - name: "Через конец алфавита"
+        stdin: "xyz\n3\n"
+        stdout: "abc"
+      - name: "Сдвиг больше 26"
+        stdin: "abc\n27\n"
+        stdout: "bcd"
+      - name: "Заглавные и кириллица не меняются"
+        stdin: "Hi Привет\n1\n"
+        stdout: "Hj Привет"
+      - name: "Нулевой сдвиг"
+        stdin: "python\n0\n"
+        stdout: "python"
+
+  - id: t3
+    title: "Байты в UTF-8"
+    difficulty: 2
+    statement: |
+      Программа читает строку (непустую) и выводит:
+
+      ```text
+      Символов: <количество символов>
+      Байт: <размер в UTF-8>
+      Байт на символ: <отношение с двумя знаками>
+      ```
+    examples:
+      - input: "Привет, AI"
+        output: "Символов: 10\nБайт: 16\nБайт на символ: 1.60"
+    starter: |
+      text = input()
+      print("Символов:", len(text))
+    hints:
+      - "Размер в байтах: `len(text.encode(\"utf-8\"))`."
+      - "Отношение выводите через f-строку с `:.2f`."
+    solution: |
+      text = input()
+      size = len(text.encode("utf-8"))
+      print("Символов:", len(text))
+      print("Байт:", size)
+      print(f"Байт на символ: {size / len(text):.2f}")
+    solution_explanation: "encode превращает строку в байты; их количество зависит от символов: латиница — 1, кириллица — 2, иероглифы — 3, эмодзи — 4."
+    tests:
+      - name: "Смешанный текст"
+        stdin: "Привет, AI\n"
+        stdout: "Символов: 10\nБайт: 16\nБайт на символ: 1.60"
+      - name: "Латиница"
+        stdin: "hello\n"
+        stdout: "Символов: 5\nБайт: 5\nБайт на символ: 1.00"
+      - name: "Кириллица"
+        stdin: "мир\n"
+        stdout: "Символов: 3\nБайт: 6\nБайт на символ: 2.00"
+      - name: "Иероглифы"
+        stdin: "東京\n"
+        stdout: "Символов: 2\nБайт: 6\nБайт на символ: 3.00"
+      - name: "Эмодзи"
+        stdin: "ok🤖\n"
+        stdout: "Символов: 3\nБайт: 6\nБайт на символ: 2.00"
+
+  - id: t4
+    title: "Очистка невидимых символов"
+    difficulty: 3
+    statement: |
+      Текст, скопированный из PDF и веб-страниц, содержит «мусорные» символы. Программа читает строку и очищает её:
+
+      1. удаляет символы с кодами `0x200B`, `0x200C`, `0x200D` (пробелы нулевой ширины) и `0xFEFF` (BOM);
+      2. заменяет неразрывный пробел `0x00A0` на обычный пробел;
+      3. схлопывает подряд идущие пробелы в один и убирает пробелы по краям.
+
+      Выведите очищенную строку и на следующей строке — `Удалено символов: <разница длин>`.
+    examples:
+      - input: "Hello\u200b\u00a0\u00a0World"
+        output: "Hello World\nУдалено символов: 2"
+    starter: |
+      text = input()
+      print(text.strip())
+    hints:
+      - "Символ по коду: `chr(0x200B)` или литерал `\"\\u200b\"`. Удаление — `replace(символ, \"\")`."
+      - "Схлопывание пробелов: `\" \".join(text.split())` — заодно уберёт пробелы по краям."
+    solution: |
+      text = input()
+      original_length = len(text)
+      for code in (0x200B, 0x200C, 0x200D, 0xFEFF):
+          text = text.replace(chr(code), "")
+      text = text.replace("\u00a0", " ")
+      cleaned = " ".join(text.split())
+      print(cleaned)
+      print("Удалено символов:", original_length - len(cleaned))
+    solution_explanation: "Невидимые символы удаляются заменой на пустую строку, неразрывный пробел превращается в обычный, а split() + join схлопывают пробелы. Перебор кортежа кодов избавляет от четырёх одинаковых строк replace."
+    tests:
+      - name: "Пример"
+        stdin: "Hello\u200b\u00a0\u00a0World\n"
+        stdout: "Hello World\nУдалено символов: 2"
+      - name: "Чистый текст"
+        stdin: "просто текст\n"
+        stdout: "просто текст\nУдалено символов: 0"
+      - name: "BOM в начале"
+        stdin: "\ufeffзаголовок\n"
+        stdout: "заголовок\nУдалено символов: 1"
+      - name: "Много пробелов"
+        stdin: "  a   b  \n"
+        stdout: "a b\nУдалено символов: 6"
+      - name: "Все виды мусора"
+        stdin: "\u200cслово\u200d\u00a0другое\u200b\n"
+        stdout: "слово другое\nУдалено символов: 3"

@@ -1,0 +1,356 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "Где должен находиться docstring функции?"
+    options:
+      - text: "Первой строкой тела функции, в тройных кавычках"
+        correct: true
+        why: "Только тогда он сохраняется в __doc__ и виден в help()."
+      - text: "В комментарии над строкой def"
+        why: "Комментарий не сохраняется в объекте функции."
+      - text: "В конце тела функции"
+        why: "Строка в конце — просто неиспользуемое выражение."
+      - text: "В отдельном файле README"
+        why: "README — документация проекта, а не функции."
+    explanation: "Docstring — первый оператор тела функции."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def area(width, height):
+          """Вернуть площадь прямоугольника."""
+          return width * height
+
+
+      print(area.__doc__, area(2, 3))
+    options:
+      - text: "`Вернуть площадь прямоугольника. 6`"
+        correct: true
+        why: "__doc__ хранит docstring; вызов возвращает 6."
+      - text: "`None 6`"
+        why: "Docstring первой строкой тела сохраняется."
+      - text: "Ошибку: строку нельзя писать в теле функции"
+        why: "Строковый литерал — допустимый оператор."
+    explanation: "Docstring доступен программно через __doc__."
+
+  - id: q3
+    type: multiple
+    prompt: "Какие признаки говорят о том, что функцию стоит разбить на части? Выберите все."
+    options:
+      - text: "Описание функции содержит несколько «и»: читает, считает и печатает"
+        correct: true
+        why: "Функция делает несколько дел."
+      - text: "Тело занимает 150 строк"
+        correct: true
+        why: "Длинную функцию трудно понять и проверить."
+      - text: "Внутри есть комментарии-заголовки «# шаг 1», «# шаг 2»"
+        correct: true
+        why: "Каждый шаг — кандидат в отдельную функцию."
+      - text: "Функция возвращает значение через return"
+        why: "Это нормальное свойство функции."
+    explanation: "Одна функция — одна задача."
+
+  - id: q4
+    type: find_bug
+    prompt: "Почему эту функцию трудно переиспользовать в веб-сервисе и тестировать?"
+    code: |
+      def accuracy(preds, labels):
+          correct = sum(p == y for p, y in zip(preds, labels))
+          print(f"Accuracy: {correct / len(labels):.2%}")
+    options:
+      - text: "Она печатает результат вместо того, чтобы вернуть его; вызывающий код не может использовать значение"
+        correct: true
+        why: "Нужно `return correct / len(labels)`, а форматировать и печатать — снаружи."
+      - text: "zip нельзя использовать в функциях"
+        why: "Можно."
+      - text: "Формат .2% неверный"
+        why: "Формат корректен; проблема в архитектуре."
+    explanation: "Отделяйте вычисления от ввода-вывода."
+
+  - id: q5
+    type: single
+    prompt: "Зачем нужна конструкция `if __name__ == \"__main__\": main()`?"
+    options:
+      - text: "Чтобы main() выполнялась при запуске файла как программы, но не при его импорте"
+        correct: true
+        why: "При импорте __name__ равен имени модуля."
+      - text: "Чтобы программа работала быстрее"
+        why: "На скорость не влияет."
+      - text: "Это обязательный синтаксис Python, без него код не запустится"
+        why: "Код запустится и без неё, но при импорте выполнится лишнее."
+      - text: "Чтобы объявить глобальные переменные"
+        why: "Не связано с глобальными переменными."
+    explanation: "Шаблон защищает модуль от побочных эффектов при импорте."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def clean(text):
+          """Убрать пробелы и привести к нижнему регистру."""
+          return text.strip().lower()
+
+
+      def is_yes(answer):
+          """Проверить, означает ли ответ согласие."""
+          return clean(answer) in {"да", "yes", "ага"}
+
+
+      print(is_yes("  ДА "), is_yes("нет"))
+    answer: "True False"
+    explanation: "Маленькие функции строятся друг на друге: is_yes использует clean."
+
+tasks:
+  - id: t1
+    title: "Документированная функция"
+    difficulty: 1
+    statement: |
+      Напишите функцию `word_count(text)`, возвращающую количество слов в строке (по пробелам), с docstring, первая строка которого начинается со слова `Вернуть`.
+    examples:
+      - input: "word_count(\"я учу python\")"
+        output: "3"
+    starter: |
+      def word_count(text):
+          # считает слова
+          return len(text.split())
+    hints:
+      - "Комментарий — не docstring. Нужна строка в тройных кавычках первой строкой тела."
+      - "`\"\"\"Вернуть количество слов в тексте.\"\"\"`."
+    solution: |
+      def word_count(text):
+          """Вернуть количество слов в тексте, разделённых пробелами."""
+          return len(text.split())
+    solution_explanation: "Docstring сохраняется в __doc__ и виден в help() и подсказках редактора — в отличие от комментария."
+    tests:
+      - name: "Подсчёт"
+        call: "word_count(\"я учу python\")"
+        expected: "3"
+      - name: "Пусто"
+        call: "word_count(\"   \")"
+        expected: "0"
+      - name: "Есть docstring"
+        code: |
+          assert word_count.__doc__, "Добавьте docstring первой строкой тела функции"
+      - name: "Docstring в повелительном наклонении"
+        code: |
+          assert word_count.__doc__.strip().startswith("Вернуть"), "Первая строка docstring должна начинаться со слова «Вернуть»"
+      - name: "Лишние пробелы"
+        call: "word_count(\" a  b \")"
+        expected: "2"
+
+  - id: t2
+    title: "Отделить логику от вывода"
+    difficulty: 2
+    statement: |
+      Заготовка смешивает вычисления и печать. Перепишите её в три функции:
+
+      - `parse_scores(text)` → список `int` из строки через пробел;
+      - `summarize(scores)` → словарь `{"count": ..., "average": ..., "best": ...}` (average округлён до 2 знаков); для пустого списка — `{"count": 0, "average": None, "best": None}`;
+      - `format_summary(summary)` → строка `Оценок: <count>, средняя: <average>, лучшая: <best>` или `Нет оценок` для пустой сводки.
+
+      Ни одна функция не должна ничего печатать.
+    examples:
+      - input: "format_summary(summarize(parse_scores(\"5 4 3\")))"
+        output: "'Оценок: 3, средняя: 4.0, лучшая: 5'"
+    starter: |
+      def report(text):
+          scores = [int(x) for x in text.split()]
+          print("Оценок:", len(scores))
+          print("Средняя:", sum(scores) / len(scores))
+    hints:
+      - "Каждая функция получает данные параметром и возвращает результат через return."
+      - "В summarize обработайте пустой список ранним возвратом; format_summary проверяет `summary[\"count\"] == 0`."
+    solution: |
+      def parse_scores(text):
+          """Превратить строку оценок через пробел в список чисел."""
+          return [int(x) for x in text.split()]
+
+
+      def summarize(scores):
+          """Вернуть словарь со статистикой оценок."""
+          if not scores:
+              return {"count": 0, "average": None, "best": None}
+          return {
+              "count": len(scores),
+              "average": round(sum(scores) / len(scores), 2),
+              "best": max(scores),
+          }
+
+
+      def format_summary(summary):
+          """Собрать текст отчёта по сводке."""
+          if summary["count"] == 0:
+              return "Нет оценок"
+          return f"Оценок: {summary['count']}, средняя: {summary['average']}, лучшая: {summary['best']}"
+    solution_explanation: "Три чистые функции: разбор, вычисление, форматирование. Их можно проверить по отдельности и использовать в любом интерфейсе — консоли, вебе или боте."
+    tests:
+      - name: "Полный конвейер"
+        call: "format_summary(summarize(parse_scores(\"5 4 3\")))"
+        expected: "'Оценок: 3, средняя: 4.0, лучшая: 5'"
+      - name: "parse_scores"
+        call: "parse_scores(\"2 10\")"
+        expected: "[2, 10]"
+      - name: "summarize пустого"
+        call: "summarize([])"
+        expected: "{'count': 0, 'average': None, 'best': None}"
+      - name: "Нет оценок"
+        call: "format_summary(summarize(parse_scores(\"\")))"
+        expected: "'Нет оценок'"
+      - name: "Округление средней"
+        call: "summarize([5, 4, 4])['average']"
+        expected: "4.33"
+      - name: "Ничего не печатается"
+        code: |
+          import contextlib
+          import io
+          buffer = io.StringIO()
+          with contextlib.redirect_stdout(buffer):
+              format_summary(summarize(parse_scores("5 5")))
+          assert buffer.getvalue() == "", "Функции не должны печатать"
+
+  - id: t3
+    title: "Рефакторинг анализатора"
+    difficulty: 2
+    statement: |
+      Разбейте задачу анализа текста на функции:
+
+      - `split_sentences(text)` → список непустых предложений (концы — `.`, `!`, `?`; пробелы по краям убраны);
+      - `tokenize(text)` → список слов в нижнем регистре без знаков `.,!?;:—-«»"()` по краям, без пустых;
+      - `top_word(text)` → самое частое слово (при равенстве — первое по появлению) или `None` для текста без слов.
+    examples:
+      - input: "split_sentences(\"Привет. Как дела? Отлично!\")"
+        output: "['Привет', 'Как дела', 'Отлично']"
+      - input: "top_word(\"Кот спит. Кот ест!\")"
+        output: "'кот'"
+    starter: |
+      def split_sentences(text):
+          pass
+
+
+      def tokenize(text):
+          pass
+
+
+      def top_word(text):
+          pass
+    hints:
+      - "split_sentences: замените `!` и `?` на `.`, разрежьте и отберите непустые после strip."
+      - "top_word: используйте tokenize, подсчёт словарём и `max(counts, key=counts.get)` — max при равенстве возвращает первый."
+    solution: |
+      PUNCTUATION = ".,!?;:—-«»\"()"
+
+
+      def split_sentences(text):
+          """Разбить текст на непустые предложения."""
+          unified = text.replace("!", ".").replace("?", ".")
+          return [part.strip() for part in unified.split(".") if part.strip()]
+
+
+      def tokenize(text):
+          """Вернуть список нормализованных слов текста."""
+          words = [token.strip(PUNCTUATION) for token in text.lower().split()]
+          return [w for w in words if w]
+
+
+      def top_word(text):
+          """Вернуть самое частое слово текста или None, если слов нет."""
+          counts = {}
+          for word in tokenize(text):
+              counts[word] = counts.get(word, 0) + 1
+          if not counts:
+              return None
+          return max(counts, key=counts.get)
+    solution_explanation: "Каждая функция решает одну подзадачу и опирается на другие: top_word использует tokenize. Мини-проект из блока 1.4 теперь можно собрать из этих кирпичиков."
+    tests:
+      - name: "Предложения"
+        call: "split_sentences(\"Привет. Как дела? Отлично!\")"
+        expected: "['Привет', 'Как дела', 'Отлично']"
+      - name: "Токенизация"
+        call: "tokenize(\"«Привет», МИР — тест!\")"
+        expected: "['привет', 'мир', 'тест']"
+      - name: "Самое частое"
+        call: "top_word(\"Кот спит. Кот ест!\")"
+        expected: "'кот'"
+      - name: "Равенство — первое"
+        call: "top_word(\"b a b a\")"
+        expected: "'b'"
+      - name: "Нет слов"
+        call: "top_word(\"... !\")"
+        expected: "None"
+      - name: "Многоточия"
+        call: "split_sentences(\"Ну... Ладно\")"
+        expected: "['Ну', 'Ладно']"
+
+  - id: t4
+    title: "Структура программы с main"
+    difficulty: 3
+    statement: |
+      Напишите программу со стандартной структурой. Функции:
+
+      - `parse_line(line)` → кортеж `(имя, список оценок int)` из строки `Имя 5 4 3`;
+      - `average(scores)` → среднее;
+      - `find_excellent(students, threshold=4.5)` → список имён со средним ≥ threshold в исходном порядке;
+      - `main()` — читает `n`, затем `n` строк, и печатает `Отличники: <имена через ", ">` или `Отличников нет`.
+
+      Вызов `main()` — под `if __name__ == "__main__":`.
+    examples:
+      - input: "3\nАда 5 5 4\nАлан 4 4 3\nГрейс 5 5 5"
+        output: "Отличники: Ада, Грейс"
+    starter: |
+      n = int(input())
+      for _ in range(n):
+          line = input()
+    hints:
+      - "parse_line: `name, *raw = line.split()` и `[int(x) for x in raw]`."
+      - "main собирает `students = [parse_line(input()) for _ in range(n)]` и печатает результат find_excellent."
+    solution: |
+      """Поиск отличников в группе."""
+
+
+      def parse_line(line):
+          """Разобрать строку «Имя оценка ...» в пару (имя, оценки)."""
+          name, *raw = line.split()
+          return name, [int(x) for x in raw]
+
+
+      def average(scores):
+          """Вернуть среднее арифметическое непустого списка."""
+          return sum(scores) / len(scores)
+
+
+      def find_excellent(students, threshold=4.5):
+          """Вернуть имена студентов со средним баллом не ниже порога."""
+          return [name for name, scores in students if average(scores) >= threshold]
+
+
+      def main():
+          n = int(input())
+          students = [parse_line(input()) for _ in range(n)]
+          excellent = find_excellent(students)
+          if excellent:
+              print("Отличники:", ", ".join(excellent))
+          else:
+              print("Отличников нет")
+
+
+      if __name__ == "__main__":
+          main()
+    solution_explanation: "Ввод-вывод сосредоточен в main, логика — в чистых функциях. Тесты функций импортируют модуль и не запускают main; тесты программы запускают файл целиком."
+    tests:
+      - name: "Программа: пример"
+        stdin: "3\nАда 5 5 4\nАлан 4 4 3\nГрейс 5 5 5\n"
+        stdout: "Отличники: Ада, Грейс"
+      - name: "Программа: нет отличников"
+        stdin: "1\nБилл 3 4\n"
+        stdout: "Отличников нет"
+      - name: "parse_line"
+        call: "parse_line(\"Ада 5 4\")"
+        expected: "('Ада', [5, 4])"
+      - name: "find_excellent с порогом"
+        call: "find_excellent([(\"А\", [4, 4]), (\"Б\", [5])], threshold=4)"
+        expected: "['А', 'Б']"
+      - name: "Импорт не запускает main"
+        code: |
+          assert "main" in dir() or callable(main)
+          assert __stdout__ == "", "При импорте модуля ничего не должно выполняться — используйте if __name__ == '__main__'"

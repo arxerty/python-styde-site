@@ -1,0 +1,258 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print([n * 2 for n in range(5) if n % 2 == 0])
+    options:
+      - text: "`[0, 4, 8]`"
+        correct: true
+        why: "Фильтр оставляет 0, 2, 4; выражение удваивает их."
+      - text: "`[0, 2, 4]`"
+        why: "Выражение n * 2 применяется к отобранным элементам."
+      - text: "`[2, 6]`"
+        why: "Условие оставляет чётные n, а не нечётные."
+    explanation: "Сначала фильтр (if в конце), затем выражение (в начале)."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      data = [3, -1, 0, -5]
+      print([x if x > 0 else 0 for x in data])
+    options:
+      - text: "`[3, 0, 0, 0]`"
+        correct: true
+        why: "Тернарный оператор в начале выбирает значение для каждого элемента; длина сохраняется."
+      - text: "`[3]`"
+        why: "Это был бы фильтр `[x for x in data if x > 0]`."
+      - text: "Ошибку SyntaxError"
+        why: "if-else в начале — допустимое условное выражение."
+    explanation: "if-else в начале — выбор значения (ReLU!); if в конце — фильтр."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему код не запускается?"
+    code: |
+      numbers = [5, -2, 8]
+      result = [n for n in numbers if n > 0 else 0]
+    options:
+      - text: "В фильтре после for нельзя писать else; для выбора значения условие ставят в начало: `[n if n > 0 else 0 for n in numbers]`"
+        correct: true
+        why: "if в конце — только фильтр без else."
+      - text: "Нельзя использовать отрицательные числа в comprehension"
+        why: "Можно — значения элементов не важны."
+      - text: "Comprehension должен быть в круглых скобках"
+        why: "Круглые скобки создадут генератор; синтаксис else от этого не исправится."
+    explanation: "Различайте фильтр и условное выражение."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      matrix = [[1, 2], [3, 4], [5, 6]]
+      print([v for row in matrix for v in row if v % 2])
+    options:
+      - text: "`[1, 3, 5]`"
+        correct: true
+        why: "Сплющивание: внешний for по строкам, внутренний по значениям; фильтр оставляет нечётные."
+      - text: "`[[1], [3], [5]]`"
+        why: "Два for в одном comprehension дают плоский список."
+      - text: "`[2, 4, 6]`"
+        why: "v % 2 истинно (1) для нечётных."
+    explanation: "Порядок for в comprehension — как у вложенных циклов: внешний первым."
+
+  - id: q5
+    type: multiple
+    prompt: "Что создают эти выражения? Выберите все верные утверждения."
+    options:
+      - text: "`{w: len(w) for w in words}` — словарь"
+        correct: true
+        why: "Пара ключ: значение в фигурных скобках."
+      - text: "`{len(w) for w in words}` — множество"
+        correct: true
+        why: "Фигурные скобки без двоеточия."
+      - text: "`(w for w in words)` — генераторное выражение"
+        correct: true
+        why: "Круглые скобки — ленивый генератор, не кортеж."
+      - text: "`(w for w in words)` — кортеж"
+        why: "Кортеж так не создаётся; нужен tuple(...)."
+    explanation: "Скобки определяют тип: [] список, {:} словарь, {} множество, () генератор."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      labels = ["neg", "pos"]
+      id2label = {i: l for i, l in enumerate(labels)}
+      print(id2label[1], sum(len(l) for l in labels))
+    answer: "pos 6"
+    explanation: "enumerate даёт пары (номер, метка); сумма длин двух трёхбуквенных меток — 6."
+
+tasks:
+  - id: t1
+    title: "Числа из строки"
+    difficulty: 1
+    statement: |
+      Программа читает строку целых чисел. С помощью comprehensions выведите три строки: список чисел, список их квадратов и список только положительных.
+    examples:
+      - input: "3 -1 4"
+        output: "[3, -1, 4]\n[9, 1, 16]\n[3, 4]"
+    starter: |
+      line = input()
+    hints:
+      - "`numbers = [int(x) for x in line.split()]`."
+      - "Квадраты — выражение `n * n`, положительные — фильтр `if n > 0`."
+    solution: |
+      line = input()
+      numbers = [int(x) for x in line.split()]
+      print(numbers)
+      print([n * n for n in numbers])
+      print([n for n in numbers if n > 0])
+    solution_explanation: "Три comprehension — три стадии: разбор, преобразование, фильтрация."
+    constraints:
+      forbid: [".append("]
+      message: "Используйте comprehensions."
+    tests:
+      - name: "Пример"
+        stdin: "3 -1 4\n"
+        stdout: "[3, -1, 4]\n[9, 1, 16]\n[3, 4]"
+      - name: "Пусто"
+        stdin: "\n"
+        stdout: "[]\n[]\n[]"
+      - name: "Ноль не положительный"
+        stdin: "0 0\n"
+        stdout: "[0, 0]\n[0, 0]\n[]"
+      - name: "Все отрицательные"
+        stdin: "-2 -3\n"
+        stdout: "[-2, -3]\n[4, 9]\n[]"
+      - name: "Одно число"
+        stdin: "7\n"
+        stdout: "[7]\n[49]\n[7]"
+
+  - id: t2
+    title: "ReLU и нормализация"
+    difficulty: 2
+    statement: |
+      Программа читает строку дробных чисел (хотя бы одно). Выведите:
+
+      1. результат ReLU — отрицательные заменены нулём (каждое число с 1 знаком после запятой, через пробел);
+      2. значения, нормализованные делением на максимум модуля (`x / max(|x|)`), с двумя знаками через пробел. Если все числа нули — выведите нули.
+    examples:
+      - input: "2 -4 1"
+        output: "2.0 0.0 1.0\n0.50 -1.00 0.25"
+    starter: |
+      values = [float(x) for x in input().split()]
+    hints:
+      - "ReLU: `[x if x > 0 else 0.0 for x in values]`; вывод — `\" \".join(f\"{x:.1f}\" for x in relu)`."
+      - "Максимум модуля: `max(abs(x) for x in values)`. Если он 0 — делить нельзя."
+    solution: |
+      values = [float(x) for x in input().split()]
+      relu = [x if x > 0 else 0.0 for x in values]
+      print(" ".join(f"{x:.1f}" for x in relu))
+      scale = max(abs(x) for x in values)
+      normalized = [x / scale if scale else 0.0 for x in values]
+      print(" ".join(f"{x:.2f}" for x in normalized))
+    solution_explanation: "ReLU — тернарный оператор внутри comprehension. Генераторные выражения в join и max не создают лишних списков. Проверка scale защищает от деления на ноль."
+    tests:
+      - name: "Пример"
+        stdin: "2 -4 1\n"
+        stdout: "2.0 0.0 1.0\n0.50 -1.00 0.25"
+      - name: "Все нули"
+        stdin: "0 0\n"
+        stdout: "0.0 0.0\n0.00 0.00"
+      - name: "Все положительные"
+        stdin: "1 2 4\n"
+        stdout: "1.0 2.0 4.0\n0.25 0.50 1.00"
+      - name: "Одно отрицательное"
+        stdin: "-3\n"
+        stdout: "0.0\n-1.00"
+      - name: "Дробные"
+        stdin: "0.5 -0.25\n"
+        stdout: "0.5 0.0\n1.00 -0.50"
+
+  - id: t3
+    title: "Словарь длин и инверсия"
+    difficulty: 2
+    statement: |
+      Программа читает строку слов (без повторов). С помощью dict comprehension выведите:
+
+      1. словарь `слово → длина`;
+      2. словарь `длина → список слов этой длины`, ключи по возрастанию (порядок слов внутри — как во вводе).
+    examples:
+      - input: "кот мышь слон ёж"
+        output: "{'кот': 3, 'мышь': 4, 'слон': 4, 'ёж': 2}\n{2: ['ёж'], 3: ['кот'], 4: ['мышь', 'слон']}"
+    starter: |
+      words = input().split()
+    hints:
+      - "Первый: `{w: len(w) for w in words}`."
+      - "Второй: для каждой длины из `sorted(set(...))` — список слов этой длины: `{n: [w for w in words if len(w) == n] for n in ...}`."
+    solution: |
+      words = input().split()
+      lengths = {w: len(w) for w in words}
+      print(lengths)
+      by_length = {n: [w for w in words if len(w) == n] for n in sorted(set(lengths.values()))}
+      print(by_length)
+    solution_explanation: "Вложенный comprehension: внешний dict comprehension перебирает уникальные длины, внутренний list comprehension собирает слова каждой длины. sorted(set(...)) даёт ключи по возрастанию."
+    tests:
+      - name: "Пример"
+        stdin: "кот мышь слон ёж\n"
+        stdout: "{'кот': 3, 'мышь': 4, 'слон': 4, 'ёж': 2}\n{2: ['ёж'], 3: ['кот'], 4: ['мышь', 'слон']}"
+      - name: "Одно слово"
+        stdin: "ai\n"
+        stdout: "{'ai': 2}\n{2: ['ai']}"
+      - name: "Пусто"
+        stdin: "\n"
+        stdout: "{}\n{}"
+      - name: "Все одной длины"
+        stdin: "ab cd ef\n"
+        stdout: "{'ab': 2, 'cd': 2, 'ef': 2}\n{2: ['ab', 'cd', 'ef']}"
+      - name: "Разные длины"
+        stdin: "a bbb cc\n"
+        stdout: "{'a': 1, 'bbb': 3, 'cc': 2}\n{1: ['a'], 2: ['cc'], 3: ['bbb']}"
+
+  - id: t4
+    title: "Конвейер подготовки отзывов"
+    difficulty: 3
+    statement: |
+      Программа читает `n`, затем `n` строк вида `<оценка>|<текст>`. Оценка — целое 1–5 или пусто (нет оценки).
+
+      1. Отбросьте записи с пустым текстом (после strip) или без оценки.
+      2. Нормализуйте текст: strip + нижний регистр.
+      3. Метка: `1`, если оценка ≥ 4, иначе `0`.
+
+      Выведите `<метка> <текст>` для каждой оставшейся записи и в конце `Баланс: 0=<количество> 1=<количество>`.
+    examples:
+      - input: "3\n5|  Отличный товар!\n|Нормально\n1|Ужасно"
+        output: "1 отличный товар!\n0 ужасно\nБаланс: 0=1 1=1"
+    starter: |
+      n = int(input())
+      rows = [input().split("|", 1) for _ in range(n)]
+    hints:
+      - "Фильтр: `[(rating, text) for rating, text in rows if rating and text.strip()]`."
+      - "Метки: `[1 if int(r) >= 4 else 0 for r, _ in clean]`; баланс — `labels.count(0)` и `labels.count(1)`."
+    solution: |
+      n = int(input())
+      rows = [input().split("|", 1) for _ in range(n)]
+      clean = [(rating, text.strip().lower()) for rating, text in rows if rating and text.strip()]
+      labels = [1 if int(rating) >= 4 else 0 for rating, _ in clean]
+      for label, (_, text) in zip(labels, clean):
+          print(label, text)
+      print(f"Баланс: 0={labels.count(0)} 1={labels.count(1)}")
+    solution_explanation: "Каждая стадия конвейера — одно comprehension: разбор строк, фильтр с нормализацией, разметка. zip соединяет метки с текстами для вывода, вложенная распаковка `(_, text)` достаёт текст из пары."
+    tests:
+      - name: "Пример"
+        stdin: "3\n5|  Отличный товар!\n|Нормально\n1|Ужасно\n"
+        stdout: "1 отличный товар!\n0 ужасно\nБаланс: 0=1 1=1"
+      - name: "Граница оценки"
+        stdin: "2\n4|ок\n3|так себе\n"
+        stdout: "1 ок\n0 так себе\nБаланс: 0=1 1=1"
+      - name: "Пустой текст"
+        stdin: "2\n5|   \n2|Плохо\n"
+        stdout: "0 плохо\nБаланс: 0=1 1=0"
+      - name: "Всё отброшено"
+        stdin: "1\n|\n"
+        stdout: "Баланс: 0=0 1=0"
+      - name: "Вертикальная черта в тексте"
+        stdin: "1\n5|A|B\n"
+        stdout: "1 a|b\nБаланс: 0=0 1=1"

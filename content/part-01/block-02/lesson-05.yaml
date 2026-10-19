@@ -1,0 +1,272 @@
+questions:
+  - id: q1
+    type: multiple
+    prompt: "Какие значения **falsy** (в условии ведут себя как False)? Выберите все."
+    options:
+      - text: "`0`"
+        correct: true
+        why: "Ноль любого числового типа — falsy."
+      - text: "`\"\"`"
+        correct: true
+        why: "Пустая строка — falsy."
+      - text: "`None`"
+        correct: true
+        why: "«Ничего» — falsy."
+      - text: "`0.0`"
+        correct: true
+        why: "Дробный ноль — тоже ноль."
+      - text: "`\"0\"`"
+        why: "Это непустая строка из одного символа — truthy."
+      - text: "`\" \"`"
+        why: "Строка из пробела непустая — truthy."
+      - text: "`\"False\"`"
+        why: "Непустая строка — truthy, независимо от содержимого."
+    explanation: "Правило: ноль, пусто и «ничего» — ложь; всё остальное — истина. Содержимое строки не важно, важна только её пустота."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print(bool("False"), bool(0.0), bool(-5))
+    options:
+      - text: "`True False True`"
+        correct: true
+        why: "Непустая строка — True; ноль — False; ненулевое число, даже отрицательное, — True."
+      - text: "`False False False`"
+        why: "Строка «False» непустая, а −5 — ненулевое число."
+      - text: "`False False True`"
+        why: "bool() не читает текст строки — проверяет только пустоту."
+    explanation: "bool() для строк проверяет пустоту, для чисел — равенство нулю."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      x = -3
+      sign = "плюс" if x > 0 else "минус"
+      print(sign, "чёт" if x % 2 == 0 else "нечет")
+    options:
+      - text: "`минус нечет`"
+        correct: true
+        why: "−3 > 0 ложно → «минус»; −3 % 2 = 1 → «нечет»."
+      - text: "`плюс нечет`"
+        why: "Условие x > 0 для −3 ложно."
+      - text: "`минус чёт`"
+        why: "−3 % 2 в Python равно 1, а не 0."
+    explanation: "Тернарный оператор возвращает первое значение, если условие истинно, иначе второе."
+
+  - id: q4
+    type: find_bug
+    prompt: "Пользователь задаёт `max_retries = 0`, чтобы отключить повторы, но программа всё равно делает 3 попытки. Почему?"
+    code: |
+      user_retries = 0
+      max_retries = user_retries or 3
+      print("Повторов:", max_retries)
+    options:
+      - text: "`or` считает 0 отсутствием значения и подставляет 3; нужно `3 if user_retries is None else user_retries`"
+        correct: true
+        why: "0 — falsy, поэтому `0 or 3` возвращает 3."
+      - text: "Переменную нужно назвать по-другому"
+        why: "Имя не влияет на поведение or."
+      - text: "`or` всегда возвращает последний операнд"
+        why: "Возвращает первый truthy-операнд; если 0 заменить на 2, вернётся 2."
+      - text: "Ошибки нет, 0 повторов невозможно"
+        why: "0 — осмысленное значение «без повторов»."
+    explanation: "Умолчание через `or` ломается, когда ноль или пустая строка — допустимые значения. Тогда проверяйте `is None`."
+
+  - id: q5
+    type: single
+    prompt: "Что делает строка `name = input() or \"Аноним\"`?"
+    options:
+      - text: "Если пользователь ввёл пустую строку, name получит «Аноним», иначе — введённый текст"
+        correct: true
+        why: "Пустая строка falsy → or возвращает второй операнд."
+      - text: "Всегда присваивает «Аноним»"
+        why: "Непустой ввод truthy → or возвращает его."
+      - text: "Присваивает True или False"
+        why: "or возвращает один из операндов, а не bool."
+      - text: "Вызывает ошибку: нельзя использовать or со строками"
+        why: "or работает с любыми значениями."
+    explanation: "Значение по умолчанию через or — распространённая идиома."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print(None or 0 or "" or "x")
+    answer: "x"
+    explanation: "or возвращает первое truthy-значение: None, 0 и «» — falsy, поэтому результат — «x»."
+
+tasks:
+  - id: t1
+    title: "Приветствие гостя"
+    difficulty: 1
+    statement: |
+      Программа читает имя. Если введена пустая строка, выведите `Привет, гость!`, иначе `Привет, <имя>!`.
+      Используйте значение по умолчанию через `or`.
+    examples:
+      - input: "Ада"
+        output: "Привет, Ада!"
+      - input: ""
+        output: "Привет, гость!"
+    starter: |
+      name = input()
+      print("Привет, " + name + "!")
+    hints:
+      - "Пустая строка — falsy. Какое значение вернёт `\"\" or \"гость\"`?"
+      - "`name = input() or \"гость\"`."
+    solution: |
+      name = input() or "гость"
+      print("Привет, " + name + "!")
+    solution_explanation: "`or` подставляет «гость», только если ввод пустой. Для непустого ввода возвращается сам ввод."
+    constraints:
+      require: [" or "]
+    tests:
+      - name: "Имя"
+        stdin: "Ада\n"
+        stdout: "Привет, Ада!"
+      - name: "Пустой ввод"
+        stdin: "\n"
+        stdout: "Привет, гость!"
+      - name: "Имя «0»"
+        stdin: "0\n"
+        stdout: "Привет, 0!"
+      - name: "Латиница"
+        stdin: "Guido\n"
+        stdout: "Привет, Guido!"
+      - name: "Два слова"
+        stdin: "Анна Мария\n"
+        stdout: "Привет, Анна Мария!"
+
+  - id: t2
+    title: "Чётность в одну строку"
+    difficulty: 1
+    statement: |
+      Программа читает целое число и выводит `чётное` или `нечётное`, используя **один** `print()` и тернарный оператор.
+    examples:
+      - input: "10"
+        output: "чётное"
+    starter: |
+      n = int(input())
+      if n % 2 == 0:
+          print("чётное")
+      else:
+          print("нечётное")
+    hints:
+      - "Формат: `значение1 if условие else значение2`."
+      - "`print(\"чётное\" if n % 2 == 0 else \"нечётное\")`."
+    solution: |
+      n = int(input())
+      print("чётное" if n % 2 == 0 else "нечётное")
+    solution_explanation: "Тернарный оператор — выражение, поэтому его можно поставить прямо в аргумент print()."
+    tests:
+      - name: "10"
+        stdin: "10\n"
+        stdout: "чётное"
+      - name: "7"
+        stdin: "7\n"
+        stdout: "нечётное"
+      - name: "Ноль"
+        stdin: "0\n"
+        stdout: "чётное"
+      - name: "Отрицательное"
+        stdin: "-11\n"
+        stdout: "нечётное"
+      - name: "Один print"
+        stdin: "4\n"
+        code: |
+          assert __source__.count("print(") == 1, "Используйте ровно один print() с тернарным оператором"
+
+  - id: t3
+    title: "Температура по умолчанию"
+    difficulty: 2
+    statement: |
+      Программа читает строку с температурой генерации. Если строка пустая — используется значение по умолчанию `0.7`.
+      Иначе строка преобразуется в дробное число. **Ноль — допустимое значение.**
+
+      Выведите `temperature = <значение>`.
+    examples:
+      - input: ""
+        output: "temperature = 0.7"
+      - input: "0"
+        output: "temperature = 0.0"
+    starter: |
+      temperature = float(input())
+      if not temperature:
+          temperature = 0.7
+      print("temperature =", temperature)
+    hints:
+      - "Заготовка ломается на вводе `0`: после преобразования ноль falsy. Проверяйте строку, пока она ещё строка."
+      - "`text = input()`, затем `temperature = float(text) if text else 0.7`."
+    solution: |
+      text = input()
+      temperature = float(text) if text else 0.7
+      print("temperature =", temperature)
+    solution_explanation: "Строка «0» непустая, значит truthy. Проверяя строку до преобразования, мы отличаем «ничего не ввели» от «ввели ноль»."
+    tests:
+      - name: "Пустой ввод"
+        stdin: "\n"
+        stdout: "temperature = 0.7"
+      - name: "Ноль сохраняется"
+        stdin: "0\n"
+        stdout: "temperature = 0.0"
+      - name: "Обычное значение"
+        stdin: "1.2\n"
+        stdout: "temperature = 1.2"
+      - name: "Целое число"
+        stdin: "2\n"
+        stdout: "temperature = 2.0"
+      - name: "Ноль с точкой"
+        stdin: "0.0\n"
+        stdout: "temperature = 0.0"
+
+  - id: t4
+    title: "Проверка формы"
+    difficulty: 2
+    statement: |
+      Программа читает три поля формы: имя, email и возраст (всё строками, на отдельных строках).
+      Для каждого **пустого** поля выведите строку `Не заполнено: <поле>` (поля называются `имя`, `email`, `возраст`) в этом порядке.
+      Если все поля заполнены — выведите `Форма заполнена`.
+
+      Возраст `0` считается заполненным полем.
+    examples:
+      - input: "Ада\n\n36"
+        output: "Не заполнено: email"
+      - input: "Ада\nada@example.com\n36"
+        output: "Форма заполнена"
+    starter: |
+      name = input()
+      email = input()
+      age = input()
+    hints:
+      - "Для каждого поля — отдельный `if not поле:` (проверки независимы, elif не подходит)."
+      - "Форма заполнена, если все поля truthy: `if name and email and age:`."
+    solution: |
+      name = input()
+      email = input()
+      age = input()
+      if not name:
+          print("Не заполнено: имя")
+      if not email:
+          print("Не заполнено: email")
+      if not age:
+          print("Не заполнено: возраст")
+      if name and email and age:
+          print("Форма заполнена")
+    solution_explanation: "Проверки полей независимы — пустыми могут быть сразу несколько, поэтому используются отдельные if, а не цепочка elif. Возраст остаётся строкой, поэтому «0» — непустая строка и считается заполненным."
+    tests:
+      - name: "Пустой email"
+        stdin: "Ада\n\n36\n"
+        stdout: "Не заполнено: email"
+      - name: "Всё заполнено"
+        stdin: "Ада\nada@example.com\n36\n"
+        stdout: "Форма заполнена"
+      - name: "Всё пусто"
+        stdin: "\n\n\n"
+        stdout: "Не заполнено: имя\nНе заполнено: email\nНе заполнено: возраст"
+      - name: "Возраст 0 — заполнен"
+        stdin: "Миша\nm@example.com\n0\n"
+        stdout: "Форма заполнена"
+      - name: "Нет имени и возраста"
+        stdin: "\nx@y.z\n\n"
+        stdout: "Не заполнено: имя\nНе заполнено: возраст"

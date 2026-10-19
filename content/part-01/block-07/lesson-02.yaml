@@ -1,0 +1,416 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def check(age):
+          if age < 0:
+              raise ValueError("отрицательный возраст")
+          return "ok"
+
+
+      try:
+          print(check(5))
+          print(check(-1))
+          print("после")
+      except ValueError as error:
+          print("ошибка:", error)
+    options:
+      - text: |
+          ```
+          ok
+          ошибка: отрицательный возраст
+          ```
+        correct: true
+        why: "Второй вызов бросает исключение — print(\"после\") не выполняется."
+      - text: |
+          ```
+          ok
+          ошибка: отрицательный возраст
+          после
+          ```
+        why: "После исключения остаток блока try пропускается."
+      - text: "`ok`"
+        why: "Исключение перехвачено и обработано — печатается сообщение."
+    explanation: "raise прерывает функцию и блок try до подходящего except."
+
+  - id: q2
+    type: single
+    prompt: "Функция `set_temperature(value)` получила строку `\"горячо\"` вместо числа. Какое исключение уместнее бросить?"
+    options:
+      - text: "`TypeError`"
+        correct: true
+        why: "Неподходящий тип аргумента."
+      - text: "`ValueError`"
+        why: "ValueError — когда тип правильный (число), а значение неподходящее (например, 5)."
+      - text: "`KeyError`"
+        why: "Не связано с ключами словаря."
+      - text: "`Exception`"
+        why: "Слишком общий тип — вызывающему коду придётся ловить всё подряд."
+    explanation: "TypeError — неверный тип, ValueError — неверное значение правильного типа."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class AppError(Exception):
+          pass
+
+
+      class NotFoundError(AppError):
+          pass
+
+
+      try:
+          raise NotFoundError("нет документа")
+      except AppError as error:
+          print(type(error).__name__, error)
+    options:
+      - text: "`NotFoundError нет документа`"
+        correct: true
+        why: "except AppError ловит и потомков; тип объекта остаётся NotFoundError."
+      - text: "`AppError нет документа`"
+        why: "Тип исключения — тот, что бросили: NotFoundError."
+      - text: "Исключение не будет перехвачено"
+        why: "NotFoundError наследует AppError, поэтому перехватывается."
+    explanation: "Иерархия своих исключений позволяет ловить их как поштучно, так и группой."
+
+  - id: q4
+    type: find_bug
+    prompt: "Почему эта проверка ненадёжна для валидации пользовательских данных?"
+    code: |
+      def set_epochs(epochs):
+          assert epochs > 0, "epochs должен быть положительным"
+          return epochs
+    options:
+      - text: "assert отключается при запуске Python с флагом -O; для данных нужны if + raise ValueError"
+        correct: true
+        why: "assert — для внутренних предположений и тестов."
+      - text: "assert не умеет выводить сообщение"
+        why: "Умеет — после запятой."
+      - text: "Сравнение epochs > 0 неверно"
+        why: "Условие верное; проблема в механизме проверки."
+    explanation: "Валидация внешних данных — только через явный raise."
+
+  - id: q5
+    type: multiple
+    prompt: "Что верно про `raise НовоеИсключение(...) from error`? Выберите все."
+    options:
+      - text: "Исходное исключение сохраняется в атрибуте __cause__"
+        correct: true
+        why: "Причина доступна и выводится в traceback."
+      - text: "Позволяет дать понятное сообщение уровня задачи"
+        correct: true
+        why: "Низкоуровневая ошибка превращается в осмысленную."
+      - text: "Подавляет исходную ошибку бесследно"
+        why: "Наоборот, сохраняет цепочку причин."
+      - text: "Используется внутри блока except"
+        correct: true
+        why: "Там доступен объект исходного исключения."
+    explanation: "Цепочка исключений помогает и пользователю, и разработчику."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def risky():
+          try:
+              raise KeyError("x")
+          except KeyError:
+              print("лог")
+              raise
+
+
+      try:
+          risky()
+      except KeyError:
+          print("снаружи")
+    options:
+      - text: |
+          ```
+          лог
+          снаружи
+          ```
+        correct: true
+        why: "Сначала логирование внутри risky, затем голый raise пробрасывает исключение наружу."
+      - text: "`лог`"
+        why: "raise без аргументов пробрасывает исключение дальше — его ловит внешний except."
+      - text: "`снаружи`"
+        why: "Внутренний except выполняется первым и печатает «лог»."
+    explanation: "Голый raise в except пробрасывает то же исключение дальше после логирования."
+
+tasks:
+  - id: t1
+    title: "Валидация температуры"
+    difficulty: 1
+    statement: |
+      Напишите `validate_temperature(value)`:
+
+      - если `value` не int и не float (или это bool) → `TypeError`;
+      - если вне диапазона [0, 2] → `ValueError` с сообщением, содержащим полученное значение;
+      - иначе вернуть `float(value)`.
+    examples:
+      - input: "validate_temperature(1)"
+        output: "1.0"
+    starter: |
+      def validate_temperature(value):
+          if value < 0 or value > 2:
+              return None
+          return value
+    hints:
+      - "Проверка типа: `isinstance(value, bool) or not isinstance(value, (int, float))` — bool проверяем отдельно, потому что True — это int."
+      - "`raise ValueError(f\"temperature должна быть от 0 до 2, получено {value}\")`."
+    solution: |
+      def validate_temperature(value):
+          """Проверить температуру генерации и вернуть её как float."""
+          if isinstance(value, bool) or not isinstance(value, (int, float)):
+              raise TypeError(f"temperature должна быть числом, получено {type(value).__name__}")
+          if not 0 <= value <= 2:
+              raise ValueError(f"temperature должна быть от 0 до 2, получено {value}")
+          return float(value)
+    solution_explanation: "Охранные условия в начале: сначала тип, потом диапазон. Сообщения указывают и ожидание, и полученное значение."
+    tests:
+      - name: "Корректное значение"
+        call: "validate_temperature(1)"
+        expected: "1.0"
+      - name: "Граница 0"
+        call: "validate_temperature(0)"
+        expected: "0.0"
+      - name: "Вне диапазона — ValueError"
+        code: |
+          try:
+              validate_temperature(2.5)
+          except ValueError as error:
+              assert "2.5" in str(error), "Сообщение должно содержать полученное значение"
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Строка — TypeError"
+        code: |
+          try:
+              validate_temperature("0.7")
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("Ожидался TypeError")
+      - name: "bool — TypeError"
+        code: |
+          try:
+              validate_temperature(True)
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("bool не должен приниматься за число")
+
+  - id: t2
+    title: "Снятие со счёта"
+    difficulty: 2
+    statement: |
+      Создайте исключение `InsufficientFundsError` (наследник `Exception`) и функцию `withdraw(balance, amount)`:
+
+      - `amount <= 0` → `ValueError`;
+      - `amount > balance` → `InsufficientFundsError` с сообщением вида `недостаточно средств: баланс 100, запрошено 150`;
+      - иначе вернуть новый баланс.
+    examples:
+      - input: "withdraw(100, 30)"
+        output: "70"
+    starter: |
+      def withdraw(balance, amount):
+          return balance - amount
+    hints:
+      - "Класс исключения: `class InsufficientFundsError(Exception):` и docstring внутри."
+      - "Две охранные проверки с raise, затем return."
+    solution: |
+      class InsufficientFundsError(Exception):
+          """На счёте недостаточно средств."""
+
+
+      def withdraw(balance, amount):
+          """Снять amount со счёта и вернуть новый баланс."""
+          if amount <= 0:
+              raise ValueError(f"сумма должна быть положительной, получено {amount}")
+          if amount > balance:
+              raise InsufficientFundsError(f"недостаточно средств: баланс {balance}, запрошено {amount}")
+          return balance - amount
+    solution_explanation: "Своё исключение отличает бизнес-ошибку «не хватает денег» от ошибки вызова «отрицательная сумма» — вызывающий код может реагировать на них по-разному."
+    tests:
+      - name: "Успешное снятие"
+        call: "withdraw(100, 30)"
+        expected: "70"
+      - name: "Снять всё"
+        call: "withdraw(50, 50)"
+        expected: "0"
+      - name: "Недостаточно средств"
+        code: |
+          try:
+              withdraw(100, 150)
+          except InsufficientFundsError as error:
+              assert str(error) == "недостаточно средств: баланс 100, запрошено 150", f"Сообщение: {error}"
+          else:
+              raise AssertionError("Ожидался InsufficientFundsError")
+      - name: "Это наследник Exception"
+        code: |
+          assert issubclass(InsufficientFundsError, Exception)
+      - name: "Неположительная сумма"
+        code: |
+          for bad in (0, -10):
+              try:
+                  withdraw(100, bad)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"Для {bad} ожидался ValueError")
+
+  - id: t3
+    title: "Парсер конфигурации"
+    difficulty: 2
+    statement: |
+      Создайте исключение `ConfigError` и функцию `parse_config(text)`. Текст — строки `ключ = значение`; пустые строки и строки, начинающиеся с `#`, пропускаются. Значения из цифр превращаются в `int`, остальные остаются строками (пробелы по краям убираются).
+
+      Для строки без `=` или с пустым ключом бросайте `ConfigError` с сообщением `строка <номер>: <причина>` (номер — с 1, считая все строки).
+    examples:
+      - input: "parse_config(\"# модель\\nmodel = mini\\nepochs=10\")"
+        output: "{'model': 'mini', 'epochs': 10}"
+    starter: |
+      def parse_config(text):
+          config = {}
+          for line in text.splitlines():
+              key, value = line.split("=")
+              config[key] = value
+          return config
+    hints:
+      - "`for number, line in enumerate(text.splitlines(), start=1):`; пропуск — `if not line.strip() or line.strip().startswith(\"#\"): continue`."
+      - "`if \"=\" not in line: raise ConfigError(f\"строка {number}: нет знака =\")`; делите через `partition(\"=\")`."
+    solution: |
+      class ConfigError(Exception):
+          """Ошибка в файле конфигурации."""
+
+
+      def parse_config(text):
+          """Разобрать строки «ключ = значение» в словарь."""
+          config = {}
+          for number, line in enumerate(text.splitlines(), start=1):
+              stripped = line.strip()
+              if not stripped or stripped.startswith("#"):
+                  continue
+              if "=" not in stripped:
+                  raise ConfigError(f"строка {number}: нет знака =")
+              key, _, value = stripped.partition("=")
+              key = key.strip()
+              value = value.strip()
+              if not key:
+                  raise ConfigError(f"строка {number}: пустой ключ")
+              config[key] = int(value) if value.isdigit() else value
+          return config
+    solution_explanation: "Ошибка указывает номер строки и причину — по такому сообщению проблему в файле находят за секунды. partition делит строку по первому «=», поэтому значения могут содержать «=» дальше."
+    tests:
+      - name: "Пример"
+        call: "parse_config(\"# модель\\nmodel = mini\\nepochs=10\")"
+        expected: "{'model': 'mini', 'epochs': 10}"
+      - name: "Пустой текст"
+        call: "parse_config(\"\")"
+        expected: "{}"
+      - name: "Нет знака ="
+        code: |
+          try:
+              parse_config("a = 1\n\nплохая строка")
+          except ConfigError as error:
+              assert str(error) == "строка 3: нет знака =", f"Сообщение: {error}"
+          else:
+              raise AssertionError("Ожидался ConfigError")
+      - name: "Пустой ключ"
+        code: |
+          try:
+              parse_config(" = 5")
+          except ConfigError as error:
+              assert "строка 1" in str(error)
+          else:
+              raise AssertionError("Ожидался ConfigError")
+      - name: "Равно в значении"
+        call: "parse_config(\"url = a=b\")"
+        expected: "{'url': 'a=b'}"
+
+  - id: t4
+    title: "Иерархия ошибок модели"
+    difficulty: 3
+    statement: |
+      Создайте иерархию исключений: `LLMError(Exception)` и наследники `RateLimitError(LLMError)`, `ContextTooLongError(LLMError)`.
+
+      Функция `check_request(tokens, limit, requests_in_minute, max_rpm)`:
+
+      - `tokens > limit` → `ContextTooLongError` с сообщением `запрос <tokens> токенов, лимит <limit>`;
+      - `requests_in_minute >= max_rpm` → `RateLimitError`;
+      - иначе вернуть `"ok"`. (Проверка контекста — первой.)
+
+      Функция `decide(tokens, limit, requests_in_minute, max_rpm)` вызывает `check_request` и возвращает `"отправить"`, `"сократить промпт"` (для ContextTooLongError) или `"подождать"` (для RateLimitError).
+    examples:
+      - input: "decide(5000, 4096, 1, 60)"
+        output: "'сократить промпт'"
+    starter: |
+      def check_request(tokens, limit, requests_in_minute, max_rpm):
+          return "ok"
+
+
+      def decide(tokens, limit, requests_in_minute, max_rpm):
+          return "отправить"
+    hints:
+      - "Три класса: `class LLMError(Exception):`, `class RateLimitError(LLMError):`, `class ContextTooLongError(LLMError):`."
+      - "decide: `try: check_request(...)` с двумя except и `return \"отправить\"` в else."
+    solution: |
+      class LLMError(Exception):
+          """Базовая ошибка работы с языковой моделью."""
+
+
+      class RateLimitError(LLMError):
+          """Превышен лимит запросов в минуту."""
+
+
+      class ContextTooLongError(LLMError):
+          """Запрос не помещается в контекстное окно."""
+
+
+      def check_request(tokens, limit, requests_in_minute, max_rpm):
+          """Проверить запрос перед отправкой; бросить LLMError при проблеме."""
+          if tokens > limit:
+              raise ContextTooLongError(f"запрос {tokens} токенов, лимит {limit}")
+          if requests_in_minute >= max_rpm:
+              raise RateLimitError(f"{requests_in_minute} запросов в минуту при лимите {max_rpm}")
+          return "ok"
+
+
+      def decide(tokens, limit, requests_in_minute, max_rpm):
+          """Решить, что делать с запросом."""
+          try:
+              check_request(tokens, limit, requests_in_minute, max_rpm)
+          except ContextTooLongError:
+              return "сократить промпт"
+          except RateLimitError:
+              return "подождать"
+          else:
+              return "отправить"
+    solution_explanation: "Общий предок LLMError позволяет при желании перехватить все ошибки модели одним except, а наследники — реагировать по-разному. Так устроены SDK OpenAI и Anthropic."
+    tests:
+      - name: "Длинный контекст"
+        call: "decide(5000, 4096, 1, 60)"
+        expected: "'сократить промпт'"
+      - name: "Лимит запросов"
+        call: "decide(100, 4096, 60, 60)"
+        expected: "'подождать'"
+      - name: "Всё в порядке"
+        call: "decide(100, 4096, 10, 60)"
+        expected: "'отправить'"
+      - name: "Иерархия"
+        code: |
+          assert issubclass(RateLimitError, LLMError) and issubclass(ContextTooLongError, LLMError)
+          assert issubclass(LLMError, Exception)
+      - name: "Сообщение об ошибке контекста"
+        code: |
+          try:
+              check_request(9000, 8192, 0, 10)
+          except LLMError as error:
+              assert type(error).__name__ == "ContextTooLongError"
+              assert str(error) == "запрос 9000 токенов, лимит 8192"
+          else:
+              raise AssertionError("Ожидалось исключение")
+      - name: "Контекст проверяется первым"
+        call: "decide(9999, 10, 100, 1)"
+        expected: "'сократить промпт'"

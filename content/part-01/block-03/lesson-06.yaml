@@ -1,0 +1,323 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "С чего правильно начинать решение задачи?"
+    options:
+      - text: "Понять вход, выход, разобрать примеры и граничные случаи"
+        correct: true
+        why: "Неверно понятое условие — самая частая причина неверных решений."
+      - text: "Сразу писать код, а потом разбираться"
+        why: "Код без понимания задачи приходится переписывать."
+      - text: "Искать готовое решение в интернете"
+        why: "Так не тренируется навык, который проверяют на собеседованиях и в работе."
+      - text: "Писать максимально оптимизированный код"
+        why: "Сначала правильность, потом оптимизация."
+    explanation: "Процесс: понять → решить руками → псевдокод → код по шагам → граничные случаи → улучшить."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет этот (неправильный) FizzBuzz для числа 15?"
+    code: |
+      number = 15
+      if number % 3 == 0:
+          print("Fizz")
+      elif number % 5 == 0:
+          print("Buzz")
+      elif number % 15 == 0:
+          print("FizzBuzz")
+      else:
+          print(number)
+    options:
+      - text: "`Fizz`"
+        correct: true
+        why: "15 делится на 3 — срабатывает первая ветка, до проверки на 15 дело не доходит."
+      - text: "`FizzBuzz`"
+        why: "Проверка на 15 стоит последней и недостижима для чисел, кратных 15."
+      - text: |
+          ```
+          Fizz
+          Buzz
+          ```
+        why: "elif не выполняется после сработавшей ветки."
+    explanation: "При пересекающихся условиях самое строгое ставится первым."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код (алгоритм Евклида)?"
+    code: |
+      a, b = 100, 75
+      while b != 0:
+          a, b = b, a % b
+      print(a)
+    options:
+      - text: "`25`"
+        correct: true
+        why: "(100, 75) → (75, 25) → (25, 0) → 25."
+      - text: "`75`"
+        why: "75 не делит 100 нацело."
+      - text: "`5`"
+        why: "5 — общий делитель, но не наибольший."
+    explanation: "НОД(a, b) = НОД(b, a % b); когда второй равен нулю, ответ — первый."
+
+  - id: q4
+    type: multiple
+    prompt: "Программа считает среднее чисел, введённых до слова «стоп». Какие граничные случаи стоит проверить? Выберите все."
+    options:
+      - text: "Сразу «стоп» — ни одного числа"
+        correct: true
+        why: "Деление на ноль при подсчёте среднего."
+      - text: "Одно число"
+        correct: true
+        why: "Минимальный непустой случай."
+      - text: "Отрицательные числа"
+        correct: true
+        why: "Проверка, что они не отбрасываются по ошибке."
+      - text: "Только ровно три числа"
+        why: "Это обычный, а не граничный случай."
+    explanation: "Граничные случаи: пустые данные, один элемент, крайние значения, особые значения (отрицательные, ноль)."
+
+  - id: q5
+    type: find_bug
+    prompt: "Программа проверяет, является ли число палиндромом, но всегда выводит False. Почему?"
+    code: |
+      number = int(input())
+      reversed_number = 0
+      while number > 0:
+          reversed_number = reversed_number * 10 + number % 10
+          number //= 10
+      print(number == reversed_number)
+    options:
+      - text: "Цикл «съедает» number до нуля — сравнение идёт с 0; нужно сохранить копию до цикла"
+        correct: true
+        why: "После цикла number == 0, а перевёрнутое число положительное."
+      - text: "Перевёрнутое число нужно строить через деление"
+        why: "Формула reversed * 10 + цифра верна."
+      - text: "Нужно `number >= 0` в условии"
+        why: "Тогда цикл стал бы бесконечным: 0 // 10 = 0."
+      - text: "Нельзя использовать % внутри while"
+        why: "Можно — это стандартный приём."
+    explanation: "Если цикл разрушает переменную, а исходное значение нужно потом, сохраните копию: `original = number`."
+
+  - id: q6
+    type: output
+    prompt: "Сколько шагов сделает последовательность Коллатца для n = 3? Что выведет код?"
+    code: |
+      n = 3
+      steps = 0
+      while n != 1:
+          n = n // 2 if n % 2 == 0 else 3 * n + 1
+          steps += 1
+      print(steps)
+    answer: "7"
+    explanation: "3 → 10 → 5 → 16 → 8 → 4 → 2 → 1: семь шагов."
+
+tasks:
+  - id: t1
+    title: "FizzBuzz"
+    difficulty: 1
+    statement: |
+      Программа читает `n` и для чисел от 1 до n выводит по строке: `FizzBuzz` для кратных 15, `Fizz` для кратных 3, `Buzz` для кратных 5, иначе само число.
+    examples:
+      - input: "5"
+        output: "1\n2\nFizz\n4\nBuzz"
+    starter: |
+      n = int(input())
+      for number in range(1, n + 1):
+          if number % 3 == 0:
+              print("Fizz")
+          elif number % 5 == 0:
+              print("Buzz")
+          elif number % 15 == 0:
+              print("FizzBuzz")
+          else:
+              print(number)
+    hints:
+      - "Проверьте заготовку на числе 15. Какая ветка срабатывает?"
+      - "Проверку на 15 перенесите первой."
+    solution: |
+      n = int(input())
+      for number in range(1, n + 1):
+          if number % 15 == 0:
+              print("FizzBuzz")
+          elif number % 3 == 0:
+              print("Fizz")
+          elif number % 5 == 0:
+              print("Buzz")
+          else:
+              print(number)
+    solution_explanation: "Числа, кратные 15, удовлетворяют и условию для 3, и для 5. Самое строгое условие должно стоять первым."
+    tests:
+      - name: "5"
+        stdin: "5\n"
+        stdout: "1\n2\nFizz\n4\nBuzz"
+      - name: "15"
+        stdin: "15\n"
+        stdout: "1\n2\nFizz\n4\nBuzz\nFizz\n7\n8\nFizz\nBuzz\n11\nFizz\n13\n14\nFizzBuzz"
+      - name: "0"
+        stdin: "0\n"
+        stdout: ""
+      - name: "Строка 30"
+        stdin: "30\n"
+        code: |
+          assert __stdout__.strip().splitlines()[29] == "FizzBuzz"
+      - name: "Количество FizzBuzz до 100"
+        stdin: "100\n"
+        code: |
+          assert __stdout__.split().count("FizzBuzz") == 6
+
+  - id: t2
+    title: "Последовательность Коллатца"
+    difficulty: 2
+    statement: |
+      Программа читает натуральное `n`. Применяйте правило: чётное — разделить на 2, нечётное — умножить на 3 и прибавить 1, пока не получится 1.
+      Выведите две строки:
+
+      ```text
+      Шагов: <количество шагов>
+      Максимум: <наибольшее значение в последовательности, включая n>
+      ```
+    examples:
+      - input: "6"
+        output: "Шагов: 8\nМаксимум: 16"
+    starter: |
+      n = int(input())
+      steps = 0
+    hints:
+      - "Цикл `while n != 1:`; внутри — if/else по чётности и `steps += 1`."
+      - "Максимум начните с самого n и обновляйте после каждого шага. Делите через `//`, чтобы n оставалось int."
+    solution: |
+      n = int(input())
+      steps = 0
+      highest = n
+      while n != 1:
+          if n % 2 == 0:
+              n //= 2
+          else:
+              n = 3 * n + 1
+          steps += 1
+          if n > highest:
+              highest = n
+      print("Шагов:", steps)
+      print("Максимум:", highest)
+    solution_explanation: "Число шагов неизвестно заранее — while. Два накопителя: счётчик и максимум. Для n = 1 цикл не выполняется: 0 шагов, максимум 1."
+    timeout: 5
+    tests:
+      - name: "6"
+        stdin: "6\n"
+        stdout: "Шагов: 8\nМаксимум: 16"
+      - name: "1"
+        stdin: "1\n"
+        stdout: "Шагов: 0\nМаксимум: 1"
+      - name: "27 — длинная"
+        stdin: "27\n"
+        stdout: "Шагов: 111\nМаксимум: 9232"
+      - name: "Степень двойки"
+        stdin: "64\n"
+        stdout: "Шагов: 6\nМаксимум: 64"
+      - name: "7"
+        stdin: "7\n"
+        stdout: "Шагов: 16\nМаксимум: 52"
+
+  - id: t3
+    title: "НОД по Евклиду"
+    difficulty: 2
+    statement: |
+      Программа читает два неотрицательных целых числа (не оба нули) и выводит их наибольший общий делитель. Используйте алгоритм Евклида; модуль `math` не используйте.
+    examples:
+      - input: "48\n18"
+        output: "6"
+    starter: |
+      a = int(input())
+      b = int(input())
+      for d in range(min(a, b), 0, -1):
+          if a % d == 0 and b % d == 0:
+              print(d)
+              break
+    hints:
+      - "Заготовка — медленный перебор, и она не работает, если одно из чисел 0. Замените на цикл `while b != 0:`."
+      - "Тело: `a, b = b, a % b`. После цикла ответ — a."
+    solution: |
+      a = int(input())
+      b = int(input())
+      while b != 0:
+          a, b = b, a % b
+      print(a)
+    solution_explanation: "НОД(a, b) = НОД(b, a % b). Числа быстро уменьшаются — для огромных чисел нужны десятки шагов. Если b = 0 изначально, ответ — a (и наоборот, при a = 0 первый шаг поменяет числа местами)."
+    constraints:
+      forbid: ["math", "gcd("]
+    timeout: 5
+    tests:
+      - name: "48 и 18"
+        stdin: "48\n18\n"
+        stdout: "6"
+      - name: "Взаимно простые"
+        stdin: "17\n5\n"
+        stdout: "1"
+      - name: "Одинаковые"
+        stdin: "7\n7\n"
+        stdout: "7"
+      - name: "С нулём"
+        stdin: "0\n9\n"
+        stdout: "9"
+      - name: "Огромные числа (быстро)"
+        stdin: "1152921504606846976\n3298534883328\n"
+        stdout: "1099511627776"
+      - name: "Делитель целиком"
+        stdin: "100\n25\n"
+        stdout: "25"
+
+  - id: t4
+    title: "Совершенные числа"
+    difficulty: 3
+    statement: |
+      Число называется **совершенным**, если оно равно сумме своих собственных делителей (всех, кроме самого числа): 6 = 1 + 2 + 3, 28 = 1 + 2 + 4 + 7 + 14.
+
+      Программа читает `n` (до 20 000) и выводит все совершенные числа от 2 до n включительно, по одному в строке. Если их нет — `нет`.
+
+      Решение должно работать быстро: перебирайте делители только до квадратного корня, добавляя сразу пару `d` и `number // d`.
+    examples:
+      - input: "30"
+        output: "6\n28"
+      - input: "5"
+        output: "нет"
+    starter: |
+      n = int(input())
+    hints:
+      - "Для каждого number начните сумму с 1 (1 — делитель любого числа > 1) и перебирайте d от 2 до `int(number ** 0.5)`."
+      - "Если `number % d == 0`, прибавьте d и парный `number // d` — но только один раз, если они равны (точный квадрат)."
+    solution: |
+      n = int(input())
+      found = False
+      for number in range(2, n + 1):
+          divisor_sum = 1
+          d = 2
+          while d * d <= number:
+              if number % d == 0:
+                  divisor_sum += d
+                  pair = number // d
+                  if pair != d:
+                      divisor_sum += pair
+              d += 1
+          if divisor_sum == number:
+              print(number)
+              found = True
+      if not found:
+          print("нет")
+    solution_explanation: "Делители идут парами (d, number // d), и меньший из пары всегда не больше корня. Поэтому достаточно перебирать d до корня — для 20 000 чисел это около 1,9 миллиона итераций вместо 200 миллионов при полном переборе. Квадраты (d == pair) учитываем один раз."
+    timeout: 15
+    tests:
+      - name: "До 30"
+        stdin: "30\n"
+        stdout: "6\n28"
+      - name: "Нет совершенных"
+        stdin: "5\n"
+        stdout: "нет"
+      - name: "Ровно 6"
+        stdin: "6\n"
+        stdout: "6"
+      - name: "До 10000"
+        stdin: "10000\n"
+        stdout: "6\n28\n496\n8128"
+      - name: "До 20000 (скорость)"
+        stdin: "20000\n"
+        stdout: "6\n28\n496\n8128"

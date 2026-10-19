@@ -1,0 +1,507 @@
+title: "Практикум: коллекции"
+description: |
+  Вопросы и задачи по всему блоку: списки, перебор и сортировка, кортежи, словари, множества, вложенные структуры и comprehensions.
+  Последняя задача — мини-проект «Телефонная книга с поиском и статистикой».
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      a = [1, 2, 3]
+      b = a
+      c = a[:]
+      a.append(4)
+      print(len(b), len(c))
+    options:
+      - text: "`4 3`"
+        correct: true
+        why: "b — то же имя для того же списка, c — копия, сделанная до append."
+      - text: "`3 3`"
+        why: "b ссылается на тот же объект, что и a."
+      - text: "`4 4`"
+        why: "Срез [:] создаёт новый список."
+    explanation: "Присваивание не копирует; срез [:] и copy() — копируют (поверхностно)."
+
+  - id: q2
+    type: find_bug
+    prompt: "После этого кода `data` равен None. Почему?"
+    code: |
+      data = [3, 1, 2]
+      data = data.sort()
+    options:
+      - text: "sort сортирует на месте и возвращает None"
+        correct: true
+        why: "Нужно `data.sort()` или `data = sorted(data)`."
+      - text: "Списки чисел нельзя сортировать"
+        why: "Можно."
+      - text: "sort работает только со строками"
+        why: "Работает с любыми сравнимыми элементами."
+    explanation: "Методы, изменяющие список, возвращают None."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      names = ["Ада", "Алан"]
+      ages = [36, 41, 50]
+      print(dict(zip(names, ages)))
+    options:
+      - text: "`{'Ада': 36, 'Алан': 41}`"
+        correct: true
+        why: "zip останавливается на самой короткой последовательности."
+      - text: "Ошибку из-за разной длины"
+        why: "Без strict=True zip не проверяет длины."
+      - text: "`{'Ада': 36, 'Алан': 41, None: 50}`"
+        why: "zip не дополняет недостающие элементы."
+    explanation: "dict(zip(ключи, значения)) — словарь из двух списков."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      first, *rest = "a,b,c".split(",")
+      print(first, rest, type((5,)).__name__)
+    options:
+      - text: "`a ['b', 'c'] tuple`"
+        correct: true
+        why: "Звёздочка собирает остаток в список; (5,) — кортеж благодаря запятой."
+      - text: "`a ('b', 'c') int`"
+        why: "Звёздочная переменная — список; запятая делает кортеж."
+      - text: "`a b tuple`"
+        why: "rest собирает все оставшиеся элементы."
+    explanation: "Распаковка со звёздочкой и кортеж из одного элемента."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие операции выполняются мгновенно независимо от размера коллекции? Выберите все."
+    options:
+      - text: "`key in my_dict`"
+        correct: true
+        why: "Хеш-таблица."
+      - text: "`x in my_set`"
+        correct: true
+        why: "Тоже хеш-таблица."
+      - text: "`my_list[i]`"
+        correct: true
+        why: "Доступ по индексу в динамическом массиве."
+      - text: "`x in my_list`"
+        why: "Перебор всего списка."
+      - text: "`my_list.insert(0, x)`"
+        why: "Сдвигаются все элементы."
+    explanation: "Для частых проверок наличия — множество или словарь, а не список."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      counts = {}
+      for w in "a b a c a b".split():
+          counts[w] = counts.get(w, 0) + 1
+      print(sorted(counts, key=counts.get, reverse=True))
+    options:
+      - text: "`['a', 'b', 'c']`"
+        correct: true
+        why: "Частоты: a=3, b=2, c=1 — по убыванию."
+      - text: "`[3, 2, 1]`"
+        why: "sorted по словарю перебирает ключи; key задаёт только порядок."
+      - text: "`['c', 'b', 'a']`"
+        why: "reverse=True — по убыванию частоты."
+    explanation: "sorted(d, key=d.get) — ключи, упорядоченные по значениям."
+
+  - id: q7
+    type: find_bug
+    prompt: "Почему код падает с `TypeError: unhashable type: 'list'`?"
+    code: |
+      visited = set()
+      visited.add([55.7, 37.6])
+    options:
+      - text: "Элемент множества должен быть неизменяемым; используйте кортеж `(55.7, 37.6)`"
+        correct: true
+        why: "Списки изменяемы и не имеют хеша."
+      - text: "В множество нельзя добавлять числа"
+        why: "Можно — числа хешируемы."
+      - text: "Нужно `append` вместо `add`"
+        why: "У множества нет append."
+    explanation: "Ключи словарей и элементы множеств — только неизменяемые значения."
+
+  - id: q8
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      a = {"python", "sql", "git"}
+      b = {"python", "docker"}
+      print(sorted(a - b), sorted(a | b)[0], a.isdisjoint(b))
+    options:
+      - text: "`['git', 'sql'] docker False`"
+        correct: true
+        why: "a − b — только в a; первое по алфавиту в объединении — docker; общий элемент python есть."
+      - text: "`['git', 'sql'] git True`"
+        why: "Объединение содержит docker, который раньше git; общие элементы есть — isdisjoint False."
+      - text: "`['docker'] docker False`"
+        why: "a − b — элементы a, которых нет в b."
+    explanation: "Разность несимметрична; isdisjoint — True только при отсутствии общих элементов."
+
+  - id: q9
+    type: single
+    prompt: "Как удалить дубликаты из списка, **сохранив порядок** первого появления?"
+    options:
+      - text: "`list(dict.fromkeys(items))`"
+        correct: true
+        why: "Ключи словаря уникальны и хранят порядок вставки."
+      - text: "`list(set(items))`"
+        why: "Порядок теряется."
+      - text: "`sorted(set(items))`"
+        why: "Порядок станет алфавитным, а не исходным."
+      - text: "`items.unique()`"
+        why: "У списков нет такого метода."
+    explanation: "dict.fromkeys — идиома дедупликации с сохранением порядка."
+
+  - id: q10
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      response = {"usage": {"input_tokens": 10}}
+      print(response.get("usage", {}).get("output_tokens", 0), response.get("error", {}).get("code"))
+    options:
+      - text: "`0 None`"
+        correct: true
+        why: "get с умолчанием на каждом уровне: нет output_tokens → 0; нет error → {} → get(\"code\") → None."
+      - text: "Ошибку KeyError"
+        why: "get не бросает KeyError."
+      - text: "`10 None`"
+        why: "Запрошено поле output_tokens, а не input_tokens."
+    explanation: "Безопасный спуск по вложенным словарям — get(..., {}) на каждом уровне."
+
+  - id: q11
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      grid = [[0] * 2 for _ in range(2)]
+      grid[0][1] = 7
+      print(grid)
+    options:
+      - text: "`[[0, 7], [0, 0]]`"
+        correct: true
+        why: "Comprehension создаёт отдельный внутренний список на каждой итерации."
+      - text: "`[[0, 7], [0, 7]]`"
+        why: "Так было бы с `[[0] * 2] * 2`."
+      - text: "`[[7, 0], [0, 0]]`"
+        why: "[0][1] — первая строка, второй столбец."
+    explanation: "Безопасное создание таблицы — через comprehension."
+
+  - id: q12
+    type: multiple
+    prompt: "Какие записи корректны? Выберите все."
+    options:
+      - text: "`[x for x in data if x > 0]`"
+        correct: true
+        why: "Фильтр."
+      - text: "`[x if x > 0 else 0 for x in data]`"
+        correct: true
+        why: "Условное выражение."
+      - text: "`{k: v for k, v in d.items() if v}`"
+        correct: true
+        why: "Dict comprehension с фильтром."
+      - text: "`[x for x in data if x > 0 else 0]`"
+        why: "else в фильтре недопустим."
+    explanation: "if в конце — без else; if-else — в начале."
+
+  - id: q13
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      points = [(3, 1), (1, 2), (3, 0)]
+      print(sorted(points)[0], max(points))
+    answer: "(1, 2) (3, 1)"
+    explanation: "Кортежи сравниваются поэлементно: наименьший — (1, 2); наибольшие начинаются с 3, из них (3, 1) > (3, 0)."
+
+tasks:
+  - id: t1
+    title: "Суммы строк и столбцов"
+    difficulty: 2
+    statement: |
+      Программа читает `n`, затем `n` строк чисел одинаковой длины (матрица). Выведите:
+
+      ```text
+      Строки: <суммы строк через пробел>
+      Столбцы: <суммы столбцов через пробел>
+      ```
+
+      Подсказка для столбцов: `zip(*matrix)` выдаёт столбцы — звёздочка «раскладывает» строки как отдельные аргументы zip.
+    examples:
+      - input: "2\n1 2 3\n4 5 6"
+        output: "Строки: 6 15\nСтолбцы: 5 7 9"
+    starter: |
+      n = int(input())
+      matrix = [[int(x) for x in input().split()] for _ in range(n)]
+    hints:
+      - "Суммы строк: `[sum(row) for row in matrix]`."
+      - "Суммы столбцов: `[sum(column) for column in zip(*matrix)]`."
+    solution: |
+      n = int(input())
+      matrix = [[int(x) for x in input().split()] for _ in range(n)]
+      row_sums = [sum(row) for row in matrix]
+      col_sums = [sum(column) for column in zip(*matrix)]
+      print("Строки:", " ".join(str(s) for s in row_sums))
+      print("Столбцы:", " ".join(str(s) for s in col_sums))
+    solution_explanation: "zip(*matrix) — транспонирование: каждая строка становится аргументом zip, и он выдаёт кортежи элементов с одинаковыми позициями — столбцы. В NumPy это будет `matrix.sum(axis=0)` и `axis=1` (блок 4.1)."
+    tests:
+      - name: "Пример"
+        stdin: "2\n1 2 3\n4 5 6\n"
+        stdout: "Строки: 6 15\nСтолбцы: 5 7 9"
+      - name: "Одна строка"
+        stdin: "1\n5 -5\n"
+        stdout: "Строки: 0\nСтолбцы: 5 -5"
+      - name: "Один столбец"
+        stdin: "3\n1\n2\n3\n"
+        stdout: "Строки: 1 2 3\nСтолбцы: 6"
+      - name: "Квадратная"
+        stdin: "3\n1 0 0\n0 1 0\n0 0 1\n"
+        stdout: "Строки: 1 1 1\nСтолбцы: 1 1 1"
+      - name: "Отрицательные"
+        stdin: "2\n-1 -2\n-3 -4\n"
+        stdout: "Строки: -3 -7\nСтолбцы: -4 -6"
+
+  - id: t2
+    title: "Группы анаграмм"
+    difficulty: 2
+    statement: |
+      Программа читает строку слов (нижний регистр). Анаграммы — слова из одних и тех же букв. Сгруппируйте слова и выведите группы, в которых больше одного слова, — каждая группа на строке через пробел, в порядке первого появления группы и слов в ней. Если таких групп нет — `нет`.
+    examples:
+      - input: "кот ток рост сорт кто мир трос"
+        output: "кот ток кто\nрост сорт трос"
+    starter: |
+      words = input().split()
+      groups = {}
+    hints:
+      - "Ключ группы — отсортированные буквы слова: `\"\".join(sorted(word))`."
+      - "Группировка: `groups.setdefault(key, []).append(word)`; затем выведите группы длиной > 1."
+    solution: |
+      words = input().split()
+      groups = {}
+      for word in words:
+          key = "".join(sorted(word))
+          groups.setdefault(key, []).append(word)
+      result = [group for group in groups.values() if len(group) > 1]
+      if result:
+          for group in result:
+              print(" ".join(group))
+      else:
+          print("нет")
+    solution_explanation: "У анаграмм одинаковый «отпечаток» — отсортированные буквы. Он становится ключом группировки, а словарь сохраняет порядок появления групп."
+    tests:
+      - name: "Пример"
+        stdin: "кот ток рост сорт кто мир трос\n"
+        stdout: "кот ток кто\nрост сорт трос"
+      - name: "Нет анаграмм"
+        stdin: "a b c\n"
+        stdout: "нет"
+      - name: "Латиница"
+        stdin: "listen silent enlist google\n"
+        stdout: "listen silent enlist"
+      - name: "Повторы слова"
+        stdin: "да да\n"
+        stdout: "да да"
+      - name: "Пусто"
+        stdin: "\n"
+        stdout: "нет"
+
+  - id: t3
+    title: "Топ слов без стоп-слов"
+    difficulty: 2
+    statement: |
+      Программа читает число `k` и текст. Слова: нижний регистр, с краёв снимаются `.,!?;:—-«»"()`, пустые отбрасываются, стоп-слова `и в во на с со по к о от до за из что это как а но не` исключаются.
+      Выведите `k` самых частых слов в формате `<слово> <количество>` (при равенстве — в порядке первого появления).
+    examples:
+      - input: "2\nДанные и модели. Модели учатся на данных, данные важны!"
+        output: "данные 2\nмодели 2"
+    starter: |
+      k = int(input())
+      text = input()
+    hints:
+      - "Стоп-слова — множество: `stop = set(\"и в во ...\".split())`."
+      - "Подсчёт словарём, затем `sorted(counts, key=counts.get, reverse=True)[:k]`."
+    solution: |
+      k = int(input())
+      text = input()
+      punctuation = ".,!?;:—-«»\"()"
+      stop = set("и в во на с со по к о от до за из что это как а но не".split())
+      words = [token.strip(punctuation) for token in text.lower().split()]
+      words = [w for w in words if w and w not in stop]
+      counts = {}
+      for word in words:
+          counts[word] = counts.get(word, 0) + 1
+      for word in sorted(counts, key=counts.get, reverse=True)[:k]:
+          print(word, counts[word])
+    solution_explanation: "Множество делает проверку стоп-слов мгновенной и без ловушки подстрок, словарь считает частоты за один проход, стабильная сортировка сохраняет порядок равных."
+    tests:
+      - name: "Пример"
+        stdin: "2\nДанные и модели. Модели учатся на данных, данные важны!\n"
+        stdout: "данные 2\nмодели 2"
+      - name: "k больше числа слов"
+        stdin: "10\nкот кот пёс\n"
+        stdout: "кот 2\nпёс 1"
+      - name: "Только стоп-слова"
+        stdin: "3\nи в на\n"
+        stdout: ""
+      - name: "k = 1"
+        stdin: "1\nb a b a a\n"
+        stdout: "a 3"
+      - name: "Подстроки не путаются"
+        stdin: "2\nона она на\n"
+        stdout: "она 2"
+
+  - id: t4
+    title: "Инвертированный индекс"
+    difficulty: 3
+    statement: |
+      Так устроен поиск в поисковиках и в ключевом поиске RAG. Программа читает `n`, затем `n` строк-документов (нумерация с 1), затем запросы до слова `стоп`.
+
+      Постройте индекс `слово → множество номеров документов` (слова — нижний регистр, без знаков `.,!?;:` по краям). Запрос может содержать несколько слов: документ подходит, если в нём есть **все** слова запроса. Для каждого запроса выведите номера документов по возрастанию через пробел или `не найдено`.
+    examples:
+      - input: "3\nКот спит.\nСобака спит на диване\nКот и собака\nспит\nкот собака\nрыба\nстоп"
+        output: "1 2\n3\nне найдено"
+    starter: |
+      n = int(input())
+      index = {}
+    hints:
+      - "Для каждого документа: `for word in ...: index.setdefault(word, set()).add(doc_id)`."
+      - "Ответ на запрос — пересечение множеств всех слов запроса; для отсутствующего слова — пустое множество: `index.get(word, set())`."
+    solution: |
+      n = int(input())
+      punctuation = ".,!?;:"
+      index = {}
+      for doc_id in range(1, n + 1):
+          for token in input().lower().split():
+              word = token.strip(punctuation)
+              if word:
+                  index.setdefault(word, set()).add(doc_id)
+      while True:
+          query = input()
+          if query == "стоп":
+              break
+          words = [w.strip(punctuation) for w in query.lower().split()]
+          result = None
+          for word in words:
+              docs = index.get(word, set())
+              result = docs if result is None else result & docs
+          if result:
+              print(" ".join(str(d) for d in sorted(result)))
+          else:
+              print("не найдено")
+    solution_explanation: "Индекс отображает слово в множество документов — поиск по слову мгновенный. Запрос из нескольких слов — пересечение множеств (логическое И). Именно так в основе работают поисковики и BM25-ретриверы (блок 7.4)."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        stdin: "3\nКот спит.\nСобака спит на диване\nКот и собака\nспит\nкот собака\nрыба\nстоп\n"
+        stdout: "1 2\n3\nне найдено"
+      - name: "Регистр запроса"
+        stdin: "1\nPython для AI\nPYTHON\nстоп\n"
+        stdout: "1"
+      - name: "Слово в одном документе несколько раз"
+        stdin: "2\nда да да\nнет\nда\nстоп\n"
+        stdout: "1"
+      - name: "Одно слово не найдено"
+        stdin: "2\nкот\nкот пёс\nкот рыба\nстоп\n"
+        stdout: "не найдено"
+      - name: "Все документы"
+        stdin: "3\nai\nAI!\nai, ml\nai\nстоп\n"
+        stdout: "1 2 3"
+
+  - id: t5
+    title: "Телефонная книга"
+    mini_project: true
+    difficulty: 3
+    statement: |
+      **Мини-проект.** Телефонная книга хранит контакты: у контакта имя (одно слово) и один или несколько номеров. Программа обрабатывает команды до `конец`:
+
+      | Команда | Действие и вывод |
+      |---|---|
+      | `добавить <имя> <номер>` | добавить номер к контакту (создать контакт, если нет). Если такой номер у контакта уже есть — `Номер уже есть` |
+      | `найти <начало имени>` | все контакты, имя которых начинается с подстроки (без учёта регистра), по алфавиту: `<имя>: <номера через ", ">`; если нет — `Ничего не найдено` |
+      | `удалить <имя>` | удалить контакт: `Удалён: <имя>` или `Нет контакта: <имя>` |
+      | `статистика` | три строки: `Контактов: N`, `Номеров: M`, `Больше всего номеров: <имя> (<k>)` (при равенстве — добавленный раньше); для пустой книги — `Книга пуста` |
+
+      Ничего, кроме описанного, не выводите.
+    examples:
+      - input: "добавить Ада 111\nдобавить Алан 222\nдобавить Ада 333\nнайти ал\nстатистика\nконец"
+        output: "Алан: 222\nКонтактов: 2\nНомеров: 3\nБольше всего номеров: Ада (2)"
+    starter: |
+      book = {}
+      while True:
+          command = input()
+          if command == "конец":
+              break
+    hints:
+      - "Структура данных: словарь `имя → список номеров`. Команду разбирайте через `parts = command.split()` и `match parts:` с образцами вроде `[\"добавить\", name, phone]`."
+      - "Поиск: `[name for name in book if name.lower().startswith(prefix.lower())]`, затем `sorted`. Статистика: `sum(len(p) for p in book.values())`, а лидера найдите циклом с рекордом по `book.items()`."
+    solution: |
+      book = {}
+      while True:
+          command = input()
+          if command == "конец":
+              break
+          match command.split():
+              case ["добавить", name, phone]:
+                  phones = book.setdefault(name, [])
+                  if phone in phones:
+                      print("Номер уже есть")
+                  else:
+                      phones.append(phone)
+              case ["найти", prefix]:
+                  found = sorted(name for name in book if name.lower().startswith(prefix.lower()))
+                  if found:
+                      for name in found:
+                          print(f"{name}: {', '.join(book[name])}")
+                  else:
+                      print("Ничего не найдено")
+              case ["удалить", name]:
+                  if name in book:
+                      del book[name]
+                      print("Удалён:", name)
+                  else:
+                      print("Нет контакта:", name)
+              case ["статистика"]:
+                  if not book:
+                      print("Книга пуста")
+                  else:
+                      leader = None
+                      for name, phones in book.items():
+                          if leader is None or len(phones) > len(book[leader]):
+                              leader = name
+                      print("Контактов:", len(book))
+                      print("Номеров:", sum(len(phones) for phones in book.values()))
+                      print(f"Больше всего номеров: {leader} ({len(book[leader])})")
+    solution_explanation: |
+      Ключевое решение — структура данных: **словарь `имя → список номеров`**. Она даёт мгновенный доступ к контакту и естественно хранит несколько номеров.
+
+      - `match command.split():` с образцами-списками разбирает команды и одновременно проверяет количество слов — команда с лишними словами просто не совпадёт ни с одним образцом.
+      - `setdefault(name, [])` создаёт контакт при первом добавлении.
+      - Поиск — генераторное выражение с фильтром внутри `sorted`.
+      - Лидер по числу номеров — накопитель «рекорд» со строгим `>`: при равенстве остаётся контакт, добавленный раньше (словарь хранит порядок).
+
+      В блоке 1.7 вы научитесь сохранять книгу в JSON-файл, а в проекте части 1 — строить похожее приложение крупнее.
+    timeout: 5
+    tests:
+      - name: "Пример"
+        stdin: "добавить Ада 111\nдобавить Алан 222\nдобавить Ада 333\nнайти ал\nстатистика\nконец\n"
+        stdout: "Алан: 222\nКонтактов: 2\nНомеров: 3\nБольше всего номеров: Ада (2)"
+      - name: "Пустая книга"
+        stdin: "статистика\nнайти а\nконец\n"
+        stdout: "Книга пуста\nНичего не найдено"
+      - name: "Дубликат номера"
+        stdin: "добавить Ада 111\nдобавить Ада 111\nнайти Ада\nконец\n"
+        stdout: "Номер уже есть\nАда: 111"
+      - name: "Поиск по началу, по алфавиту"
+        stdin: "добавить Алан 2\nдобавить Ада 1\nдобавить Грейс 3\nнайти А\nконец\n"
+        stdout: "Ада: 1\nАлан: 2"
+      - name: "Удаление"
+        stdin: "добавить Ада 1\nудалить Ада\nудалить Ада\nстатистика\nконец\n"
+        stdout: "Удалён: Ада\nНет контакта: Ада\nКнига пуста"
+      - name: "Равенство номеров — первый добавленный"
+        stdin: "добавить Б 1\nдобавить А 2\nстатистика\nконец\n"
+        stdout: "Контактов: 2\nНомеров: 2\nБольше всего номеров: Б (1)"
+      - name: "Несколько номеров у найденных"
+        stdin: "добавить Ада 1\nдобавить Ада 2\nнайти ад\nконец\n"
+        stdout: "Ада: 1, 2"

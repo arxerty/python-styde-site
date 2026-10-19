@@ -1,0 +1,387 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def double(x: int) -> int:
+          return x * 2
+
+
+      print(double("ha"), double(2.5))
+    options:
+      - text: "`haha 5.0`"
+        correct: true
+        why: "Python не проверяет аннотации при выполнении — строка и float обрабатываются как есть."
+      - text: "TypeError: ожидался int"
+        why: "Аннотации — подсказки, а не проверки во время выполнения."
+      - text: "`4 5`"
+        why: "Аргументы не преобразуются к аннотированному типу."
+    explanation: "Аннотации проверяют инструменты (mypy) и библиотеки (Pydantic), а не интерпретатор."
+
+  - id: q2
+    type: single
+    prompt: "Что означает аннотация `tuple[float, ...]`?"
+    options:
+      - text: "Кортеж любой длины, все элементы — float"
+        correct: true
+        why: "Многоточие означает «сколько угодно элементов этого типа»."
+      - text: "Кортеж из одного float и чего угодно ещё"
+        why: "Для разных типов элементов перечисляют их: tuple[float, str]."
+      - text: "Кортеж ровно из двух элементов"
+        why: "Это tuple[float, float]."
+      - text: "Ошибка синтаксиса"
+        why: "Это корректная запись."
+    explanation: "tuple[int, str] — фиксированная структура; tuple[int, ...] — однородная последовательность."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from typing import get_type_hints
+
+
+      def tokenize(text: str, limit: int = 10) -> list[str]:
+          return text.split()[:limit]
+
+
+      print(get_type_hints(tokenize)["return"], len(get_type_hints(tokenize)))
+    options:
+      - text: "`list[str] 3`"
+        correct: true
+        why: "Три аннотации: text, limit и return."
+      - text: "`list[str] 2`"
+        why: "Возвращаемое значение тоже хранится — под ключом return."
+      - text: "`<class 'list'> 3`"
+        why: "Сохраняется полная аннотация list[str]."
+    explanation: "get_type_hints возвращает словарь аннотаций параметров и результата."
+
+  - id: q4
+    type: find_bug
+    prompt: "Что не так с аннотацией этой функции?"
+    code: |
+      def find_user(users: list[str], name: str) -> str:
+          for user in users:
+              if user.lower() == name.lower():
+                  return user
+    options:
+      - text: "Если пользователь не найден, функция вернёт None, а аннотация обещает str"
+        correct: true
+        why: "Честная аннотация — str | None (следующий урок)."
+      - text: "list[str] нельзя использовать в аннотации параметра"
+        why: "Можно."
+      - text: "Аннотация возврата должна стоять после двоеточия"
+        why: "-> str перед двоеточием — правильный синтаксис."
+    explanation: "Аннотация должна описывать все возможные результаты функции."
+
+  - id: q5
+    type: multiple
+    prompt: "Кто использует аннотации типов? Выберите все."
+    options:
+      - text: "Статические анализаторы (mypy, Pyright)"
+        correct: true
+        why: "Находят ошибки без запуска."
+      - text: "Pydantic и FastAPI — для проверки данных во время выполнения"
+        correct: true
+        why: "Они читают аннотации и строят по ним валидацию."
+      - text: "Редакторы кода — для подсказок и автодополнения"
+        correct: true
+        why: "Редактор знает типы и предлагает методы."
+      - text: "Интерпретатор Python — чтобы запрещать неверные аргументы"
+        why: "Интерпретатор аннотации не проверяет."
+    explanation: "Аннотации — общий язык для людей и инструментов."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def scale(values: list[float], factor: float = 2) -> list[float]:
+          return [v * factor for v in values]
+
+
+      print(scale([1, 2]), scale.__annotations__["factor"])
+    options:
+      - text: "`[2, 4] <class 'float'>`"
+        correct: true
+        why: "Значение по умолчанию 2 — int, и умножение даёт целые; аннотация хранится как есть."
+      - text: "`[2.0, 4.0] <class 'float'>`"
+        why: "Аннотация не приводит значения к float."
+      - text: "`[2, 4] 2`"
+        why: "__annotations__ хранит аннотации, а не значения по умолчанию."
+    explanation: "Аннотации не влияют на вычисления."
+
+tasks:
+  - id: t1
+    title: "Добавьте аннотации"
+    difficulty: 1
+    statement: |
+      Функции в заготовке работают правильно, но не аннотированы. Добавьте аннотации:
+
+      - `mean(values)` — принимает список дробных чисел, возвращает дробное;
+      - `word_lengths(text)` — принимает строку, возвращает словарь «слово → длина»;
+      - `split_pair(pair, sep=":")` — принимает две строки, возвращает кортеж из двух строк;
+      - `log(message)` — принимает строку и ничего не возвращает.
+    examples:
+      - input: "split_pair(\"lr:0.1\")"
+        output: "('lr', '0.1')"
+    starter: |
+      def mean(values):
+          return sum(values) / len(values)
+
+
+      def word_lengths(text):
+          return {word: len(word) for word in text.split()}
+
+
+      def split_pair(pair, sep=":"):
+          key, _, value = pair.partition(sep)
+          return key, value
+
+
+      def log(message):
+          print(f"[log] {message}")
+    hints:
+      - "`def mean(values: list[float]) -> float:`; `def word_lengths(text: str) -> dict[str, int]:`."
+      - "`def split_pair(pair: str, sep: str = \":\") -> tuple[str, str]:` и `def log(message: str) -> None:`."
+    solution: |
+      def mean(values: list[float]) -> float:
+          return sum(values) / len(values)
+
+
+      def word_lengths(text: str) -> dict[str, int]:
+          return {word: len(word) for word in text.split()}
+
+
+      def split_pair(pair: str, sep: str = ":") -> tuple[str, str]:
+          key, _, value = pair.partition(sep)
+          return key, value
+
+
+      def log(message: str) -> None:
+          print(f"[log] {message}")
+    solution_explanation: "Аннотации не меняют поведение функций, но делают их сигнатуры самодокументируемыми. Кортеж из двух строк — tuple[str, str], функция без результата — -> None."
+    tests:
+      - name: "mean"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(mean) == {"values": list[float], "return": float}, get_type_hints(mean)
+      - name: "word_lengths"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(word_lengths) == {"text": str, "return": dict[str, int]}, get_type_hints(word_lengths)
+      - name: "split_pair"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(split_pair) == {"pair": str, "sep": str, "return": tuple[str, str]}, get_type_hints(split_pair)
+      - name: "log"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(log) == {"message": str, "return": type(None)}, get_type_hints(log)
+      - name: "Поведение не изменилось"
+        call: "[mean([1.0, 2.0]), word_lengths(\"ab c\"), split_pair(\"a=b\", sep=\"=\")]"
+        expected: "[1.5, {'ab': 2, 'c': 1}, ('a', 'b')]"
+
+  - id: t2
+    title: "Статистика текста с типами"
+    difficulty: 2
+    statement: |
+      Напишите аннотированные функции:
+
+      - `text_stats(text: str) -> tuple[int, int, float]` — число слов, число уникальных слов (без учёта регистра) и средняя длина слова (округление до 2 знаков; для пустого текста — `(0, 0, 0.0)`);
+      - `top_words(text: str, n: int = 3) -> list[tuple[str, int]]` — `n` самых частых слов в нижнем регистре с количеством; при равной частоте — по алфавиту.
+    examples:
+      - input: "text_stats(\"Кот и кот\")"
+        output: "(3, 2, 2.33)"
+    starter: |
+      def text_stats(text):
+          words = text.split()
+          return len(words)
+    hints:
+      - "`words = text.lower().split()`; средняя длина — `round(sum(map(len, words)) / len(words), 2)`."
+      - "top_words: посчитайте частоты словарём и отсортируйте `sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:n]`."
+    solution: |
+      def text_stats(text: str) -> tuple[int, int, float]:
+          """Число слов, уникальных слов и средняя длина слова."""
+          words = text.lower().split()
+          if not words:
+              return 0, 0, 0.0
+          average = round(sum(len(word) for word in words) / len(words), 2)
+          return len(words), len(set(words)), average
+
+
+      def top_words(text: str, n: int = 3) -> list[tuple[str, int]]:
+          """Самые частые слова с количеством."""
+          counts: dict[str, int] = {}
+          for word in text.lower().split():
+              counts[word] = counts.get(word, 0) + 1
+          return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:n]
+    solution_explanation: "Аннотации tuple[int, int, float] и list[tuple[str, int]] точно описывают форму результата: вызывающему коду не нужно читать реализацию, чтобы понять, как распаковать ответ."
+    tests:
+      - name: "Пример"
+        call: "text_stats(\"Кот и кот\")"
+        expected: "(3, 2, 2.33)"
+      - name: "Пустой текст"
+        call: "text_stats(\"   \")"
+        expected: "(0, 0, 0.0)"
+      - name: "top_words"
+        call: "top_words(\"b a b c a b\", 2)"
+        expected: "[('b', 3), ('a', 2)]"
+      - name: "Равная частота — по алфавиту"
+        call: "top_words(\"я ты он\")"
+        expected: "[('он', 1), ('ты', 1), ('я', 1)]"
+      - name: "Аннотации"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(text_stats) == {"text": str, "return": tuple[int, int, float]}
+          assert get_type_hints(top_words) == {"text": str, "n": int, "return": list[tuple[str, int]]}
+
+  - id: t3
+    title: "Псевдонимы для линейной алгебры"
+    difficulty: 2
+    statement: |
+      Объявите псевдонимы `Vector` (список дробных чисел) и `Matrix` (список векторов) и аннотированные функции:
+
+      - `add_vectors(a: Vector, b: Vector) -> Vector` — поэлементная сумма (разная длина → `ValueError`);
+      - `matvec(m: Matrix, v: Vector) -> Vector` — произведение матрицы на вектор (каждая строка скалярно умножается на `v`).
+
+      Псевдонимы можно объявить через `type Vector = ...` (Python 3.12) или присваиванием.
+    examples:
+      - input: "matvec([[1, 0], [0, 2]], [3, 4])"
+        output: "[3, 8]"
+    starter: |
+      def add_vectors(a, b):
+          return [x + y for x, y in zip(a, b)]
+    hints:
+      - "`type Vector = list[float]`, `type Matrix = list[Vector]`."
+      - "matvec: `[sum(x * y for x, y in zip(row, v)) for row in m]`."
+    solution: |
+      type Vector = list[float]
+      type Matrix = list[Vector]
+
+
+      def add_vectors(a: Vector, b: Vector) -> Vector:
+          """Поэлементная сумма векторов."""
+          if len(a) != len(b):
+              raise ValueError("векторы разной длины")
+          return [x + y for x, y in zip(a, b)]
+
+
+      def matvec(m: Matrix, v: Vector) -> Vector:
+          """Произведение матрицы на вектор."""
+          return [sum(x * y for x, y in zip(row, v)) for row in m]
+    solution_explanation: "Псевдонимы делают сигнатуры языком предметной области: matvec(m: Matrix, v: Vector) -> Vector читается как формула из линейной алгебры."
+    tests:
+      - name: "Пример"
+        call: "matvec([[1, 0], [0, 2]], [3, 4])"
+        expected: "[3, 8]"
+      - name: "Сумма"
+        call: "add_vectors([1.5, 2.0], [0.5, -2.0])"
+        expected: "[2.0, 0.0]"
+      - name: "Разная длина"
+        code: |
+          try:
+              add_vectors([1], [1, 2])
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Аннотации через псевдонимы"
+        code: |
+          from typing import get_type_hints
+          unwrap = lambda hint: getattr(hint, "__value__", hint)
+          hints = get_type_hints(matvec)
+          assert unwrap(hints["v"]) == list[float] and unwrap(hints["return"]) == list[float], hints
+          matrix = unwrap(hints["m"])
+          assert matrix.__origin__ is list, "Matrix должен быть списком векторов"
+      - name: "Пустая матрица"
+        call: "matvec([], [1.0])"
+        expected: "[]"
+
+  - id: t4
+    title: "Типизированный склад"
+    difficulty: 3
+    statement: |
+      Создайте полностью аннотированный класс `Inventory`:
+
+      - атрибут `items: dict[str, int]` (создаётся пустым в `__init__`, который аннотирован `-> None`);
+      - `add(name: str, quantity: int = 1) -> int` — добавить товар, вернуть новое количество; `quantity <= 0` → `ValueError`;
+      - `remove(name: str, quantity: int = 1) -> bool` — убрать товар; если не хватает — вернуть `False` и ничего не менять; при нуле товар удаляется из словаря;
+      - `total() -> int` — общее количество единиц;
+      - `most_common(n: int) -> list[tuple[str, int]]` — `n` товаров с наибольшим количеством (при равенстве — по имени).
+    examples:
+      - input: "inv = Inventory(); inv.add(\"gpu\", 2); inv.add(\"cpu\", 5); inv.most_common(1)"
+        output: "[('cpu', 5)]"
+    starter: |
+      class Inventory:
+          def __init__(self):
+              self.items = {}
+
+          def add(self, name, quantity=1):
+              self.items[name] = self.items.get(name, 0) + quantity
+    hints:
+      - "Аннотацию атрибута пишите в `__init__`: `self.items: dict[str, int] = {}`."
+      - "remove: `if self.items.get(name, 0) < quantity: return False`; после вычитания — `if self.items[name] == 0: del self.items[name]`."
+    solution: |
+      class Inventory:
+          """Склад с количествами товаров."""
+
+          def __init__(self) -> None:
+              self.items: dict[str, int] = {}
+
+          def add(self, name: str, quantity: int = 1) -> int:
+              if quantity <= 0:
+                  raise ValueError("количество должно быть положительным")
+              self.items[name] = self.items.get(name, 0) + quantity
+              return self.items[name]
+
+          def remove(self, name: str, quantity: int = 1) -> bool:
+              if self.items.get(name, 0) < quantity:
+                  return False
+              self.items[name] -= quantity
+              if self.items[name] == 0:
+                  del self.items[name]
+              return True
+
+          def total(self) -> int:
+              return sum(self.items.values())
+
+          def most_common(self, n: int) -> list[tuple[str, int]]:
+              return sorted(self.items.items(), key=lambda item: (-item[1], item[0]))[:n]
+    solution_explanation: "Аннотации в классе описывают и состояние (items: dict[str, int]), и интерфейс методов. Метод remove с результатом bool честно сообщает о неудаче, не бросая исключение."
+    tests:
+      - name: "Пример"
+        code: |
+          inv = Inventory()
+          inv.add("gpu", 2)
+          inv.add("cpu", 5)
+          assert inv.most_common(1) == [("cpu", 5)]
+      - name: "add и remove"
+        code: |
+          inv = Inventory()
+          assert inv.add("ram") == 1 and inv.add("ram", 3) == 4
+          assert inv.remove("ram", 5) is False and inv.items == {"ram": 4}
+          assert inv.remove("ram", 4) is True and inv.items == {}
+      - name: "total и ошибки"
+        code: |
+          inv = Inventory()
+          inv.add("a", 2)
+          inv.add("b", 3)
+          assert inv.total() == 5
+          try:
+              inv.add("c", 0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Аннотации методов"
+        code: |
+          from typing import get_type_hints
+          assert get_type_hints(Inventory.add) == {"name": str, "quantity": int, "return": int}
+          assert get_type_hints(Inventory.remove) == {"name": str, "quantity": int, "return": bool}
+          assert get_type_hints(Inventory.most_common) == {"n": int, "return": list[tuple[str, int]]}
+          assert get_type_hints(Inventory.__init__) == {"return": type(None)}
+      - name: "Равные количества"
+        code: |
+          inv = Inventory()
+          for name in ("b", "a", "c"):
+              inv.add(name, 2)
+          assert inv.most_common(2) == [("a", 2), ("b", 2)]

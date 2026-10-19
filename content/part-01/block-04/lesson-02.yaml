@@ -1,0 +1,256 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      s = "  Hello  "
+      print("[" + s.strip() + "]", len(s))
+    options:
+      - text: "`[Hello] 9`"
+        correct: true
+        why: "strip вернул новую строку без пробелов, а s осталась прежней — длина 9."
+      - text: "`[Hello] 5`"
+        why: "strip не изменяет s — len(s) считает исходную строку с пробелами."
+      - text: "`[  Hello  ] 9`"
+        why: "strip убрал пробелы по краям в возвращённой строке."
+    explanation: "Методы строк возвращают новую строку; исходная не меняется."
+
+  - id: q2
+    type: find_bug
+    prompt: "Программа должна печатать имя заглавными буквами, но печатает как ввели. Почему?"
+    code: |
+      name = input()
+      name.upper()
+      print(name)
+    options:
+      - text: "Результат `name.upper()` не сохранён; нужно `name = name.upper()`"
+        correct: true
+        why: "upper() возвращает новую строку, а name остаётся прежней."
+      - text: "upper() работает только с латиницей"
+        why: "upper() работает с любыми буквами Unicode."
+      - text: "Нужно вызвать upper без скобок"
+        why: "Без скобок метод не вызывается."
+      - text: "Сначала нужно преобразовать name в str"
+        why: "input() уже возвращает str."
+    explanation: "Строки неизменяемы: результат метода нужно присвоить."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      parts = "a,b,,c".split(",")
+      print(len(parts), parts[2] == "")
+    options:
+      - text: "`4 True`"
+        correct: true
+        why: "split с разделителем сохраняет пустой кусок между двумя запятыми."
+      - text: "`3 False`"
+        why: "Пустые куски отбрасывает только split() без аргументов."
+      - text: "`4 False`"
+        why: "Третий элемент (индекс 2) — пустая строка."
+    explanation: "split(sep) сохраняет пустые строки, split() без аргументов — нет."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      print("-".join("abc"), " ".join(["x", "y"]))
+    options:
+      - text: "`a-b-c x y`"
+        correct: true
+        why: "join перебирает строку по символам и вставляет «-» между ними; список — по элементам."
+      - text: "`-abc- x y`"
+        why: "Разделитель ставится только между элементами."
+      - text: "Ошибку: join принимает только списки"
+        why: "join принимает любую последовательность строк, в том числе строку."
+    explanation: "Разделитель вызывает join: `\"-\".join(последовательность)`."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие утверждения о `find` и `index` верны? Выберите все."
+    options:
+      - text: "`\"abc\".find(\"z\")` вернёт -1"
+        correct: true
+        why: "find сообщает «не найдено» значением −1."
+      - text: "`\"abc\".index(\"z\")` вызовет ValueError"
+        correct: true
+        why: "index бросает исключение, если подстроки нет."
+      - text: "Результат find можно сразу использовать в срезе без проверки"
+        why: "−1 — валидный индекс, получится тихая ошибка."
+      - text: "`rfind` ищет последнее вхождение"
+        correct: true
+        why: "Поиск справа налево."
+    explanation: "Проверяйте результат find на −1 или используйте оператор in."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      word = "banana"
+      print(word.count("an"), word.find("na"), word.rfind("na"))
+    answer: "2 2 4"
+    explanation: "«an» встречается дважды (позиции 1 и 3); первое «na» — на позиции 2, последнее — на 4."
+
+tasks:
+  - id: t1
+    title: "Нормализация ФИО"
+    difficulty: 1
+    statement: |
+      Пользователи вводят ФИО как попало: с лишними пробелами и в разном регистре. Программа читает строку и выводит её нормализованной: слова через один пробел, каждое — с заглавной буквы, остальные строчные.
+    examples:
+      - input: "   иВАНОВ    иван   "
+        output: "Иванов Иван"
+    starter: |
+      name = input()
+      print(name)
+    hints:
+      - "`split()` без аргументов уберёт все лишние пробелы."
+      - "Соберите обратно через `\" \".join(...)` и примените `title()`."
+    solution: |
+      name = input()
+      print(" ".join(name.split()).title())
+    solution_explanation: "split() без аргументов разбивает по любым пробелам и отбрасывает пустые куски, join собирает слова через один пробел, title() делает первую букву каждого слова заглавной."
+    tests:
+      - name: "Пример"
+        stdin: "   иВАНОВ    иван   \n"
+        stdout: "Иванов Иван"
+      - name: "Три слова"
+        stdin: "ада лавлейс байрон\n"
+        stdout: "Ада Лавлейс Байрон"
+      - name: "Уже нормальное"
+        stdin: "Пётр Петров\n"
+        stdout: "Пётр Петров"
+      - name: "Одно слово"
+        stdin: "  ГВИДО  \n"
+        stdout: "Гвидо"
+      - name: "Табуляции"
+        stdin: "\tада\t\tлавлейс\n"
+        stdout: "Ада Лавлейс"
+
+  - id: t2
+    title: "Сумма чисел с запятой"
+    difficulty: 2
+    statement: |
+      Программа читает строку дробных чисел в русском формате, разделённых точкой с запятой, например `3,5; 2,25;10`. Пробелы вокруг чисел могут быть, а могут не быть.
+      Выведите сумму, округлённую до 2 знаков.
+    examples:
+      - input: "3,5; 2,25;10"
+        output: "15.75"
+    starter: |
+      line = input()
+      total = 0
+    hints:
+      - "Разбейте по `;`, у каждого куска уберите пробелы `strip()` и замените запятую на точку."
+      - "Затем `float(...)` и накопитель суммы."
+    solution: |
+      line = input()
+      total = 0
+      for part in line.split(";"):
+          total += float(part.strip().replace(",", "."))
+      print(round(total, 2))
+    solution_explanation: "split(\";\") даёт куски с возможными пробелами, strip() их убирает, replace() превращает русскую запятую в точку, понятную float()."
+    tests:
+      - name: "Пример"
+        stdin: "3,5; 2,25;10\n"
+        stdout: "15.75"
+      - name: "Одно число"
+        stdin: "1,5\n"
+        stdout: "1.5"
+      - name: "Целые"
+        stdin: "1;2;3\n"
+        stdout: "6.0"
+      - name: "Отрицательные"
+        stdin: " -1,5 ; 0,5 \n"
+        stdout: "-1.0"
+      - name: "Округление"
+        stdin: "0,333;0,333;0,333\n"
+        stdout: "1.0"
+
+  - id: t3
+    title: "Расширение файла"
+    difficulty: 2
+    statement: |
+      Программа читает имя файла и выводит его расширение в нижнем регистре (часть после **последней** точки). Если точки нет или она стоит в самом начале (скрытый файл вроде `.env`), выведите `нет расширения`.
+    examples:
+      - input: "Report.PDF"
+        output: "pdf"
+      - input: "archive.tar.gz"
+        output: "gz"
+      - input: "README"
+        output: "нет расширения"
+    starter: |
+      filename = input()
+      dot = filename.rfind(".")
+      print(filename[dot + 1:])
+    hints:
+      - "rfind вернёт −1, если точки нет, и 0, если точка первая."
+      - "Расширение есть только при `dot > 0`."
+    solution: |
+      filename = input()
+      dot = filename.rfind(".")
+      if dot > 0:
+          print(filename[dot + 1:].lower())
+      else:
+          print("нет расширения")
+    solution_explanation: "rfind находит последнюю точку. Проверка `dot > 0` отсекает и «не найдено» (−1), и скрытые файлы (точка на позиции 0)."
+    tests:
+      - name: "PDF"
+        stdin: "Report.PDF\n"
+        stdout: "pdf"
+      - name: "Две точки"
+        stdin: "archive.tar.gz\n"
+        stdout: "gz"
+      - name: "Без точки"
+        stdin: "README\n"
+        stdout: "нет расширения"
+      - name: "Скрытый файл"
+        stdin: ".env\n"
+        stdout: "нет расширения"
+      - name: "Точка в имени"
+        stdin: "data.v2.Csv\n"
+        stdout: "csv"
+
+  - id: t4
+    title: "Очистка ответа модели"
+    difficulty: 2
+    statement: |
+      Модель вернула ответ, обёрнутый в разметку кода. Программа читает строку ответа и выводит очищенный текст:
+
+      1. убрать пробелы по краям;
+      2. убрать в начале ```` ```json ```` или ```` ``` ```` (если есть);
+      3. убрать в конце ```` ``` ```` (если есть);
+      4. снова убрать пробелы по краям.
+    examples:
+      - input: '  ```json {"ok": true} ```  '
+        output: '{"ok": true}'
+      - input: "просто текст"
+        output: "просто текст"
+    starter: |
+      response = input()
+      print(response.strip("`"))
+    hints:
+      - "`strip(\"`\")` убрал бы и обратные кавычки внутри текста на краях, а «json» оставил бы. Используйте `removeprefix` и `removesuffix`."
+      - "Порядок: `strip()` → `removeprefix(\"```json\")` → `removeprefix(\"```\")` → `removesuffix(\"```\")` → `strip()`."
+    solution: |
+      response = input()
+      cleaned = response.strip()
+      cleaned = cleaned.removeprefix("```json").removeprefix("```")
+      cleaned = cleaned.removesuffix("```")
+      print(cleaned.strip())
+    solution_explanation: "removeprefix/removesuffix удаляют конкретную подстроку и только если она есть. Сначала пробуем более длинный префикс «```json», затем просто «```». Финальный strip убирает пробелы, оставшиеся после маркеров."
+    tests:
+      - name: "JSON в разметке"
+        stdin: "  ```json {\"ok\": true} ```  \n"
+        stdout: "{\"ok\": true}"
+      - name: "Без разметки"
+        stdin: "просто текст\n"
+        stdout: "просто текст"
+      - name: "Разметка без языка"
+        stdin: "```ответ```\n"
+        stdout: "ответ"
+      - name: "Только открывающий маркер"
+        stdin: "```json [1, 2, 3]\n"
+        stdout: "[1, 2, 3]"
+      - name: "Обратные кавычки внутри сохраняются"
+        stdin: "``` используйте `print` ```\n"
+        stdout: "используйте `print`"

@@ -1,0 +1,583 @@
+questions:
+  - id: q1
+    type: multiple
+    prompt: "Какие имена соответствуют PEP 8? Выберите все."
+    options:
+      - text: "Функция `count_tokens`"
+        correct: true
+        why: "Функции — snake_case."
+      - text: "Класс `RateLimiter`"
+        correct: true
+        why: "Классы — CapWords."
+      - text: "Константа `MAX_RETRIES`"
+        correct: true
+        why: "Константы — UPPER_SNAKE_CASE."
+      - text: "Функция `GetResponse`"
+        why: "CapWords — для классов; функция должна называться get_response."
+      - text: "Переменная `list = [1, 2]`"
+        why: "Формально snake_case, но закрывает встроенную функцию list."
+    explanation: "snake_case — функции и переменные, CapWords — классы, UPPER_CASE — константы; не перекрывайте встроенные имена."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def merge(overrides, defaults={"model": "mini"}):
+          result = defaults
+          result.update(overrides)
+          return result
+
+      merge({"model": "large"})
+      print(merge({}))
+    options:
+      - text: "`{'model': 'large'}`"
+        correct: true
+        why: "Словарь по умолчанию один на все вызовы, а result — не копия, а тот же объект; первый вызов его изменил."
+      - text: "`{'model': 'mini'}`"
+        why: "Значение по умолчанию создаётся один раз и уже изменено первым вызовом."
+      - text: "`{}`"
+        why: "update добавляет пустой словарь — ничего не меняет."
+    explanation: "Два бага сразу: изменяемое значение по умолчанию (B006) и присваивание вместо копирования. Правильно: defaults=None и result = dict(defaults or {})."
+
+  - id: q3
+    type: find_bug
+    prompt: "Что не так с этим кодом (и что скажет линтер)?"
+    code: |
+      def ask(client, prompt):
+          try:
+              return client.complete(prompt)
+          except:
+              return ""
+    options:
+      - text: "Голый except (E722) ловит всё — даже KeyboardInterrupt и опечатки в коде — и молча возвращает пустую строку"
+        correct: true
+        why: "Ловите конкретные исключения (например, ошибки сети) и логируйте их."
+      - text: "return внутри try запрещён"
+        why: "Это допустимо."
+      - text: "Функция должна называться Ask"
+        why: "Функции — snake_case; ask — правильно."
+    explanation: "except: без типа прячет настоящие ошибки."
+
+  - id: q4
+    type: single
+    prompt: "Чем линтер отличается от форматтера?"
+    options:
+      - text: "Форматтер меняет только внешний вид кода, линтер находит проблемы: стиль, вероятные баги, неиспользуемые имена"
+        correct: true
+        why: "ruff format — форматтер, ruff check — линтер."
+      - text: "Линтер запускает код, форматтер — нет"
+        why: "Оба анализируют код без запуска."
+      - text: "Это одно и то же"
+        why: "Задачи разные, хотя ruff умеет и то, и другое."
+      - text: "Форматтер исправляет логические ошибки"
+        why: "Форматтер не меняет поведение кода."
+    explanation: "Форматирование безопасно автоматизировать полностью; часть замечаний линтера требует решения человека."
+
+  - id: q5
+    type: single
+    prompt: "Что делает pre-commit после `pre-commit install`?"
+    options:
+      - text: "Перед каждым `git commit` запускает настроенные проверки на изменённых файлах и не даёт закоммитить при ошибках"
+        correct: true
+        why: "Хуки из .pre-commit-config.yaml подключаются к git."
+      - text: "Отправляет код на сервер для проверки"
+        why: "Проверки выполняются локально; на сервере работает CI."
+      - text: "Автоматически делает коммит после каждого сохранения файла"
+        why: "pre-commit ничего не коммитит сам."
+    explanation: "pre-commit — локальная проверка, CI — обязательная на сервере."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Answer:
+          def __init__(self, text):
+              self.text = text
+
+          def __eq__(self, other):
+              return not self.text
+
+      empty = Answer("")
+      print(empty == None, empty is None)
+    options:
+      - text: "`True False`"
+        correct: true
+        why: "== вызывает переопределённый __eq__, а is проверяет, тот ли это объект."
+      - text: "`False False`"
+        why: "__eq__ возвращает True для пустого текста — и при сравнении с None тоже."
+      - text: "`True True`"
+        why: "empty — объект Answer, а не None."
+    explanation: "Поэтому PEP 8 требует сравнивать с None через is."
+
+tasks:
+  - id: t1
+    title: "Проверка имён по PEP 8"
+    difficulty: 2
+    statement: |
+      Напишите `check_names(source)` — найти в исходном коде имена, нарушающие PEP 8. Используйте модуль `ast` (`ast.parse`, `ast.walk`). Вернуть список строк `"<строка>: <вид> <имя>"`, отсортированный по номеру строки (при равенстве — по столбцу):
+
+      | Что проверяем | Вид | Допустимо |
+      |---|---|---|
+      | функции и методы (`def`, `async def`) | `функция` | snake_case или «дандер» (`__init__`) |
+      | аргументы функций | `аргумент` | snake_case |
+      | классы | `класс` | CapWords |
+      | имена, которым присваивают на **верхнем уровне** модуля (`x = ...`) | `переменная` | snake_case или UPPER_SNAKE_CASE |
+
+      Шаблоны: snake_case — `^_*[a-z][a-z0-9_]*$`, CapWords — `^_*[A-Z][a-zA-Z0-9]*$`, UPPER_SNAKE_CASE — `^_*[A-Z][A-Z0-9_]*$`, дандер — `^__[a-z][a-z0-9_]*__$`. Аргументы `self` и `cls` подходят под snake_case сами.
+    examples:
+      - input: "check_names('def GetData(Url):\\n    pass')"
+        output: "['1: функция GetData', '1: аргумент Url']"
+    starter: |
+      import ast
+
+
+      def check_names(source):
+          return []
+    hints:
+      - "`for node in ast.walk(tree)`: `isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))` — имя `node.name`, аргументы `node.args.posonlyargs + node.args.args + node.args.kwonlyargs` (а также `node.args.vararg`, `node.args.kwarg`, если не `None`); у аргумента есть `.arg`, `.lineno`, `.col_offset`."
+      - "Переменные верхнего уровня — только `tree.body`: узлы `ast.Assign` (цели в `node.targets`) и `ast.AnnAssign` (`node.target`), если цель — `ast.Name` (`.id`). Собирайте тройки `(lineno, col_offset, текст)` и отсортируйте."
+    solution: |
+      import ast
+      import re
+
+      SNAKE = re.compile(r"^_*[a-z][a-z0-9_]*$")
+      CAP_WORDS = re.compile(r"^_*[A-Z][a-zA-Z0-9]*$")
+      UPPER = re.compile(r"^_*[A-Z][A-Z0-9_]*$")
+      DUNDER = re.compile(r"^__[a-z][a-z0-9_]*__$")
+
+
+      def check_names(source):
+          """Имена, нарушающие соглашения PEP 8."""
+          tree = ast.parse(source)
+          problems = []
+
+          def report(node, kind, name):
+              problems.append((node.lineno, node.col_offset, f"{node.lineno}: {kind} {name}"))
+
+          for node in ast.walk(tree):
+              if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                  if not (SNAKE.match(node.name) or DUNDER.match(node.name)):
+                      report(node, "функция", node.name)
+                  args = node.args
+                  all_args = args.posonlyargs + args.args + args.kwonlyargs
+                  all_args += [arg for arg in (args.vararg, args.kwarg) if arg is not None]
+                  for arg in all_args:
+                      if not SNAKE.match(arg.arg):
+                          report(arg, "аргумент", arg.arg)
+              elif isinstance(node, ast.ClassDef) and not CAP_WORDS.match(node.name):
+                  report(node, "класс", node.name)
+
+          for node in tree.body:
+              targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+              for target in targets:
+                  if isinstance(target, ast.Name) and not (SNAKE.match(target.id) or UPPER.match(target.id)):
+                      report(target, "переменная", target.id)
+          return [text for _, _, text in sorted(problems)]
+    solution_explanation: "ast превращает код в дерево узлов, не выполняя его: так работают линтеры. ast.walk обходит все узлы (включая методы классов), а переменные верхнего уровня берутся только из tree.body. Сортировка по (строка, столбец) даёт стабильный порядок."
+    tests:
+      - name: "Пример"
+        call: "check_names('def GetData(Url):\\n    pass')"
+        expected: "['1: функция GetData', '1: аргумент Url']"
+      - name: "Правильный код"
+        code: |
+          source = '''
+          MAX_RETRIES = 3
+          default_model = "mini"
+          _cache: dict = {}
+
+
+          class LLMClient:
+              def __init__(self, api_key, *args, timeout=30, **kwargs):
+                  self.api_key = api_key
+
+              async def complete(self, prompt):
+                  local_Name = prompt
+                  return local_Name
+
+              @classmethod
+              def from_env(cls):
+                  return cls("key")
+          '''
+          assert check_names(source) == [], check_names(source)
+      - name: "Класс и метод"
+        code: |
+          source = "class text_stats:\n    def Longest(self, MinLen):\n        pass\n"
+          assert check_names(source) == ["1: класс text_stats", "2: функция Longest", "2: аргумент MinLen"], check_names(source)
+      - name: "Переменные верхнего уровня"
+        code: |
+          source = "maxTokens = 100\nModel: str = 'mini'\nA, b = 1, 2\nok_name = 1\nTIMEOUT_S = 5\n"
+          assert check_names(source) == ["1: переменная maxTokens", "2: переменная Model"], check_names(source)
+      - name: "Сортировка по строкам"
+        code: |
+          source = "def ok():\n    pass\n\n\nclass bad_class:\n    pass\n\n\nBadVar = 1\n\n\ndef Bad(*Args, **KW):\n    pass\n"
+          assert check_names(source) == [
+              "5: класс bad_class",
+              "9: переменная BadVar",
+              "12: функция Bad",
+              "12: аргумент Args",
+              "12: аргумент KW",
+          ], check_names(source)
+
+  - id: t2
+    title: "Мини-линтер"
+    difficulty: 2
+    statement: |
+      Напишите `lint(source, max_length=88)` — простой построчный линтер. Вернуть список строк `"<строка>:<код> <сообщение>"`, отсортированный по номеру строки, а внутри строки — по коду:
+
+      | Код | Условие | Сообщение |
+      |---|---|---|
+      | `E501` | длина строки больше `max_length` | `строка длиннее {max_length} ({длина})` |
+      | `E711` | в строке (без комментария после `#`) есть `== None` или `!= None` (пробелы вокруг оператора не важны) | `сравнение с None через ==/!=` |
+      | `E722` | строка — голый `except:` (с любым отступом и пробелами перед двоеточием) | `голый except` |
+      | `W191` | в начальном отступе есть табуляция | `табуляция в отступе` |
+      | `W291` | непустая строка заканчивается пробелами или табуляцией | `пробелы в конце строки` |
+      | `W292` | непустой файл не заканчивается переводом строки (номер — последняя строка) | `нет перевода строки в конце файла` |
+
+      Строки нумеруются с 1; разбивайте текст через `source.split("\n")`.
+    examples:
+      - input: "lint('if x == None:\\n    pass\\n')"
+        output: "['1:E711 сравнение с None через ==/!=']"
+    starter: |
+      def lint(source, max_length=88):
+          problems = []
+          for number, line in enumerate(source.split("\n"), start=1):
+              if len(line) > max_length:
+                  problems.append(f"{number}:E501 строка длиннее {max_length} ({len(line)})")
+          return problems
+    hints:
+      - "E711: `re.search(r\"[=!]=\\s*None\\b\", line.split(\"#\")[0])`; E722: `re.match(r\"\\s*except\\s*:\", line)`; W191: начальный отступ — `line[:len(line) - len(line.lstrip())]`."
+      - "Собирайте пары `(номер, код, сообщение)`, сортируйте и только потом превращайте в строки. W292: `if source and not source.endswith(\"\\n\")` — номер равен числу строк."
+    solution: |
+      import re
+
+
+      def lint(source, max_length=88):
+          """Построчные замечания по стилю."""
+          lines = source.split("\n")
+          problems = []
+          for number, line in enumerate(lines, start=1):
+              if len(line) > max_length:
+                  problems.append((number, "E501", f"строка длиннее {max_length} ({len(line)})"))
+              if re.search(r"[=!]=\s*None\b", line.split("#")[0]):
+                  problems.append((number, "E711", "сравнение с None через ==/!="))
+              if re.match(r"\s*except\s*:", line):
+                  problems.append((number, "E722", "голый except"))
+              indent = line[:len(line) - len(line.lstrip())]
+              if "\t" in indent and line.strip():
+                  problems.append((number, "W191", "табуляция в отступе"))
+              if line.strip() and line != line.rstrip(" \t"):
+                  problems.append((number, "W291", "пробелы в конце строки"))
+          if source and not source.endswith("\n"):
+              problems.append((len(lines), "W292", "нет перевода строки в конце файла"))
+          return [f"{number}:{code} {message}" for number, code, message in sorted(problems)]
+    solution_explanation: "Каждое правило — отдельная проверка строки; результаты собираются кортежами, чтобы отсортировать их по строке и коду. Настоящие линтеры работают с токенами и деревом разбора, поэтому не ошибаются на «None» внутри строк — у нашей упрощённой версии такие ограничения есть."
+    tests:
+      - name: "Пример"
+        call: "lint('if x == None:\\n    pass\\n')"
+        expected: "['1:E711 сравнение с None через ==/!=']"
+      - name: "Длина строки"
+        call: "lint('x = 1\\n' + 'y = \"' + 'a' * 90 + '\"\\n', max_length=88)"
+        expected: "['2:E501 строка длиннее 88 (96)']"
+      - name: "Несколько правил в одной строке"
+        call: "lint('\\tif value != None:  \\n')"
+        expected: "['1:E711 сравнение с None через ==/!=', '1:W191 табуляция в отступе', '1:W291 пробелы в конце строки']"
+      - name: "except и комментарии"
+        call: "lint('try:\\n    run()\\nexcept :\\n    pass  # x == None\\nexcept ValueError:\\n    pass\\n')"
+        expected: "['3:E722 голый except']"
+      - name: "Нет перевода строки в конце"
+        call: "lint('a = 1\\nb = 2')"
+        expected: "['2:W292 нет перевода строки в конце файла']"
+      - name: "Чистый код и пустой файл"
+        call: "(lint('def f(x):\\n    return x is None\\n'), lint(''))"
+        expected: "([], [])"
+      - name: "is None и NoneType не путаются"
+        call: "lint('a = b == NoneType\\nc = d==None\\n')"
+        expected: "['2:E711 сравнение с None через ==/!=']"
+
+  - id: t3
+    title: "Сортировка импортов"
+    difficulty: 2
+    statement: |
+      Напишите `sort_imports(source, first_party=())` — упрощённый isort. `source` — строки импортов вида `import a`, `import a, b`, `import a.b`, `from a import x, y` (и пустые строки). Вернуть отсортированный текст:
+
+      - `import a, b` разбивается на отдельные строки; несколько `from m import ...` для одного модуля объединяются в одну строку, имена в ней — без повторов, по алфавиту без учёта регистра; одинаковые `import x` не дублируются;
+      - три группы через одну пустую строку (пустые группы пропускаются): **стандартная библиотека** (верхний модуль есть в `sys.stdlib_module_names`), **сторонние** (все остальные), **свой проект** (верхний модуль в `first_party`);
+      - внутри группы сначала все `import ...`, потом все `from ... import ...`; и те, и другие — по имени модуля без учёта регистра;
+      - результат заканчивается переводом строки; если импортов нет — пустая строка `""`.
+    examples:
+      - input: "sort_imports('import httpx\\nimport os, json\\n')"
+        output: "'import json\\nimport os\\n\\nimport httpx\\n'"
+    starter: |
+      def sort_imports(source, first_party=()):
+          lines = [line for line in source.splitlines() if line.strip()]
+          return "\n".join(sorted(lines)) + "\n"
+    hints:
+      - "Разбор: `import` — `line[7:].split(\",\")`; `from` — `module, names = line[5:].split(\" import \")`. Храните для каждой группы множество модулей для `import` и словарь `модуль → множество имён` для `from`."
+      - "Группа по верхнему модулю `name.split(\".\")[0]`: сначала проверьте `first_party`, потом `sys.stdlib_module_names`. Сборка: `sorted(..., key=str.lower)`, группы — через `\"\\n\\n\".join(...)`."
+    solution: |
+      import sys
+
+
+      def _group(module, first_party):
+          top = module.split(".")[0]
+          if top in first_party:
+              return 2
+          if top in sys.stdlib_module_names:
+              return 0
+          return 1
+
+
+      def sort_imports(source, first_party=()):
+          """Отсортировать импорты по группам, как isort."""
+          plain = [set(), set(), set()]
+          from_imports = [{}, {}, {}]
+          for line in source.splitlines():
+              line = line.strip()
+              if line.startswith("import "):
+                  for module in line[len("import "):].split(","):
+                      module = module.strip()
+                      plain[_group(module, first_party)].add(module)
+              elif line.startswith("from "):
+                  module, names = line[len("from "):].split(" import ")
+                  module = module.strip()
+                  group = from_imports[_group(module, first_party)]
+                  group.setdefault(module, set()).update(name.strip() for name in names.split(","))
+          blocks = []
+          for index in range(3):
+              lines = [f"import {module}" for module in sorted(plain[index], key=str.lower)]
+              for module in sorted(from_imports[index], key=str.lower):
+                  names = sorted(from_imports[index][module], key=str.lower)
+                  lines.append(f"from {module} import {', '.join(names)}")
+              if lines:
+                  blocks.append("\n".join(lines))
+          return "\n\n".join(blocks) + "\n" if blocks else ""
+    solution_explanation: "Сначала импорты разбираются в структуры по группам (множества убирают повторы, словарь объединяет from-импорты одного модуля), затем каждая группа собирается в отсортированном виде. Так же устроены isort и правило I001 в ruff, только они работают с полным синтаксисом."
+    tests:
+      - name: "Пример"
+        call: "sort_imports('import httpx\\nimport os, json\\n')"
+        expected: "'import json\\nimport os\\n\\nimport httpx\\n'"
+      - name: "Три группы и from"
+        code: |
+          source = """from fxcli.models import Rates
+          import httpx
+          from pathlib import Path
+          import logging
+          from pydantic import BaseModel, Field
+          import fxcli.cache
+          import json
+          """
+          expected = """import json
+          import logging
+          from pathlib import Path
+
+          import httpx
+          from pydantic import BaseModel, Field
+
+          import fxcli.cache
+          from fxcli.models import Rates
+          """
+          import textwrap
+          result = sort_imports(textwrap.dedent(source), first_party={"fxcli"})
+          assert result == textwrap.dedent(expected), result
+      - name: "Объединение from и повторы"
+        call: "sort_imports('from typing import Optional\\nimport os\\nfrom typing import Any, optional_x\\nimport os\\nfrom typing import Optional\\n')"
+        expected: "'import os\\nfrom typing import Any, Optional, optional_x\\n'"
+      - name: "Порядок без учёта регистра"
+        call: "sort_imports('import Zeta\\nimport alpha\\nimport Beta\\n')"
+        expected: "'import alpha\\nimport Beta\\nimport Zeta\\n'"
+      - name: "Подмодули стандартной библиотеки"
+        call: "sort_imports('import os.path\\nimport numpy\\nfrom urllib.parse import urlencode\\n')"
+        expected: "'import os.path\\nfrom urllib.parse import urlencode\\n\\nimport numpy\\n'"
+      - name: "Пусто"
+        call: "sort_imports('\\n\\n')"
+        expected: "''"
+
+  - id: t4
+    title: "Навести порядок с ruff и pre-commit"
+    mode: local
+    difficulty: 1
+    statement: |
+      Скачайте архив. В нём `messy.py` — работающий, но неряшливый модуль, `pyproject.toml` с настройками ruff и тесты `test_style.py` (их не меняйте). Задание:
+
+      1. Запустите `ruff check messy.py --fix` и `ruff format messy.py` — часть замечаний исчезнет.
+      2. Остальное исправьте вручную: имена по PEP 8 (тесты ждут `normalize_text`, `count_words`, `load_texts`, класс `TextStats` с методом `longest`), изменяемое значение по умолчанию, голый `except`, сравнение с `None`, неиспользуемую переменную цикла. Поведение функций сохраните (его проверяют тесты). Комментарии `# noqa` использовать нельзя.
+      3. Создайте `.pre-commit-config.yaml` с хуками `ruff` и `ruff-format` из репозитория `https://github.com/astral-sh/ruff-pre-commit`. Если ваш проект уже в git — выполните `pre-commit install`.
+
+      ```bash
+      pip install ruff pytest pre-commit
+      ruff check messy.py
+      pytest -q
+      ```
+    files:
+      messy.py: |
+        import os, sys
+        import json
+        from typing import List, Optional
+        def Normalize_Text(text):
+            return " ".join(text.split()).lower()
+        def count_words(texts: List[str], stop_words = []) -> dict:
+            counts = {}
+            for t in texts:
+                for word in Normalize_Text(t).split():
+                    if word in stop_words: continue
+                    counts[word] = counts.get(word, 0)+1
+            return counts
+        def load_texts(path: str) -> Optional[List[str]]:
+            try:
+                data = json.load(open(path, encoding = "utf-8"))
+            except:
+                return None
+            if data == None:
+                return None
+            return [str(item) for item in data]
+        class text_stats:
+            def __init__(self, texts):
+                self.texts = texts
+            def Longest(self):
+                result = None
+                for i, t in enumerate(self.texts):
+                    if result == None or len(t) > len(result):
+                        result = t
+                return result
+      pyproject.toml: |
+        [tool.ruff]
+        line-length = 100
+        target-version = "py311"
+
+        [tool.ruff.lint]
+        select = ["E", "F", "W", "I", "B", "N", "UP"]
+      test_style.py: |
+        """Проверки задания. Не меняйте этот файл."""
+        import json
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        import pytest
+
+        HERE = Path(__file__).parent
+
+
+        def ruff(*args):
+            return subprocess.run([sys.executable, "-m", "ruff", *args], cwd=HERE, capture_output=True, text=True)
+
+
+        def test_ruff_check_clean():
+            result = ruff("check", "messy.py")
+            assert result.returncode == 0, result.stdout
+
+
+        def test_ruff_format_clean():
+            result = ruff("format", "--check", "messy.py")
+            assert result.returncode == 0, "Запустите: ruff format messy.py"
+
+
+        def test_no_noqa():
+            assert "noqa" not in (HERE / "messy.py").read_text(encoding="utf-8"), "Исправьте код, а не отключайте проверки"
+
+
+        def test_normalize_text():
+            from messy import normalize_text
+
+            assert normalize_text("  Привет   МИР ") == "привет мир"
+
+
+        def test_count_words():
+            from messy import count_words
+
+            assert count_words(["a b a", "B c"], stop_words={"c"}) == {"a": 2, "b": 2}
+            assert count_words(["x y"]) == {"x": 1, "y": 1}
+            assert count_words([]) == {}
+
+
+        def test_load_texts(tmp_path):
+            from messy import load_texts
+
+            good = tmp_path / "good.json"
+            good.write_text(json.dumps(["один", 2]), encoding="utf-8")
+            broken = tmp_path / "broken.json"
+            broken.write_text("{не json", encoding="utf-8")
+            null = tmp_path / "null.json"
+            null.write_text("null", encoding="utf-8")
+            assert load_texts(str(good)) == ["один", "2"]
+            assert load_texts(str(broken)) is None
+            assert load_texts(str(null)) is None
+            assert load_texts(str(tmp_path / "missing.json")) is None
+
+
+        def test_text_stats():
+            from messy import TextStats
+
+            assert TextStats(["a", "ccc", "bb", "ddd"]).longest() == "ccc"
+            assert TextStats([]).longest() is None
+
+
+        def test_pre_commit_config():
+            path = HERE / ".pre-commit-config.yaml"
+            assert path.exists(), "Создайте .pre-commit-config.yaml"
+            text = path.read_text(encoding="utf-8")
+            assert "astral-sh/ruff-pre-commit" in text
+            assert "id: ruff-format" in text
+            assert "id: ruff\n" in text or "id: ruff " in text or "id: ruff\r" in text, "Нужен хук ruff (линтер)"
+    run: "pytest -q"
+    hints:
+      - "`ruff check messy.py --fix` уберёт лишние импорты, отсортирует их и заменит `List`/`Optional` на `list`/`| None`; `ruff check messy.py` покажет, что осталось: коды N802, N801, B006, E722, E711, E701, B007."
+      - "`stop_words=None` и внутри `stop_words = stop_words or set()`; `except (OSError, json.JSONDecodeError):`; `if data is None:`; `for text in self.texts:`. Файл открывайте через `with`."
+    solution_files:
+      messy.py: |
+        """Подсчёт слов и статистика по текстам."""
+
+        import json
+
+
+        def normalize_text(text: str) -> str:
+            """Убрать лишние пробелы и привести к нижнему регистру."""
+            return " ".join(text.split()).lower()
+
+
+        def count_words(texts: list[str], stop_words: set[str] | None = None) -> dict[str, int]:
+            """Частоты слов без стоп-слов."""
+            stop_words = stop_words or set()
+            counts: dict[str, int] = {}
+            for text in texts:
+                for word in normalize_text(text).split():
+                    if word in stop_words:
+                        continue
+                    counts[word] = counts.get(word, 0) + 1
+            return counts
+
+
+        def load_texts(path: str) -> list[str] | None:
+            """Прочитать список текстов из JSON; при ошибке — None."""
+            try:
+                with open(path, encoding="utf-8") as file:
+                    data = json.load(file)
+            except (OSError, json.JSONDecodeError):
+                return None
+            if data is None:
+                return None
+            return [str(item) for item in data]
+
+
+        class TextStats:
+            """Статистика по набору текстов."""
+
+            def __init__(self, texts: list[str]) -> None:
+                self.texts = texts
+
+            def longest(self) -> str | None:
+                """Самый длинный текст (первый при равенстве)."""
+                result = None
+                for text in self.texts:
+                    if result is None or len(text) > len(result):
+                        result = text
+                return result
+      .pre-commit-config.yaml: |
+        repos:
+          - repo: https://github.com/astral-sh/ruff-pre-commit
+            rev: v0.6.9
+            hooks:
+              - id: ruff
+                args: [--fix]
+              - id: ruff-format
+    solution_explanation: "Автоматические исправления ruff убирают мусор и модернизируют аннотации, а оставшиеся замечания — это как раз то, что требует понимания: переименования с сохранением поведения, None вместо изменяемого значения по умолчанию, конкретные исключения вместо голого except. pre-commit закрепляет результат: неряшливый код больше не попадёт в коммит."

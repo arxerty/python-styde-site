@@ -1,0 +1,582 @@
+questions:
+  - id: q1
+    type: multiple
+    prompt: "Какие функции и файлы pytest найдёт и запустит по умолчанию? Выберите все."
+    options:
+      - text: "Функцию `test_parse` в файле `test_parser.py`"
+        correct: true
+        why: "Файл test_*.py, функция test*."
+      - text: "Функцию `test_cost` в файле `cost_test.py`"
+        correct: true
+        why: "*_test.py тоже подходит."
+      - text: "Функцию `check_parse` в файле `test_parser.py`"
+        why: "Имя функции должно начинаться с test."
+      - text: "Функцию `test_parse` в файле `parser_tests.py`"
+        why: "Ни test_*.py, ни *_test.py — файл пропускается."
+    explanation: "Если pytest пишет «collected 0 items» — проверьте имена файлов и функций."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def test_sum():
+          assert sum([1, 2, 3]) == 6
+          assert sum([]) == 1, "пустая сумма"
+          print("конец теста")
+
+      try:
+          test_sum()
+          print("прошёл")
+      except AssertionError as error:
+          print("упал:", error)
+    options:
+      - text: "`упал: пустая сумма`"
+        correct: true
+        why: "sum([]) == 0, второй assert бросает AssertionError с сообщением."
+      - text: "`конец теста` и `прошёл`"
+        why: "Выполнение останавливается на первом ложном assert."
+      - text: "`упал: `"
+        why: "Сообщение после запятой становится текстом исключения."
+    explanation: "Тест падает на первом ложном assert, остальные строки не выполняются."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему этот тест никогда не падает?"
+    code: |
+      def test_tokens():
+          result = count_tokens("a b c")
+          assert (result == 4, "ожидали 4 токена")
+    options:
+      - text: "В скобках — кортеж из двух элементов, а непустой кортеж всегда истинен"
+        correct: true
+        why: "Правильно: assert result == 4, \"ожидали 4 токена\" — без скобок."
+      - text: "assert нельзя использовать внутри функций"
+        why: "Можно — это обычная инструкция."
+      - text: "Сообщение должно быть f-строкой"
+        why: "Подойдёт любая строка; проблема в скобках."
+    explanation: "Python даже предупреждает: «assertion is always true, perhaps remove parentheses?»."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import pytest
+
+      def check(value):
+          if value < 0:
+              raise ValueError("отрицательное")
+          return value
+
+      try:
+          with pytest.raises(ValueError):
+              check(5)
+          print("A")
+      except BaseException as error:
+          print("B", type(error).__name__)
+    options:
+      - text: "`B Failed`"
+        correct: true
+        why: "Исключения не было — pytest.raises сообщает об ошибке теста (DID NOT RAISE) своим исключением Failed."
+      - text: "`A`"
+        why: "pytest.raises требует, чтобы исключение произошло."
+      - text: "`B ValueError`"
+        why: "check(5) не бросает ValueError."
+    explanation: "Если ожидаемого исключения нет, тест падает с DID NOT RAISE."
+
+  - id: q5
+    type: single
+    prompt: "Как правильно проверить, что функция метрики вернула 0.3 при вычислениях с float?"
+    options:
+      - text: "`assert result == pytest.approx(0.3)`"
+        correct: true
+        why: "approx сравнивает с допустимой погрешностью."
+      - text: "`assert result == 0.3`"
+        why: "0.1 + 0.2 != 0.3 — тест может упасть из-за погрешности."
+      - text: "`assert str(result) == \"0.3\"`"
+        why: "str(0.1 + 0.2) == '0.30000000000000004'."
+      - text: "`assert int(result * 10) == 3`"
+        why: "Отбрасывание дробной части даёт ошибки на границах (2.9999 → 2)."
+    explanation: "Для дробных чисел — pytest.approx (или math.isclose)."
+
+  - id: q6
+    type: multiple
+    prompt: "Что делает тест хорошим? Выберите все."
+    options:
+      - text: "Проверяет одно поведение и имеет говорящее имя"
+        correct: true
+        why: "По имени упавшего теста ясно, что сломалось."
+      - text: "Не зависит от других тестов и порядка запуска"
+        correct: true
+        why: "Тесты запускают по одному, в разном порядке, параллельно."
+      - text: "Детерминирован: без сети, текущего времени и неуправляемой случайности"
+        correct: true
+        why: "«Мигающий» тест подрывает доверие к набору."
+      - text: "Проверяет значения внутренних переменных функции"
+        why: "Тестируют поведение, а не реализацию — иначе рефакторинг ломает тесты."
+    explanation: "Arrange — Act — Assert, одно поведение, независимость, детерминированность."
+
+tasks:
+  - id: t1
+    title: "Тесты для truncate"
+    difficulty: 1
+    statement: |
+      Функция `truncate(text, limit, suffix="...")` **уже определена** — не переопределяйте её. Она работает так:
+
+      - если `len(text) <= limit` — возвращает `text` без изменений;
+      - иначе обрезает текст так, чтобы вместе с `suffix` длина была ровно `limit`: `text[:limit - len(suffix)] + suffix`;
+      - если `limit < len(suffix)` — бросает `ValueError`.
+
+      Напишите **не меньше трёх** тестовых функций `test_...` с `assert`. Проверка: ваши тесты должны проходить на правильной функции и **падать** на её версиях с типичными ошибками (граница `<=`, длина результата, отсутствие проверки аргумента). Для проверки исключения используйте `pytest.raises` или `try/except`.
+    examples:
+      - input: "truncate('Привет, мир', 8)"
+        output: "'Приве...'"
+    setup: |
+      def truncate(text, limit, suffix="..."):
+          if limit < len(suffix):
+              raise ValueError("limit меньше длины suffix")
+          if len(text) <= limit:
+              return text
+          return text[:limit - len(suffix)] + suffix
+
+
+      _REFERENCE = truncate
+
+
+      def _mutant_boundary(text, limit, suffix="..."):
+          if limit < len(suffix):
+              raise ValueError("limit меньше длины suffix")
+          if len(text) < limit:
+              return text
+          return text[:limit - len(suffix)] + suffix
+
+
+      def _mutant_length(text, limit, suffix="..."):
+          if limit < len(suffix):
+              raise ValueError("limit меньше длины suffix")
+          if len(text) <= limit:
+              return text
+          return text[:limit] + suffix
+
+
+      def _mutant_no_check(text, limit, suffix="..."):
+          if len(text) <= limit:
+              return text
+          return text[:max(limit - len(suffix), 0)] + suffix
+
+
+      def _student_tests():
+          return [value for name, value in list(globals().items()) if name.startswith("test_") and callable(value)]
+
+
+      def _failures(implementation):
+          namespace = globals()
+          saved = namespace["truncate"]
+          namespace["truncate"] = implementation
+          failed = 0
+          try:
+              for test in _student_tests():
+                  try:
+                      test()
+                  except BaseException:  # pytest.raises сообщает о провале через BaseException
+                      failed += 1
+          finally:
+              namespace["truncate"] = saved
+          return failed
+    starter: |
+      def test_short_text_is_unchanged():
+          assert truncate("abc", 10) == "abc"
+    hints:
+      - "Проверьте текст длиной **ровно** `limit` — он должен вернуться без изменений; так ловится ошибка `<` вместо `<=`."
+      - "Для длинного текста проверьте и сам результат, и `len(result) == limit`; для `limit=2` проверьте `ValueError`: `with pytest.raises(ValueError): truncate(\"abcdef\", 2)`."
+    solution: |
+      import pytest
+
+
+      def test_short_text_is_unchanged():
+          assert truncate("abc", 10) == "abc"
+
+
+      def test_text_of_exact_limit_is_unchanged():
+          assert truncate("abcde", 5) == "abcde"
+
+
+      def test_long_text_is_cut_to_limit():
+          result = truncate("Привет, мир", 8)
+          assert result == "Приве..."
+          assert len(result) == 8
+
+
+      def test_custom_suffix():
+          assert truncate("abcdefgh", 5, suffix="…") == "abcd…"
+
+
+      def test_limit_smaller_than_suffix():
+          with pytest.raises(ValueError):
+              truncate("abcdef", 2)
+    solution_explanation: "Каждый тест проверяет отдельный класс случаев: короткий текст, граница limit, обрезку с проверкой длины, свой суффикс и ошибку аргумента. Именно на границе и на ошибочных аргументах чаще всего прячутся баги."
+    tests:
+      - name: "Не меньше трёх тестов"
+        code: |
+          assert len(_student_tests()) >= 3, f"Найдено тестов: {len(_student_tests())}"
+      - name: "Функция не переопределена"
+        code: |
+          assert truncate is _REFERENCE, "Не переопределяйте truncate — пишите только тесты"
+      - name: "Тесты проходят на правильной функции"
+        code: |
+          failed = _failures(_REFERENCE)
+          assert failed == 0, f"На правильной функции упало тестов: {failed}"
+      - name: "Ловят ошибку границы (< вместо <=)"
+        code: |
+          assert _failures(_mutant_boundary) > 0, "Ни один тест не заметил, что текст длины ровно limit обрезается"
+      - name: "Ловят неверную длину результата"
+        code: |
+          assert _failures(_mutant_length) > 0, "Ни один тест не заметил, что результат длиннее limit"
+      - name: "Ловят отсутствие ValueError"
+        code: |
+          assert _failures(_mutant_no_check) > 0, "Ни один тест не проверяет ValueError при limit < len(suffix)"
+
+  - id: t2
+    title: "Свой тест-раннер"
+    difficulty: 2
+    statement: |
+      Напишите `run_tests(namespace)` — упрощённый pytest. `namespace` — словарь имён (как `globals()`):
+
+      - тестами считаются **функции** (вызываемые объекты, но не классы), имя которых начинается с `test`; порядок — как в словаре;
+      - каждый тест вызывается без аргументов;
+      - результат — словарь:
+        - `"passed"` — список имён прошедших;
+        - `"failed"` — словарь `имя → str(исключения)` для упавших с `AssertionError`;
+        - `"errors"` — словарь `имя → "<Тип>: <сообщение>"` для упавших с другим исключением;
+        - `"summary"` — строка вида `"2 passed, 1 failed, 1 errors"` (части с нулём пропускаются; если тестов нет — `"no tests"`).
+    examples:
+      - input: "run_tests({'test_a': lambda: None, 'helper': lambda: 1/0})['summary']"
+        output: "'1 passed'"
+    starter: |
+      def run_tests(namespace):
+          passed = []
+          for name, value in namespace.items():
+              if name.startswith("test"):
+                  value()
+                  passed.append(name)
+          return {"passed": passed, "failed": {}, "errors": {}, "summary": f"{len(passed)} passed"}
+    hints:
+      - "Отбор: `callable(value) and not isinstance(value, type) and name.startswith(\"test\")`. Внутри — `try: value()` с двумя `except`: сначала `AssertionError`, потом `Exception`."
+      - "summary: соберите список частей `[f\"{n} passed\", ...]` только для ненулевых счётчиков и склейте через `\", \"`; пустой список → `\"no tests\"`."
+    solution: |
+      def run_tests(namespace):
+          """Найти и запустить тесты, вернуть отчёт."""
+          passed, failed, errors = [], {}, {}
+          for name, value in namespace.items():
+              if not name.startswith("test") or not callable(value) or isinstance(value, type):
+                  continue
+              try:
+                  value()
+              except AssertionError as error:
+                  failed[name] = str(error)
+              except Exception as error:
+                  errors[name] = f"{type(error).__name__}: {error}"
+              else:
+                  passed.append(name)
+          parts = [
+              f"{count} {label}"
+              for count, label in [(len(passed), "passed"), (len(failed), "failed"), (len(errors), "errors")]
+              if count
+          ]
+          return {"passed": passed, "failed": failed, "errors": errors, "summary": ", ".join(parts) or "no tests"}
+    solution_explanation: "Так в упрощённом виде работает pytest: находит тесты по имени, изолирует каждый в try/except, отличает провал проверки (AssertionError) от ошибки в самом тесте и собирает отчёт. Порядок except важен: AssertionError — подкласс Exception."
+    tests:
+      - name: "Пример"
+        call: "run_tests({'test_a': lambda: None, 'helper': lambda: 1/0})['summary']"
+        expected: "'1 passed'"
+      - name: "Все три исхода"
+        code: |
+          def test_ok():
+              assert 1 + 1 == 2
+          def test_fail():
+              assert 2 * 2 == 5, "математика сломалась"
+          def test_error():
+              {}["missing"]
+          report = run_tests({"test_ok": test_ok, "test_fail": test_fail, "test_error": test_error})
+          assert report["passed"] == ["test_ok"], report
+          assert report["failed"] == {"test_fail": "математика сломалась"}, report
+          assert report["errors"] == {"test_error": "KeyError: 'missing'"}, report
+          assert report["summary"] == "1 passed, 1 failed, 1 errors", report
+      - name: "Пропуск не-функций и классов"
+        code: |
+          class TestThing:
+              pass
+          calls = []
+          report = run_tests({"test_data": [1, 2], "TestThing": TestThing, "test_x": lambda: calls.append(1)})
+          assert report["passed"] == ["test_x"] and calls == [1], report
+      - name: "AssertionError без сообщения"
+        code: |
+          def test_bare():
+              assert False
+          report = run_tests({"test_bare": test_bare})
+          assert report["failed"] == {"test_bare": ""}, report
+          assert report["summary"] == "1 failed", report
+      - name: "Ошибка не останавливает раннер"
+        code: |
+          order = []
+          def test_1():
+              order.append(1)
+              raise RuntimeError("сбой")
+          def test_2():
+              order.append(2)
+          report = run_tests({"test_1": test_1, "test_2": test_2})
+          assert order == [1, 2] and report["summary"] == "1 passed, 1 errors", report
+      - name: "Нет тестов"
+        call: "run_tests({'x': 1})"
+        expected: "{'passed': [], 'failed': {}, 'errors': {}, 'summary': 'no tests'}"
+
+  - id: t3
+    title: "Свой pytest.raises"
+    difficulty: 3
+    statement: |
+      Реализуйте контекстный менеджер `raises(expected, match=None)` — упрощённый `pytest.raises`:
+
+      - `with raises(ValueError) as info:` — если внутри блока возникло исключение типа `expected` (или его подкласса), оно **подавляется**, а `info.value` — это исключение;
+      - если исключения не было — бросить `AssertionError` с текстом `"DID NOT RAISE <ИмяТипа>"`;
+      - если возникло исключение **другого** типа — оно проходит наружу без изменений;
+      - если задан `match` и подстроки `match` нет в `str(исключения)` — бросить `AssertionError` с текстом `"'<match>' not in '<сообщение>'"`.
+
+      Используйте класс с `__enter__`/`__exit__` (блок 2.4).
+    examples:
+      - input: "check_value_error()"
+        output: "\"invalid literal for int() with base 10: 'x'\""
+    setup: |
+      def check_value_error():
+          with raises(ValueError) as info:
+              int("x")
+          return str(info.value)
+    starter: |
+      class raises:
+          def __init__(self, expected, match=None):
+              self.expected = expected
+
+          def __enter__(self):
+              return self
+
+          def __exit__(self, exc_type, exc, tb):
+              return True
+    hints:
+      - "В `__exit__`: если `exc_type is None` — `raise AssertionError(f\"DID NOT RAISE {self.expected.__name__}\")`; если `not issubclass(exc_type, self.expected)` — `return False` (исключение пойдёт дальше)."
+      - "Перед `return True` (подавить) сохраните `self.value = exc` и проверьте `match`."
+    solution: |
+      class raises:
+          """Проверка, что блок бросает исключение нужного типа."""
+
+          def __init__(self, expected, match=None):
+              self.expected = expected
+              self.match = match
+              self.value = None
+
+          def __enter__(self):
+              return self
+
+          def __exit__(self, exc_type, exc, tb):
+              if exc_type is None:
+                  raise AssertionError(f"DID NOT RAISE {self.expected.__name__}")
+              if not issubclass(exc_type, self.expected):
+                  return False
+              message = str(exc)
+              if self.match is not None and self.match not in message:
+                  raise AssertionError(f"'{self.match}' not in '{message}'")
+              self.value = exc
+              return True
+    solution_explanation: "Вся логика — в __exit__: он получает тип и объект исключения (или три None). Возврат True подавляет исключение, False — пропускает его дальше, а собственное исключение из __exit__ заменяет исходное — так и сообщается о провале проверки."
+    tests:
+      - name: "Пример"
+        call: "check_value_error()"
+        expected: "\"invalid literal for int() with base 10: 'x'\""
+      - name: "Подкласс подходит"
+        code: |
+          with raises(LookupError) as info:
+              {}["k"]
+          assert isinstance(info.value, KeyError)
+      - name: "DID NOT RAISE"
+        code: |
+          try:
+              with raises(ValueError):
+                  int("5")
+          except AssertionError as error:
+              assert str(error) == "DID NOT RAISE ValueError", str(error)
+          else:
+              raise AssertionError("Ожидался AssertionError")
+      - name: "Чужое исключение проходит наружу"
+        code: |
+          try:
+              with raises(ValueError):
+                  [][0]
+          except IndexError:
+              pass
+          else:
+              raise AssertionError("IndexError должен пройти наружу")
+      - name: "match совпал"
+        code: |
+          with raises(ValueError, match="base 10") as info:
+              int("x")
+          assert info.value is not None
+      - name: "match не совпал"
+        code: |
+          try:
+              with raises(ZeroDivisionError, match="ноль"):
+                  1 / 0
+          except AssertionError as error:
+              assert str(error) == "'ноль' not in 'division by zero'", str(error)
+          else:
+              raise AssertionError("Ожидался AssertionError")
+
+  - id: t4
+    title: "Тесты для калькулятора стоимости LLM"
+    mode: local
+    difficulty: 2
+    statement: |
+      Скачайте архив. В нём модуль `prices.py` (рабочий, не меняйте его) — расчёт стоимости запросов к LLM:
+
+      - `request_cost(model, input_tokens, output_tokens)` — стоимость в долларах по ценам за миллион токенов; неизвестная модель → `KeyError`, отрицательное число токенов → `ValueError`;
+      - `total_cost(requests)` — сумма по списку словарей `{"model", "input", "output"}`, округлённая до 6 знаков;
+      - `cheapest_model(input_tokens, output_tokens)` — имя самой дешёвой модели для такого запроса.
+
+      Напишите тесты в `test_prices.py`. Файл `test_quality.py` проверяет качество ваших тестов: они должны проходить на исходном модуле и **падать** на каждой из пяти испорченных версий (перепутаны цены входа и выхода, нет проверки отрицательных выходных токенов, неверный делитель, грубое округление, max вместо min).
+
+      ```bash
+      pip install pytest
+      pytest -q
+      ```
+    files:
+      prices.py: |
+        PRICES = {
+            "mini": (0.15, 0.60),
+            "large": (2.50, 10.00),
+            "reasoner": (1.10, 4.40),
+        }  # доллары за 1 млн токенов: (вход, выход)
+
+
+        def request_cost(model, input_tokens, output_tokens):
+            """Стоимость одного запроса в долларах."""
+            if model not in PRICES:
+                raise KeyError(f"неизвестная модель: {model}")
+            if input_tokens < 0 or output_tokens < 0:
+                raise ValueError("число токенов не может быть отрицательным")
+            price_in, price_out = PRICES[model]
+            return (input_tokens * price_in + output_tokens * price_out) / 1_000_000
+
+
+        def total_cost(requests):
+            """Суммарная стоимость списка запросов."""
+            return round(sum(request_cost(r["model"], r["input"], r["output"]) for r in requests), 6)
+
+
+        def cheapest_model(input_tokens, output_tokens):
+            """Самая дешёвая модель для запроса такого размера."""
+            return min(PRICES, key=lambda model: request_cost(model, input_tokens, output_tokens))
+      test_prices.py: |
+        import pytest
+
+        from prices import request_cost
+
+
+        def test_mini_input_only():
+            assert request_cost("mini", 1_000_000, 0) == pytest.approx(0.15)
+      test_quality.py: |
+        """Проверка качества ваших тестов (мутационное тестирование). Не меняйте этот файл."""
+        import shutil
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        import pytest
+
+        HERE = Path(__file__).parent
+        MODULE = "prices.py"
+        STUDENT_TESTS = "test_prices.py"
+        MUTANTS = {
+            "перепутаны цены входа и выхода": (
+                "input_tokens * price_in + output_tokens * price_out",
+                "input_tokens * price_out + output_tokens * price_in",
+            ),
+            "нет проверки отрицательных выходных токенов": (
+                "if input_tokens < 0 or output_tokens < 0:",
+                "if input_tokens < 0:",
+            ),
+            "неверный делитель": ("/ 1_000_000", "/ 1_000"),
+            "грубое округление": ("for r in requests), 6)", "for r in requests), 2)"),
+            "max вместо min": ("return min(PRICES", "return max(PRICES"),
+        }
+
+
+        def run_student_tests(folder, source):
+            (folder / MODULE).write_text(source, encoding="utf-8")
+            shutil.copy(HERE / STUDENT_TESTS, folder / STUDENT_TESTS)
+            completed = subprocess.run(
+                [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", STUDENT_TESTS],
+                cwd=folder, capture_output=True, text=True,
+            )
+            return completed.returncode
+
+
+        def original_source():
+            return (HERE / MODULE).read_text(encoding="utf-8")
+
+
+        def test_tests_pass_on_original(tmp_path):
+            assert run_student_tests(tmp_path, original_source()) == 0, "Ваши тесты падают на исправном модуле"
+
+
+        @pytest.mark.parametrize("name", list(MUTANTS))
+        def test_mutant_is_caught(tmp_path, name):
+            old, new = MUTANTS[name]
+            source = original_source()
+            assert old in source, "Не меняйте prices.py"
+            assert run_student_tests(tmp_path, source.replace(old, new, 1)) != 0, f"Тесты не заметили ошибку: {name}"
+    run: "pytest -q"
+    hints:
+      - "Выберите числа, на которых ошибки видны: 1 000 000 входных и 0 выходных токенов (и наоборот) для каждой цены; для округления — маленькая сумма вроде 100 токенов mini (0.000015 $), которая при округлении до 2 знаков превращается в 0."
+      - "Для ошибок: `with pytest.raises(ValueError): request_cost(\"mini\", 10, -1)` — отдельно для входных и выходных; для cheapest_model — `assert cheapest_model(1000, 1000) == \"mini\"`."
+    solution_files:
+      test_prices.py: |
+        import pytest
+
+        from prices import cheapest_model, request_cost, total_cost
+
+
+        def test_mini_input_only():
+            assert request_cost("mini", 1_000_000, 0) == pytest.approx(0.15)
+
+
+        def test_mini_output_only():
+            assert request_cost("mini", 0, 1_000_000) == pytest.approx(0.60)
+
+
+        def test_large_mixed():
+            assert request_cost("large", 2_000, 500) == pytest.approx(0.01)
+
+
+        def test_unknown_model():
+            with pytest.raises(KeyError):
+                request_cost("gpt-unknown", 1, 1)
+
+
+        def test_negative_input_tokens():
+            with pytest.raises(ValueError):
+                request_cost("mini", -1, 10)
+
+
+        def test_negative_output_tokens():
+            with pytest.raises(ValueError):
+                request_cost("mini", 10, -1)
+
+
+        def test_total_cost_small_values_keep_precision():
+            requests = [{"model": "mini", "input": 100, "output": 0}] * 2
+            assert total_cost(requests) == pytest.approx(0.00003)
+
+
+        def test_total_cost_empty():
+            assert total_cost([]) == 0
+
+
+        def test_cheapest_model():
+            assert cheapest_model(1_000, 1_000) == "mini"
+    solution_explanation: "Каждая испорченная версия ловится отдельным тестом: раздельные проверки цен входа и выхода, оба отрицательных аргумента, точное значение для известного объёма, маленькая сумма для проверки округления и выбор самой дешёвой модели."

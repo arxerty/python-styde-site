@@ -1,0 +1,367 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      data = [1, 2, 3]
+      as_list = [x * 10 for x in data]
+      as_gen = (x * 10 for x in data)
+      print(sum(as_list), sum(as_list), sum(as_gen), sum(as_gen))
+    options:
+      - text: "`60 60 60 0`"
+        correct: true
+        why: "Список многоразовый, генератор — одноразовый."
+      - text: "`60 60 60 60`"
+        why: "Второй проход по генератору пуст."
+      - text: "`60 0 60 0`"
+        why: "Список можно перебирать сколько угодно раз."
+    explanation: "Генераторное выражение — одноразовый итератор."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      checked = []
+
+
+      def ok(x):
+          checked.append(x)
+          return x < 3
+
+
+      print(all(ok(x) for x in [1, 2, 5, 0, 1]), checked)
+    options:
+      - text: "`False [1, 2, 5]`"
+        correct: true
+        why: "all останавливается на первом ложном — 5; остальные не проверяются."
+      - text: "`False [1, 2, 5, 0, 1]`"
+        why: "Так было бы со списковым включением внутри all."
+      - text: "`True [1, 2, 5, 0, 1]`"
+        why: "5 < 3 ложно — результат False."
+    explanation: "any/all с генератором прекращают вычисления, как только результат известен."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      limit = 2
+      values = [1, 2, 3, 4]
+      big = (v for v in values if v > limit)
+      limit = 3
+      values.append(5)
+      print(list(big))
+    options:
+      - text: "`[4, 5]`"
+        correct: true
+        why: "Условие вычисляется при переборе с текущим limit = 3, а 5 добавлена до перебора."
+      - text: "`[3, 4]`"
+        why: "Генератор ленивый: limit читается в момент перебора."
+      - text: "`[3, 4, 5]`"
+        why: "limit уже равен 3, поэтому 3 не проходит."
+    explanation: "Ленивое вычисление видит изменения переменных и данных, сделанные до перебора."
+
+  - id: q4
+    type: find_bug
+    prompt: "Почему строка падает с TypeError?"
+    code: |
+      lengths = (len(word) for word in ["a", "bb", "ccc"])
+      average = sum(lengths) / len(lengths)
+    options:
+      - text: "У генератора нет len(); к тому же sum уже исчерпал его"
+        correct: true
+        why: "Нужен список: lengths = [len(word) for word in ...]."
+      - text: "sum не принимает генераторы"
+        why: "Принимает любой итерируемый объект."
+      - text: "Нельзя делить на целое число"
+        why: "Деление тут ни при чём."
+    explanation: "Когда нужны len, индексы или повторный проход — используйте список."
+
+  - id: q5
+    type: single
+    prompt: "В каком случае лучше список, а не генератор?"
+    options:
+      - text: "Данные нужно перебрать несколько раз и обращаться по индексу"
+        correct: true
+        why: "Генератор одноразовый и не поддерживает индексы."
+      - text: "Нужно просуммировать миллиард чисел один раз"
+        why: "Здесь генератор экономит память."
+      - text: "Нужно найти первый подходящий элемент"
+        why: "next с генератором остановится сразу."
+      - text: "Данные приходят потоком по сети"
+        why: "Поток естественно обрабатывать лениво."
+    explanation: "Список — для повторного доступа; генератор — для одноразового потока."
+
+  - id: q6
+    type: multiple
+    prompt: "Какие объекты вычисляют элементы лениво? Выберите все."
+    options:
+      - text: "`range(10**9)`"
+        correct: true
+        why: "Хранит только start, stop, step."
+      - text: "`map(str, data)`"
+        correct: true
+        why: "map — ленивый итератор."
+      - text: "`(x for x in data)`"
+        correct: true
+        why: "Генераторное выражение."
+      - text: "`{x for x in data}`"
+        why: "Включение множества вычисляется сразу."
+    explanation: "Квадратные и фигурные включения — немедленные; круглые скобки, range, map, zip — ленивые."
+
+tasks:
+  - id: t1
+    title: "Метрики генераторами"
+    difficulty: 1
+    statement: |
+      Напишите три функции, используя генераторные выражения (без создания промежуточных списков и без `append`):
+
+      - `accuracy(preds, labels)` — доля совпадающих пар;
+      - `count_long(texts, n)` — сколько текстов длиннее `n` символов;
+      - `first_negative(numbers)` — первое отрицательное число или `None`.
+    examples:
+      - input: "accuracy([1, 0, 1, 1], [1, 1, 1, 0])"
+        output: "0.5"
+    starter: |
+      def accuracy(preds, labels):
+          matches = []
+          for p, y in zip(preds, labels):
+              if p == y:
+                  matches.append(1)
+          return len(matches) / len(labels)
+    hints:
+      - "`sum(p == y for p, y in zip(preds, labels))` — True считается как 1."
+      - "`next((x for x in numbers if x < 0), None)`."
+    solution: |
+      def accuracy(preds, labels):
+          """Доля верных предсказаний."""
+          return sum(p == y for p, y in zip(preds, labels)) / len(labels)
+
+
+      def count_long(texts, n):
+          """Количество текстов длиннее n символов."""
+          return sum(1 for text in texts if len(text) > n)
+
+
+      def first_negative(numbers):
+          """Первое отрицательное число или None."""
+          return next((x for x in numbers if x < 0), None)
+    solution_explanation: "Генераторное выражение внутри sum или next не создаёт списков: значения вычисляются по одному и сразу используются. next к тому же останавливается на первом найденном."
+    constraints:
+      forbid: ["append", "["]
+      message: "Используйте генераторные выражения, без списков и append"
+    tests:
+      - name: "accuracy"
+        call: "accuracy([1, 0, 1, 1], [1, 1, 1, 0])"
+        expected: "0.5"
+      - name: "count_long"
+        call: "count_long([\"a\", \"длинный текст\", \"ок\", \"ещё длиннее\"], 3)"
+        expected: "2"
+      - name: "first_negative"
+        call: "[first_negative([3, 0, -2, -5]), first_negative([1, 2])]"
+        expected: "[-2, None]"
+      - name: "Работает с генератором"
+        call: "count_long((str(i) for i in range(1000)), 2)"
+        expected: "900"
+      - name: "first_negative останавливается рано"
+        code: |
+          def numbers():
+              yield 1
+              yield -7
+              raise RuntimeError("дальше читать не нужно")
+          assert first_negative(numbers()) == -7
+
+  - id: t2
+    title: "Ранняя проверка батча"
+    difficulty: 2
+    statement: |
+      Запись — словарь с ключами `"text"` и `"label"`. Запись корректна, если `text` — непустая строка (после `strip`), а `label` — 0 или 1.
+
+      - `is_valid(record)` — проверка одной записи;
+      - `batch_ok(records)` — все ли записи корректны (останавливается на первой некорректной);
+      - `first_invalid(records)` — индекс первой некорректной записи или `-1`.
+
+      `records` может быть генератором — перебирайте его один раз.
+    examples:
+      - input: "first_invalid([{\"text\": \"ok\", \"label\": 1}, {\"text\": \" \", \"label\": 0}])"
+        output: "1"
+    starter: |
+      def is_valid(record):
+          return record["label"] in (0, 1)
+
+
+      def batch_ok(records):
+          return all([is_valid(r) for r in records])
+
+
+      def first_invalid(records):
+          records = list(records)
+          for i in range(len(records)):
+              if not is_valid(records[i]):
+                  return i
+          return -1
+    hints:
+      - "is_valid: `isinstance(record.get(\"text\"), str) and record[\"text\"].strip() != \"\" and record.get(\"label\") in (0, 1)`. Осторожно: `True in (0, 1)` тоже истинно — исключите bool."
+      - "`all(is_valid(r) for r in records)`; `next((i for i, r in enumerate(records) if not is_valid(r)), -1)`."
+    solution: |
+      def is_valid(record):
+          """Корректна ли запись датасета."""
+          text = record.get("text")
+          label = record.get("label")
+          return (
+              isinstance(text, str)
+              and text.strip() != ""
+              and not isinstance(label, bool)
+              and label in (0, 1)
+          )
+
+
+      def batch_ok(records):
+          """Все ли записи корректны."""
+          return all(is_valid(record) for record in records)
+
+
+      def first_invalid(records):
+          """Индекс первой некорректной записи или -1."""
+          return next((i for i, record in enumerate(records) if not is_valid(record)), -1)
+    solution_explanation: "all и next с генераторами прекращают перебор на первой проблеме: для батча в миллион записей с ошибкой во второй проверено будет две. enumerate добавляет индексы, не превращая поток в список."
+    tests:
+      - name: "Пример"
+        call: "first_invalid([{\"text\": \"ok\", \"label\": 1}, {\"text\": \" \", \"label\": 0}])"
+        expected: "1"
+      - name: "Все корректны"
+        call: "[batch_ok([{\"text\": \"a\", \"label\": 0}]), first_invalid([{\"text\": \"a\", \"label\": 0}])]"
+        expected: "[True, -1]"
+      - name: "Некорректные записи"
+        call: "[is_valid(r) for r in ({\"text\": \"a\", \"label\": 2}, {\"text\": 5, \"label\": 1}, {\"label\": 1}, {\"text\": \"a\", \"label\": True})]"
+        expected: "[False, False, False, False]"
+      - name: "Останавливается рано"
+        code: |
+          def stream():
+              yield {"text": "ok", "label": 1}
+              yield {"text": "", "label": 1}
+              raise RuntimeError("перебор должен был остановиться")
+          assert batch_ok(stream()) is False
+          assert first_invalid(stream()) == 1
+      - name: "Пустой батч"
+        call: "[batch_ok([]), first_invalid([])]"
+        expected: "[True, -1]"
+
+  - id: t3
+    title: "Статистика за один проход"
+    difficulty: 2
+    statement: |
+      Напишите `stats(numbers)` — за **один проход** по любому итерируемому объекту (в том числе генератору) вернуть словарь `{"count", "total", "min", "max", "mean"}`. Для пустого входа — `{"count": 0, "total": 0, "min": None, "max": None, "mean": None}`.
+    examples:
+      - input: "stats(x * x for x in range(1, 4))"
+        output: "{'count': 3, 'total': 14, 'min': 1, 'max': 9, 'mean': 4.666666666666667}"
+    starter: |
+      def stats(numbers):
+          return {
+              "count": len(numbers),
+              "total": sum(numbers),
+              "min": min(numbers),
+              "max": max(numbers),
+              "mean": sum(numbers) / len(numbers),
+          }
+    hints:
+      - "Заведите `count = 0`, `total = 0`, `low = high = None` и один цикл `for x in numbers:`."
+      - "В цикле: `if low is None or x < low: low = x` (аналогично для high). Среднее — после цикла, если count > 0."
+    solution: |
+      def stats(numbers):
+          """Количество, сумма, минимум, максимум и среднее за один проход."""
+          count = 0
+          total = 0
+          low = high = None
+          for x in numbers:
+              count += 1
+              total += x
+              if low is None or x < low:
+                  low = x
+              if high is None or x > high:
+                  high = x
+          mean = total / count if count else None
+          return {"count": count, "total": total, "min": low, "max": high, "mean": mean}
+    solution_explanation: "sum, min, max и len по отдельности потребовали бы четырёх проходов, а генератор можно пройти только один раз. Один цикл с накопителями работает с потоком любого размера и почти не занимает памяти."
+    tests:
+      - name: "Пример с генератором"
+        call: "stats(x * x for x in range(1, 4))"
+        expected: "{'count': 3, 'total': 14, 'min': 1, 'max': 9, 'mean': 4.666666666666667}"
+      - name: "Список"
+        call: "stats([5, -2, 7])"
+        expected: "{'count': 3, 'total': 10, 'min': -2, 'max': 7, 'mean': 3.3333333333333335}"
+      - name: "Пусто"
+        call: "stats(iter([]))"
+        expected: "{'count': 0, 'total': 0, 'min': None, 'max': None, 'mean': None}"
+      - name: "Один элемент"
+        call: "stats((v for v in [4.5]))"
+        expected: "{'count': 1, 'total': 4.5, 'min': 4.5, 'max': 4.5, 'mean': 4.5}"
+      - name: "Большой поток"
+        call: "stats(range(1_000_000))['mean']"
+        expected: "499999.5"
+
+  - id: t4
+    title: "Ленивый разбор лога действий"
+    difficulty: 3
+    statement: |
+      Строки лога: `"user,action,ms"`, например `"ada,search,120"`. Строки с другим числом полей или нечисловым `ms` пропускаются; пробелы по краям полей убираются.
+
+      - генератор `parse_lines(lines)` выдаёт словари `{"user": str, "action": str, "ms": int}`;
+      - `slow_actions(lines, threshold)` — отсортированный список **уникальных** действий, у которых хоть раз `ms > threshold`;
+      - `total_ms_by_user(lines)` — словарь `{user: суммарные ms}`.
+
+      Все функции должны работать, когда `lines` — генератор или открытый файл (один проход).
+    examples:
+      - input: "list(parse_lines([\"ada, search, 120\", \"плохая строка\"]))"
+        output: "[{'user': 'ada', 'action': 'search', 'ms': 120}]"
+    starter: |
+      def parse_lines(lines):
+          return [line.split(",") for line in lines]
+    hints:
+      - "В parse_lines: `parts = [p.strip() for p in line.split(\",\")]`; проверка `len(parts) == 3 and parts[2].isdigit()`, затем `yield {...}`."
+      - "slow_actions: `sorted({r[\"action\"] for r in parse_lines(lines) if r[\"ms\"] > threshold})`. total_ms_by_user — цикл с `dict.get`."
+    solution: |
+      def parse_lines(lines):
+          """Выдавать разобранные записи лога, пропуская битые строки."""
+          for line in lines:
+              parts = [part.strip() for part in line.split(",")]
+              if len(parts) != 3 or not parts[2].isdigit():
+                  continue
+              user, action, ms = parts
+              yield {"user": user, "action": action, "ms": int(ms)}
+
+
+      def slow_actions(lines, threshold):
+          """Уникальные медленные действия."""
+          return sorted({record["action"] for record in parse_lines(lines) if record["ms"] > threshold})
+
+
+      def total_ms_by_user(lines):
+          """Суммарное время по пользователям."""
+          totals = {}
+          for record in parse_lines(lines):
+              totals[record["user"]] = totals.get(record["user"], 0) + record["ms"]
+          return totals
+    solution_explanation: "parse_lines — ленивый фильтр-преобразователь: остальные функции строятся поверх него и проходят данные один раз. Включение множества в slow_actions собирает только уникальные действия — их обычно немного, в отличие от строк лога."
+    tests:
+      - name: "Пример"
+        call: "list(parse_lines([\"ada, search, 120\", \"плохая строка\"]))"
+        expected: "[{'user': 'ada', 'action': 'search', 'ms': 120}]"
+      - name: "Битые строки"
+        call: "list(parse_lines([\"a,b,c\", \"a,b\", \"a,b,1,2\", \"x,y,7\"]))"
+        expected: "[{'user': 'x', 'action': 'y', 'ms': 7}]"
+      - name: "slow_actions"
+        call: "slow_actions([\"a,search,500\", \"b,chat,90\", \"a,embed,300\", \"c,search,700\"], 200)"
+        expected: "['embed', 'search']"
+      - name: "total_ms_by_user из генератора"
+        call: "total_ms_by_user(line for line in [\"ada,x,10\", \"alan,y,5\", \"ada,z,7\"])"
+        expected: "{'ada': 17, 'alan': 5}"
+      - name: "parse_lines — генератор"
+        code: |
+          import inspect
+          assert inspect.isgeneratorfunction(parse_lines), "parse_lines должен быть генератором"
+      - name: "Файл"
+        code: |
+          with open("actions.log", "w", encoding="utf-8") as f:
+              f.write("ada,chat,100\nbroken\nalan,chat,300\n")
+          with open("actions.log", encoding="utf-8") as f:
+              assert total_ms_by_user(f) == {"ada": 100, "alan": 300}

@@ -1,0 +1,1038 @@
+title: "Практикум: ООП — основы"
+description: |
+  Вопросы и задачи по всему блоку: классы и объекты, атрибуты класса и экземпляра, инкапсуляция и свойства, наследование, полиморфизм, методы класса и статические методы.
+  Последняя задача — мини-проект «Система банковских счетов с разными типами счетов».
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Item:
+          tags = []
+
+          def __init__(self, name):
+              self.name = name
+
+          def tag(self, label):
+              self.tags.append(label)
+
+
+      a = Item("a")
+      b = Item("b")
+      a.tag("new")
+      print(b.tags)
+    options:
+      - text: "`['new']`"
+        correct: true
+        why: "tags — изменяемый атрибут класса, общий для всех объектов."
+      - text: "`[]`"
+        why: "Так было бы, если бы список создавался в __init__."
+      - text: "AttributeError"
+        why: "b.tags находится в классе."
+    explanation: "Изменяемые данные объекта создавайте в __init__."
+
+  - id: q2
+    type: single
+    prompt: "Что такое `self` в методе?"
+    options:
+      - text: "Объект, у которого вызван метод"
+        correct: true
+        why: "obj.method() превращается в Class.method(obj)."
+      - text: "Ключевое слово, обозначающее класс"
+        why: "self — обычное имя параметра; класс получают через cls в методах класса."
+      - text: "Глобальная переменная с текущим объектом"
+        why: "Это параметр метода."
+      - text: "Копия объекта, изменения которой не сохраняются"
+        why: "self — сам объект, изменения сохраняются."
+    explanation: "self — первый параметр метода экземпляра: ссылка на объект."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Counter:
+          total = 0
+
+          def __init__(self):
+              Counter.total += 1
+              self.total = 100
+
+
+      c1 = Counter()
+      c2 = Counter()
+      print(Counter.total, c1.total)
+    options:
+      - text: "`2 100`"
+        correct: true
+        why: "Счётчик класса увеличен дважды, а у объекта свой атрибут total, затеняющий классовый."
+      - text: "`100 100`"
+        why: "self.total = 100 создаёт атрибут экземпляра, атрибут класса не меняется."
+      - text: "`2 2`"
+        why: "c1.total находит атрибут экземпляра — 100."
+    explanation: "Атрибут экземпляра с тем же именем затеняет атрибут класса."
+
+  - id: q4
+    type: find_bug
+    prompt: "Почему свойство не защищает от отрицательной цены при создании объекта?"
+    code: |
+      class Product:
+          def __init__(self, price):
+              self._price = price
+
+          @property
+          def price(self):
+              return self._price
+
+          @price.setter
+          def price(self, value):
+              if value < 0:
+                  raise ValueError("цена не может быть отрицательной")
+              self._price = value
+    options:
+      - text: "В __init__ значение записывается в _price напрямую, минуя сеттер"
+        correct: true
+        why: "Нужно self.price = price — тогда сработает проверка."
+      - text: "Свойство должно называться _price"
+        why: "Наоборот: свойство — публичное имя, хранение — во внутреннем атрибуте."
+      - text: "Сеттер нужно объявить перед геттером"
+        why: "Сначала @property, потом @price.setter."
+    explanation: "Присваивание через свойство в __init__ держит проверку в одном месте."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Temperature:
+          def __init__(self, celsius):
+              self.celsius = celsius
+
+          @property
+          def fahrenheit(self):
+              return self.celsius * 9 / 5 + 32
+
+
+      t = Temperature(0)
+      t.celsius = 100
+      print(t.fahrenheit)
+    options:
+      - text: "`212.0`"
+        correct: true
+        why: "Свойство вычисляется при каждом чтении из текущего celsius."
+      - text: "`32.0`"
+        why: "Значение не сохраняется при создании — оно вычисляется заново."
+      - text: "Ошибка: fahrenheit вызван без скобок"
+        why: "Свойства читаются без скобок."
+    explanation: "Вычисляемые свойства всегда актуальны."
+
+  - id: q6
+    type: single
+    prompt: "Зачем в Python используют имена с двумя подчёркиваниями (`self.__data`)?"
+    options:
+      - text: "Чтобы избежать конфликта имён с атрибутами потомков (искажение имени)"
+        correct: true
+        why: "Имя превращается в _Класс__data."
+      - text: "Чтобы сделать атрибут полностью недоступным снаружи"
+        why: "Атрибут доступен как obj._Класс__data."
+      - text: "Чтобы атрибут стал атрибутом класса"
+        why: "Это по-прежнему атрибут экземпляра."
+      - text: "Это специальные методы Python, как __init__"
+        why: "Специальные имена имеют подчёркивания с обеих сторон."
+    explanation: "Для пометки «внутреннее» хватает одного подчёркивания; два — для защиты от конфликтов при наследовании."
+
+  - id: q7
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class A:
+          def who(self):
+              return "A"
+
+          def hello(self):
+              return "я " + self.who()
+
+
+      class B(A):
+          def who(self):
+              return "B"
+
+
+      print(B().hello(), A().hello())
+    options:
+      - text: "`я B я A`"
+        correct: true
+        why: "hello вызывает self.who() — для объекта B находится B.who."
+      - text: "`я A я A`"
+        why: "Метод родителя работает с объектом потомка."
+      - text: "`я B я B`"
+        why: "Для объекта A вызывается A.who."
+    explanation: "Переопределённый метод вызывается даже из кода родителя."
+
+  - id: q8
+    type: find_bug
+    prompt: "Что не так в классе потомка?"
+    code: |
+      class Vehicle:
+          def __init__(self, wheels):
+              self.wheels = wheels
+
+
+      class Car(Vehicle):
+          def __init__(self, brand):
+              self.brand = brand
+
+          def describe(self):
+              return f"{self.brand}, колёс: {self.wheels}"
+    options:
+      - text: "Не вызван super().__init__(4) — у машины не будет атрибута wheels"
+        correct: true
+        why: "Свой __init__ потомка заменяет родительский."
+      - text: "Car должен переопределить все методы Vehicle"
+        why: "Переопределяют только то, что нужно изменить."
+      - text: "Потомок не может добавлять новые атрибуты"
+        why: "Может — так и расширяют классы."
+    explanation: "Своему __init__ в потомке нужен вызов super().__init__(...)."
+
+  - id: q9
+    type: multiple
+    prompt: "Какие проверки вернут `True`, если `class Dog(Animal)` и `rex = Dog()`? Выберите все."
+    options:
+      - text: "`isinstance(rex, Animal)`"
+        correct: true
+        why: "isinstance учитывает наследование."
+      - text: "`issubclass(Dog, Animal)`"
+        correct: true
+        why: "Dog — потомок Animal."
+      - text: "`isinstance(rex, object)`"
+        correct: true
+        why: "Все классы — потомки object."
+      - text: "`type(rex) is Animal`"
+        why: "Точный тип — Dog."
+    explanation: "isinstance и issubclass смотрят на всю иерархию."
+
+  - id: q10
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Duck:
+          def sound(self):
+              return "кря"
+
+
+      class Toy:
+          def sound(self):
+              return "пиу"
+
+
+      def play(things):
+          return [thing.sound() for thing in things]
+
+
+      print(play([Toy(), Duck()]))
+    options:
+      - text: "`['пиу', 'кря']`"
+        correct: true
+        why: "Утиная типизация: важен метод sound, а не класс."
+      - text: "TypeError: у классов нет общего родителя"
+        why: "Общий родитель не требуется."
+      - text: "`['кря', 'пиу']`"
+        why: "Порядок — как в списке: сначала Toy."
+    explanation: "Функция работает с любым объектом, реализующим нужный метод."
+
+  - id: q11
+    type: single
+    prompt: "Какой подход к вызову метода считается «питоничным» (EAFP)?"
+    options:
+      - text: "`try: obj.close()` / `except AttributeError: ...`"
+        correct: true
+        why: "Попросить прощения, а не разрешения."
+      - text: "`if type(obj) == File: obj.close()`"
+        why: "Проверка точного типа ломает утиную типизацию."
+      - text: "`if hasattr(obj, \"close\"): obj.close()`"
+        why: "Это LBYL — допустимо, но не основной стиль Python."
+      - text: "Всегда вызывать без обработки ошибок"
+        why: "EAFP подразумевает обработку исключения."
+    explanation: "EAFP: выполнить действие и обработать возможную ошибку."
+
+  - id: q12
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Base:
+          @classmethod
+          def make(cls):
+              return cls.__name__
+
+
+      class Child(Base):
+          pass
+
+
+      print(Child.make(), Child().make())
+    options:
+      - text: "`Child Child`"
+        correct: true
+        why: "cls — класс, через который (или через объект которого) вызван метод."
+      - text: "`Base Base`"
+        why: "cls — не класс, где определён метод, а класс вызова."
+      - text: "`Child Base`"
+        why: "При вызове через объект cls — класс этого объекта."
+    explanation: "Методы класса получают актуальный класс, поэтому работают с потомками."
+
+  - id: q13
+    type: multiple
+    prompt: "Какие методы логично сделать `@classmethod`? Выберите все."
+    options:
+      - text: "`Config.from_yaml(path)` — создать конфигурацию из файла"
+        correct: true
+        why: "Альтернативный конструктор."
+      - text: "`User.active_count()` — число активных пользователей из атрибута класса"
+        correct: true
+        why: "Работа с общим состоянием класса."
+      - text: "`account.deposit(amount)` — пополнить конкретный счёт"
+        why: "Меняет состояние объекта — обычный метод."
+      - text: "`order.total()` — сумма конкретного заказа"
+        why: "Использует данные объекта — обычный метод."
+    explanation: "@classmethod — для создания объектов и общего состояния класса."
+
+tasks:
+  - id: t1
+    title: "Прямоугольник со свойствами"
+    difficulty: 1
+    statement: |
+      Создайте класс `Rectangle(width, height)`:
+
+      - `width` и `height` — свойства с сеттерами: только положительные числа, иначе `ValueError` (и при создании тоже);
+      - `area` и `perimeter` — вычисляемые свойства;
+      - метод класса `square(side)` — квадрат;
+      - `__repr__` → `Rectangle(2, 3)`.
+    examples:
+      - input: "Rectangle.square(4).area"
+        output: "16"
+    starter: |
+      class Rectangle:
+          def __init__(self, width, height):
+              self.width = width
+              self.height = height
+
+          def area(self):
+              return self.width * self.height
+    hints:
+      - "Значения храните в `_width`/`_height`, в `__init__` присваивайте через свойства."
+      - "`@classmethod def square(cls, side): return cls(side, side)`."
+    solution: |
+      class Rectangle:
+          """Прямоугольник с проверкой сторон."""
+
+          def __init__(self, width, height):
+              self.width = width
+              self.height = height
+
+          @staticmethod
+          def _check(name, value):
+              if value <= 0:
+                  raise ValueError(f"{name} должна быть положительной, получено {value}")
+              return value
+
+          @property
+          def width(self):
+              return self._width
+
+          @width.setter
+          def width(self, value):
+              self._width = self._check("ширина", value)
+
+          @property
+          def height(self):
+              return self._height
+
+          @height.setter
+          def height(self, value):
+              self._height = self._check("высота", value)
+
+          @property
+          def area(self):
+              return self.width * self.height
+
+          @property
+          def perimeter(self):
+              return 2 * (self.width + self.height)
+
+          @classmethod
+          def square(cls, side):
+              return cls(side, side)
+
+          def __repr__(self):
+              return f"Rectangle({self.width}, {self.height})"
+    solution_explanation: "Общая проверка вынесена в статический метод, сеттеры только вызывают её. Свойства area и perimeter вычисляются из текущих сторон, а square — альтернативный конструктор."
+    tests:
+      - name: "Квадрат"
+        call: "Rectangle.square(4).area"
+        expected: "16"
+      - name: "Периметр"
+        call: "Rectangle(2, 3.5).perimeter"
+        expected: "11.0"
+      - name: "repr"
+        call: "repr(Rectangle(2, 3))"
+        expected: "'Rectangle(2, 3)'"
+      - name: "Проверка при создании"
+        code: |
+          for args in ((0, 1), (1, -2)):
+              try:
+                  Rectangle(*args)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"Rectangle{args} должен бросать ValueError")
+      - name: "Проверка при присваивании"
+        code: |
+          r = Rectangle(2, 3)
+          try:
+              r.width = -1
+          except ValueError:
+              assert r.width == 2
+          else:
+              raise AssertionError("Ожидался ValueError")
+          r.height = 10
+          assert r.area == 20
+
+  - id: t2
+    title: "Каталог книг"
+    difficulty: 2
+    statement: |
+      1. Класс `Book(title, author, year)` с методом класса `from_string(text)` для строк вида `"Автор — Название (год)"` (разделитель — ` — `, год в скобках в конце). Неверный формат → `ValueError`. `__repr__` → `Book('Название', 'Автор', 1866)`.
+      2. Класс `Library`: `add(book)`, `by_author(author)` — список книг автора в порядке добавления, `oldest()` — самая старая книга (пустая библиотека → `None`), `len(library)` — число книг. У каждой библиотеки свой список книг.
+    examples:
+      - input: "Book.from_string(\"Достоевский — Преступление и наказание (1866)\")"
+        output: "Book('Преступление и наказание', 'Достоевский', 1866)"
+    starter: |
+      class Book:
+          def __init__(self, title, author, year):
+              self.title = title
+              self.author = author
+              self.year = year
+
+
+      class Library:
+          books = []
+
+          def add(self, book):
+              self.books.append(book)
+    hints:
+      - "from_string: `author, sep, rest = text.partition(\" — \")`; проверьте `sep` и что `rest` заканчивается на `)`; `title, _, year = rest[:-1].rpartition(\" (\")`."
+      - "Library: список в `__init__`; oldest — `min(self._books, key=lambda book: book.year, default=None)`."
+    solution: |
+      class Book:
+          """Книга."""
+
+          def __init__(self, title, author, year):
+              self.title = title
+              self.author = author
+              self.year = year
+
+          @classmethod
+          def from_string(cls, text):
+              author, sep, rest = text.partition(" — ")
+              if not sep or not rest.endswith(")") or " (" not in rest:
+                  raise ValueError(f"неверный формат: {text!r}")
+              title, _, year = rest[:-1].rpartition(" (")
+              if not year.isdigit() or not title or not author:
+                  raise ValueError(f"неверный формат: {text!r}")
+              return cls(title, author, int(year))
+
+          def __repr__(self):
+              return f"Book({self.title!r}, {self.author!r}, {self.year})"
+
+
+      class Library:
+          """Коллекция книг."""
+
+          def __init__(self):
+              self._books = []
+
+          def add(self, book):
+              self._books.append(book)
+
+          def by_author(self, author):
+              return [book for book in self._books if book.author == author]
+
+          def oldest(self):
+              return min(self._books, key=lambda book: book.year, default=None)
+
+          def __len__(self):
+              return len(self._books)
+    solution_explanation: "Разбор строки — альтернативный конструктор: он только извлекает поля и вызывает cls(...). rpartition берёт последнюю скобку, поэтому скобки внутри названия не мешают. Список книг создаётся в __init__, иначе все библиотеки делили бы одну полку."
+    tests:
+      - name: "Пример"
+        call: "repr(Book.from_string(\"Достоевский — Преступление и наказание (1866)\"))"
+        expected: "\"Book('Преступление и наказание', 'Достоевский', 1866)\""
+      - name: "Скобки в названии"
+        call: "Book.from_string(\"Автор — Книга (том 1) (2020)\").title"
+        expected: "'Книга (том 1)'"
+      - name: "Неверный формат"
+        code: |
+          for bad in ("Без разделителя (1999)", "Автор — Название", "Автор — Название (год)"):
+              try:
+                  Book.from_string(bad)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"{bad!r} должен вызывать ValueError")
+      - name: "Поиск по автору и самая старая"
+        code: |
+          lib = Library()
+          lib.add(Book("Война и мир", "Толстой", 1869))
+          lib.add(Book("Мёртвые души", "Гоголь", 1842))
+          lib.add(Book("Анна Каренина", "Толстой", 1878))
+          assert [b.title for b in lib.by_author("Толстой")] == ["Война и мир", "Анна Каренина"]
+          assert lib.oldest().title == "Мёртвые души"
+          assert len(lib) == 3
+      - name: "Пустая и независимые библиотеки"
+        code: |
+          a = Library()
+          b = Library()
+          a.add(Book("x", "y", 2000))
+          assert len(b) == 0 and b.oldest() is None
+
+  - id: t3
+    title: "Рассылка уведомлений"
+    difficulty: 2
+    statement: |
+      Базовый класс `Notifier`:
+
+      - в `__init__` — список `sent`;
+      - `notify(user, text)` — шаблонный метод: пустой (из пробелов) текст → `ValueError`; иначе строка `self.format(user, text.strip())` добавляется в `sent` и возвращается;
+      - `format(user, text)` бросает `NotImplementedError`.
+
+      Потомки переопределяют **только** `format`:
+
+      - `EmailNotifier`: `"To: <user>\n<text>"`;
+      - `SmsNotifier`: `"<user>: <text>"`, но текст обрезается до 20 символов (если длиннее — первые 17 + `"..."`).
+
+      Функция `broadcast(notifiers, user, text)` — список результатов `notify` всех уведомителей.
+    examples:
+      - input: "SmsNotifier().notify(\"ada\", \"Обучение модели завершено\")"
+        output: "'ada: Обучение модели з...'"
+    starter: |
+      class Notifier:
+          def notify(self, user, text):
+              return self.format(user, text)
+
+
+      def broadcast(notifiers, user, text):
+          return []
+    hints:
+      - "SmsNotifier.format: `if len(text) > 20: text = text[:17] + \"...\"`."
+      - "broadcast: `[notifier.notify(user, text) for notifier in notifiers]`."
+    solution: |
+      class Notifier:
+          """Базовый уведомитель."""
+
+          def __init__(self):
+              self.sent = []
+
+          def notify(self, user, text):
+              text = text.strip()
+              if not text:
+                  raise ValueError("пустое уведомление")
+              message = self.format(user, text)
+              self.sent.append(message)
+              return message
+
+          def format(self, user, text):
+              raise NotImplementedError("потомок должен реализовать format")
+
+
+      class EmailNotifier(Notifier):
+          def format(self, user, text):
+              return f"To: {user}\n{text}"
+
+
+      class SmsNotifier(Notifier):
+          LIMIT = 20
+
+          def format(self, user, text):
+              if len(text) > self.LIMIT:
+                  text = text[: self.LIMIT - 3] + "..."
+              return f"{user}: {text}"
+
+
+      def broadcast(notifiers, user, text):
+          """Отправить уведомление через все каналы."""
+          return [notifier.notify(user, text) for notifier in notifiers]
+    solution_explanation: "Общая часть — проверка, очистка и учёт отправленного — живёт в notify родителя; потомки отвечают только за формат. broadcast работает полиморфно с любым набором уведомителей."
+    tests:
+      - name: "SMS с обрезкой"
+        call: "SmsNotifier().notify(\"ada\", \"Обучение модели завершено\")"
+        expected: "'ada: Обучение модели з...'"
+      - name: "Короткое SMS"
+        call: "SmsNotifier().notify(\"ada\", \"  Готово  \")"
+        expected: "'ada: Готово'"
+      - name: "Email и broadcast"
+        call: "broadcast([EmailNotifier(), SmsNotifier()], \"alan\", \"Привет\")"
+        expected: "['To: alan\\nПривет', 'alan: Привет']"
+      - name: "Учёт отправленного"
+        code: |
+          email = EmailNotifier()
+          email.notify("a", "1")
+          email.notify("b", "2")
+          assert email.sent == ["To: a\n1", "To: b\n2"]
+          assert EmailNotifier().sent == []
+      - name: "Пустой текст"
+        code: |
+          sms = SmsNotifier()
+          try:
+              sms.notify("a", "   ")
+          except ValueError:
+              assert sms.sent == []
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Переопределён только format"
+        code: |
+          for cls in (EmailNotifier, SmsNotifier):
+              assert issubclass(cls, Notifier)
+              assert "notify" not in cls.__dict__, f"{cls.__name__} не должен переопределять notify"
+
+  - id: t4
+    title: "Кэш ответов модели"
+    difficulty: 2
+    statement: |
+      Модель — любой объект с методом `generate(prompt)`. Создайте обёртку `CachedModel(model)` с тем же интерфейсом:
+
+      - `generate(prompt)` — если такой промпт уже был, вернуть сохранённый ответ, не вызывая модель; иначе вызвать модель и сохранить ответ;
+      - свойства только для чтения `hits` и `misses` — число попаданий в кэш и промахов;
+      - свойство `hit_rate` — доля попаданий от всех вызовов (0.0, если вызовов не было);
+      - `clear()` — очистить кэш (счётчики не сбрасываются).
+    examples:
+      - input: "c = CachedModel(model); c.generate(\"a\"); c.generate(\"a\"); c.hits, c.misses"
+        output: "(1, 1)"
+    starter: |
+      class CachedModel:
+          def __init__(self, model):
+              self.model = model
+
+          def generate(self, prompt):
+              return self.model.generate(prompt)
+    hints:
+      - "В `__init__`: `self._cache = {}`, `self._hits = 0`, `self._misses = 0`."
+      - "hit_rate: `total = self._hits + self._misses`, `return self._hits / total if total else 0.0`."
+    solution: |
+      class CachedModel:
+          """Обёртка над моделью, кэширующая ответы по промпту."""
+
+          def __init__(self, model):
+              self._model = model
+              self._cache = {}
+              self._hits = 0
+              self._misses = 0
+
+          def generate(self, prompt):
+              if prompt in self._cache:
+                  self._hits += 1
+                  return self._cache[prompt]
+              self._misses += 1
+              answer = self._model.generate(prompt)
+              self._cache[prompt] = answer
+              return answer
+
+          @property
+          def hits(self):
+              return self._hits
+
+          @property
+          def misses(self):
+              return self._misses
+
+          @property
+          def hit_rate(self):
+              total = self._hits + self._misses
+              return self._hits / total if total else 0.0
+
+          def clear(self):
+              self._cache.clear()
+    solution_explanation: "CachedModel реализует тот же интерфейс generate, что и модель, поэтому подставляется везде вместо неё (утиная типизация). Модель хранится внутри — это композиция: кэш «имеет» модель, а не «является» ею. Счётчики защищены свойствами только для чтения."
+    setup: |
+      class CountingModel:
+          def __init__(self):
+              self.calls = 0
+
+          def generate(self, prompt):
+              self.calls += 1
+              return prompt.upper()
+
+
+      model = CountingModel()
+    tests:
+      - name: "Пример"
+        code: |
+          m = CountingModel()
+          c = CachedModel(m)
+          assert c.generate("a") == "A" and c.generate("a") == "A"
+          assert (c.hits, c.misses) == (1, 1)
+          assert m.calls == 1, "Повторный промпт не должен вызывать модель"
+      - name: "hit_rate"
+        code: |
+          c = CachedModel(CountingModel())
+          assert c.hit_rate == 0.0
+          for prompt in ("x", "y", "x", "x"):
+              c.generate(prompt)
+          assert c.hit_rate == 0.5, f"hit_rate = {c.hit_rate}"
+      - name: "clear"
+        code: |
+          m = CountingModel()
+          c = CachedModel(m)
+          c.generate("q")
+          c.clear()
+          c.generate("q")
+          assert m.calls == 2 and c.misses == 2
+      - name: "Счётчики только для чтения"
+        code: |
+          c = CachedModel(CountingModel())
+          try:
+              c.hits = 100
+          except AttributeError:
+              pass
+          else:
+              raise AssertionError("hits должен быть только для чтения")
+      - name: "Кэши независимы"
+        code: |
+          m = CountingModel()
+          a = CachedModel(m)
+          b = CachedModel(m)
+          a.generate("p")
+          b.generate("p")
+          assert m.calls == 2 and b.hits == 0
+
+  - id: t5
+    title: "Мини-проект: система банковских счетов"
+    difficulty: 3
+    mini_project: true
+    statement: |
+      Соберите систему счетов из всего, что было в блоке.
+
+      **Исключение** `InsufficientFundsError(Exception)`.
+
+      **`Account(owner, balance=0)`** — базовый счёт:
+
+      - `owner` — непустая строка, `balance` ≥ 0, иначе `ValueError`;
+      - номер `number` выдаётся автоматически: `"ACC-0001"`, `"ACC-0002"`… — **общая** нумерация для всех типов счетов; метод класса `reset_numbers()` сбрасывает её;
+      - атрибут класса `kind = "base"`;
+      - `balance` и `history` — свойства только для чтения; `history` — кортеж пар `(операция, сумма)`;
+      - `deposit(amount)` — сумма > 0, иначе `ValueError`; запись `("deposit", amount)`;
+      - `withdraw(amount)` — сумма > 0; если внутренний метод `_can_withdraw(amount)` вернул `False` — `InsufficientFundsError`; запись `("withdraw", amount)`. В базовом счёте снять можно не больше баланса;
+      - `month_end()` — действия в конце месяца (в базовом ничего не делает);
+      - `__repr__` → `Account('ACC-0001', 'Ада', 100)` (имя класса — реального).
+
+      **`CheckingAccount(owner, balance=0, overdraft=1000)`**, `kind = "checking"`: можно уйти в минус до `-overdraft`. В `month_end`, если баланс отрицательный, списывается комиссия 1% от долга (округление до 2 знаков), запись `("fee", комиссия)`.
+
+      **`SavingsAccount(owner, balance=0, rate=0.01)`**, `kind = "savings"`: в `month_end` начисляются проценты `balance * rate` (округление до 2 знаков, только если > 0), запись `("interest", сумма)`.
+
+      **`Bank(name)`**:
+
+      - `open_account(kind, owner, **params)` — создать счёт типа `"checking"` или `"savings"` (иначе `ValueError`) и вернуть его;
+      - `get(number)` — счёт по номеру, нет — `KeyError`;
+      - `transfer(from_number, to_number, amount)` — перевод; на тот же счёт — `ValueError`; при нехватке средств — `InsufficientFundsError`, и ни один счёт не меняется;
+      - `total_balance()` — сумма балансов; `month_end()` — вызвать `month_end` у всех счетов;
+      - `report()` — список строк `"<номер> <kind> <owner>: <баланс с 2 знаками>"` в порядке номеров.
+    examples:
+      - input: "bank = Bank(\"Python Bank\"); a = bank.open_account(\"checking\", \"Ада\", balance=100); a.withdraw(300); a.balance"
+        output: "-200"
+    starter: |
+      class InsufficientFundsError(Exception):
+          pass
+
+
+      class Account:
+          def __init__(self, owner, balance=0):
+              self.owner = owner
+              self.balance = balance
+
+          def deposit(self, amount):
+              self.balance += amount
+
+          def withdraw(self, amount):
+              self.balance -= amount
+
+
+      class Bank:
+          def __init__(self, name):
+              self.name = name
+    hints:
+      - "Нумерация общая для всех потомков: в методе класса пишите `Account._counter += 1`, а не `cls._counter += 1` — иначе у каждого потомка появится свой счётчик (затенение атрибута класса)."
+      - "Потомки переопределяют только `_can_withdraw` и `month_end`; запись в историю — общий внутренний метод `_record(operation, amount)`. В Bank: словарь `ACCOUNT_TYPES = {\"checking\": CheckingAccount, \"savings\": SavingsAccount}` и `self._accounts = {}`; transfer сначала снимает (если упадёт — зачисления не будет), потом зачисляет."
+    solution: |
+      class InsufficientFundsError(Exception):
+          """На счёте недостаточно средств для операции."""
+
+
+      class Account:
+          """Базовый банковский счёт."""
+
+          kind = "base"
+          _counter = 0
+
+          def __init__(self, owner, balance=0):
+              if not isinstance(owner, str) or not owner.strip():
+                  raise ValueError("владелец должен быть непустой строкой")
+              if balance < 0:
+                  raise ValueError("начальный баланс не может быть отрицательным")
+              self.owner = owner
+              self._balance = balance
+              self._history = []
+              self.number = self._next_number()
+
+          @classmethod
+          def _next_number(cls):
+              Account._counter += 1
+              return f"ACC-{Account._counter:04d}"
+
+          @classmethod
+          def reset_numbers(cls):
+              Account._counter = 0
+
+          @property
+          def balance(self):
+              return self._balance
+
+          @property
+          def history(self):
+              return tuple(self._history)
+
+          def _record(self, operation, amount):
+              self._history.append((operation, amount))
+
+          @staticmethod
+          def _check_amount(amount):
+              if amount <= 0:
+                  raise ValueError(f"сумма должна быть положительной, получено {amount}")
+
+          def _can_withdraw(self, amount):
+              return amount <= self._balance
+
+          def deposit(self, amount):
+              """Пополнить счёт."""
+              self._check_amount(amount)
+              self._balance += amount
+              self._record("deposit", amount)
+
+          def withdraw(self, amount):
+              """Снять деньги, если правила счёта это позволяют."""
+              self._check_amount(amount)
+              if not self._can_withdraw(amount):
+                  raise InsufficientFundsError(
+                      f"счёт {self.number}: нельзя снять {amount}, баланс {self._balance}"
+                  )
+              self._balance -= amount
+              self._record("withdraw", amount)
+
+          def month_end(self):
+              """Операции конца месяца; у базового счёта их нет."""
+
+          def __repr__(self):
+              return f"{type(self).__name__}({self.number!r}, {self.owner!r}, {self._balance})"
+
+
+      class CheckingAccount(Account):
+          """Расчётный счёт с овердрафтом."""
+
+          kind = "checking"
+          FEE_RATE = 0.01
+
+          def __init__(self, owner, balance=0, overdraft=1000):
+              super().__init__(owner, balance)
+              self.overdraft = overdraft
+
+          def _can_withdraw(self, amount):
+              return self._balance - amount >= -self.overdraft
+
+          def month_end(self):
+              if self._balance < 0:
+                  fee = round(-self._balance * self.FEE_RATE, 2)
+                  self._balance -= fee
+                  self._record("fee", fee)
+
+
+      class SavingsAccount(Account):
+          """Сберегательный счёт с ежемесячными процентами."""
+
+          kind = "savings"
+
+          def __init__(self, owner, balance=0, rate=0.01):
+              super().__init__(owner, balance)
+              self.rate = rate
+
+          def month_end(self):
+              interest = round(self._balance * self.rate, 2)
+              if interest > 0:
+                  self._balance += interest
+                  self._record("interest", interest)
+
+
+      class Bank:
+          """Банк: открытие счетов, переводы, отчёты."""
+
+          ACCOUNT_TYPES = {"checking": CheckingAccount, "savings": SavingsAccount}
+
+          def __init__(self, name):
+              self.name = name
+              self._accounts = {}
+
+          def open_account(self, kind, owner, **params):
+              if kind not in self.ACCOUNT_TYPES:
+                  raise ValueError(f"неизвестный тип счёта: {kind}")
+              account = self.ACCOUNT_TYPES[kind](owner, **params)
+              self._accounts[account.number] = account
+              return account
+
+          def get(self, number):
+              if number not in self._accounts:
+                  raise KeyError(f"счёт {number} не найден")
+              return self._accounts[number]
+
+          def transfer(self, from_number, to_number, amount):
+              """Перевести деньги между счетами банка."""
+              if from_number == to_number:
+                  raise ValueError("нельзя перевести на тот же счёт")
+              source = self.get(from_number)
+              target = self.get(to_number)
+              source.withdraw(amount)
+              target.deposit(amount)
+
+          def total_balance(self):
+              return sum(account.balance for account in self._accounts.values())
+
+          def month_end(self):
+              for account in self._accounts.values():
+                  account.month_end()
+
+          def report(self):
+              return [
+                  f"{account.number} {account.kind} {account.owner}: {account.balance:.2f}"
+                  for account in sorted(self._accounts.values(), key=lambda acc: acc.number)
+              ]
+    solution_explanation: |
+      Как здесь работают идеи блока:
+
+      - **Инкапсуляция**: баланс и история меняются только через методы с проверками, наружу — свойства только для чтения.
+      - **Шаблонный метод**: `withdraw` написан один раз и спрашивает разрешение у `_can_withdraw`, который потомки переопределяют.
+      - **Полиморфизм**: `Bank.month_end` вызывает `month_end` у всех счетов, не зная их типов, — каждый счёт делает своё.
+      - **Атрибуты класса**: общий счётчик номеров меняется через `Account._counter`, чтобы потомки не завели собственные.
+      - **Фабрика**: `open_account` выбирает класс по строке из словаря — новый тип счёта добавляется одной строкой.
+      - **Атомарность перевода**: сначала снятие (оно может упасть), потом зачисление — при ошибке деньги не исчезают и не появляются.
+    tests:
+      - name: "Нумерация общая для всех типов"
+        code: |
+          Account.reset_numbers()
+          bank = Bank("b")
+          a = bank.open_account("checking", "Ада")
+          b = bank.open_account("savings", "Алан")
+          c = Account("Грейс")
+          assert (a.number, b.number, c.number) == ("ACC-0001", "ACC-0002", "ACC-0003"), (a.number, b.number, c.number)
+      - name: "Базовый счёт и история"
+        code: |
+          Account.reset_numbers()
+          acc = Account("Ада", 100)
+          acc.deposit(50)
+          acc.withdraw(30)
+          assert acc.balance == 120 and acc.history == (("deposit", 50), ("withdraw", 30))
+          try:
+              acc.withdraw(500)
+          except InsufficientFundsError:
+              assert acc.balance == 120
+          else:
+              raise AssertionError("Ожидался InsufficientFundsError")
+      - name: "Защита данных"
+        code: |
+          acc = Account("Ада", 10)
+          for attr, value in (("balance", 1000), ("history", ())):
+              try:
+                  setattr(acc, attr, value)
+              except AttributeError:
+                  pass
+              else:
+                  raise AssertionError(f"{attr} должен быть только для чтения")
+          for bad in ((" ", 0), ("Ада", -5)):
+              try:
+                  Account(*bad)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"Account{bad} должен бросать ValueError")
+      - name: "Овердрафт и комиссия"
+        code: |
+          acc = CheckingAccount("Ада", 100, overdraft=500)
+          acc.withdraw(300)
+          assert acc.balance == -200
+          try:
+              acc.withdraw(400)
+          except InsufficientFundsError:
+              pass
+          else:
+              raise AssertionError("Нельзя превысить овердрафт")
+          acc.month_end()
+          assert acc.balance == -202 and acc.history[-1] == ("fee", 2.0), acc.history
+      - name: "Проценты"
+        code: |
+          acc = SavingsAccount("Ада", 1000, rate=0.05)
+          acc.month_end()
+          assert acc.balance == 1050 and acc.history == (("interest", 50.0),)
+          try:
+              acc.withdraw(2000)
+          except InsufficientFundsError:
+              pass
+          else:
+              raise AssertionError("Сберегательный счёт не уходит в минус")
+      - name: "Перевод"
+        code: |
+          Account.reset_numbers()
+          bank = Bank("b")
+          a = bank.open_account("savings", "Ада", balance=500)
+          b = bank.open_account("checking", "Алан")
+          bank.transfer(a.number, b.number, 200)
+          assert (a.balance, b.balance) == (300, 200)
+          try:
+              bank.transfer(a.number, b.number, 1000)
+          except InsufficientFundsError:
+              assert (a.balance, b.balance) == (300, 200), "Неудачный перевод не должен менять счета"
+          else:
+              raise AssertionError("Ожидался InsufficientFundsError")
+          try:
+              bank.transfer(a.number, a.number, 1)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Перевод на тот же счёт — ValueError")
+      - name: "Банк: месяц, итог и отчёт"
+        code: |
+          Account.reset_numbers()
+          bank = Bank("b")
+          bank.open_account("savings", "Ада", balance=1000, rate=0.1)
+          checking = bank.open_account("checking", "Алан")
+          checking.withdraw(100)
+          bank.month_end()
+          assert bank.total_balance() == 1100 - 101, bank.total_balance()
+          assert bank.report() == ["ACC-0001 savings Ада: 1100.00", "ACC-0002 checking Алан: -101.00"], bank.report()
+      - name: "Ошибки банка"
+        code: |
+          bank = Bank("b")
+          try:
+              bank.open_account("crypto", "Ада")
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Неизвестный тип — ValueError")
+          try:
+              bank.get("ACC-9999")
+          except KeyError:
+              pass
+          else:
+              raise AssertionError("Неизвестный номер — KeyError")
+      - name: "repr и иерархия"
+        code: |
+          Account.reset_numbers()
+          acc = SavingsAccount("Ада", 100)
+          assert repr(acc) == "SavingsAccount('ACC-0001', 'Ада', 100)", repr(acc)
+          assert issubclass(CheckingAccount, Account) and issubclass(SavingsAccount, Account)
+          assert issubclass(InsufficientFundsError, Exception)
+          for cls in (CheckingAccount, SavingsAccount):
+              assert "withdraw" not in cls.__dict__, f"{cls.__name__} не должен переопределять withdraw — только _can_withdraw"

@@ -1,0 +1,76 @@
+title: "Демо-проект: калькулятор"
+mode: browser
+description: |
+  Так выглядит проект части: ТЗ разбито на этапы. У каждого этапа — описание, подсказки,
+  автоматические проверки и/или чек-лист самопроверки. Эталонное решение открывается после всех этапов.
+requirements:
+  - "Функция `calc(a, op, b)` для операций `+ - * /`"
+  - "Деление на ноль возвращает `None`"
+stages:
+  - id: stage-01
+    title: "Сложение и вычитание"
+    description: "Реализуйте `calc(a, op, b)` для `+` и `-`."
+    hints:
+      - "Сравнивайте `op` со строками `'+'` и `'-'` через `if/elif`."
+    tasks:
+      - id: t1
+        title: "calc: + и -"
+        statement: "`calc(2, '+', 3)` → `5`, `calc(5, '-', 7)` → `-2`."
+        starter: |
+          def calc(a, op, b):
+              pass
+        hints:
+          - "`if op == '+': return a + b`"
+          - "Аналогично для `-`."
+        solution: |
+          def calc(a, op, b):
+              if op == "+":
+                  return a + b
+              if op == "-":
+                  return a - b
+        solution_explanation: "Ветвление по символу операции."
+        tests:
+          - name: "Сложение"
+            call: "calc(2, '+', 3)"
+            expected: "5"
+          - name: "Вычитание"
+            call: "calc(5, '-', 7)"
+            expected: "-2"
+  - id: stage-02
+    title: "Умножение, деление и оформление"
+    description: "Добавьте `*` и `/`. Деление на ноль должно возвращать `None`."
+    tasks:
+      - id: t1
+        title: "calc: * и /"
+        statement: "Полная версия `calc` для четырёх операций."
+        starter: |
+          def calc(a, op, b):
+              pass
+        hints:
+          - "Перед делением проверьте `b == 0`."
+          - "Неизвестная операция пусть тоже вернёт `None`."
+        solution: |
+          def calc(a, op, b):
+              if op == "+":
+                  return a + b
+              if op == "-":
+                  return a - b
+              if op == "*":
+                  return a * b
+              if op == "/":
+                  return None if b == 0 else a / b
+              return None
+        solution_explanation: "Защита от деления на ноль — проверка делителя до операции."
+        tests:
+          - name: "Умножение"
+            call: "calc(4, '*', 2.5)"
+            expected: "10.0"
+          - name: "Деление"
+            call: "calc(9, '/', 3)"
+            expected: "3.0"
+          - name: "Деление на ноль"
+            call: "calc(1, '/', 0)"
+            expected: "None"
+    criteria:
+      - "Функция покрывает все четыре операции"
+      - "Код читается без комментариев: понятные имена, нет дублирования"

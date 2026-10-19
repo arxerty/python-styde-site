@@ -1,0 +1,528 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Queue(list):
+          def enqueue(self, item):
+              self.append(item)
+
+          def dequeue(self):
+              return self.pop(0)
+
+
+      q = Queue()
+      q.enqueue("a")
+      q.enqueue("b")
+      q.insert(0, "z")
+      print(q.dequeue())
+    options:
+      - text: "`z`"
+        correct: true
+        why: "Унаследованный insert позволил вставить элемент в начало, нарушив порядок очереди."
+      - text: "`a`"
+        why: "insert(0, \"z\") поставил z первым — очередь «сломана» унаследованным методом."
+      - text: "AttributeError: нет метода insert"
+        why: "Queue наследует все методы list."
+    explanation: "Наследование от list открывает весь интерфейс списка; композиция показывает только нужное."
+
+  - id: q2
+    type: single
+    prompt: "Что такое композиция?"
+    options:
+      - text: "Объект хранит другие объекты в атрибутах и делегирует им работу"
+        correct: true
+        why: "Отношение «имеет»."
+      - text: "Наследование от нескольких классов сразу"
+        why: "Это множественное наследование."
+      - text: "Объединение двух классов в один файл"
+        why: "Расположение кода не связано с композицией."
+      - text: "Переопределение всех методов родителя"
+        why: "Это всё ещё наследование."
+    explanation: "Композиция — сборка объекта из компонентов."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Greeter:
+          def __init__(self, style):
+              self.style = style
+
+          def greet(self, name):
+              return self.style(name)
+
+
+      g = Greeter(str.upper)
+      first = g.greet("ада")
+      g.style = lambda name: name[::-1]
+      print(first, g.greet("ада"))
+    options:
+      - text: "`АДА ада`"
+        correct: true
+        why: "Стратегия заменена во время работы: сначала upper, потом разворот строки."
+      - text: "`АДА АДА`"
+        why: "После замены style используется новая стратегия."
+      - text: "TypeError: str.upper нельзя хранить в атрибуте"
+        why: "Функции и методы — объекты, их можно хранить и передавать."
+    explanation: "Стратегия — поведение, переданное параметром и заменяемое на лету."
+
+  - id: q4
+    type: find_bug
+    prompt: "Почему класс трудно протестировать без доступа к сети?"
+    code: |
+      class Summarizer:
+          def __init__(self):
+              self.client = RemoteLLMClient(api_key="sk-...")
+
+          def summarize(self, text):
+              return self.client.generate(f"Сократи: {text}")
+    options:
+      - text: "Клиент создаётся внутри класса; его нужно передавать параметром, чтобы подставить фейк"
+        correct: true
+        why: "Внедрение зависимости через __init__(self, client)."
+      - text: "summarize должен быть статическим методом"
+        why: "Он использует self.client — это обычный метод."
+      - text: "Нужно наследовать Summarizer от RemoteLLMClient"
+        why: "Суммаризатор не является клиентом — это ухудшит дизайн."
+    explanation: "Компоненты передают снаружи — так их легко заменить в тестах."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Wrapper:
+          def __init__(self, target):
+              self.target = target
+              self.name = "обёртка"
+
+          def __getattr__(self, attr):
+              return getattr(self.target, attr)
+
+
+      class Target:
+          name = "цель"
+          size = 10
+
+
+      w = Wrapper(Target())
+      print(w.name, w.size)
+    options:
+      - text: "`обёртка 10`"
+        correct: true
+        why: "__getattr__ вызывается только для отсутствующих атрибутов: name найден у обёртки."
+      - text: "`цель 10`"
+        why: "name есть у самой обёртки — __getattr__ не вызывается."
+      - text: "AttributeError"
+        why: "size перенаправляется в target через __getattr__."
+    explanation: "__getattr__ — запасной путь для атрибутов, которых нет у объекта."
+
+  - id: q6
+    type: multiple
+    prompt: "Какие признаки говорят о неудачном наследовании? Выберите все."
+    options:
+      - text: "Классы вида `JsonFileFilteredLogger` для каждой комбинации возможностей"
+        correct: true
+        why: "Взрыв подклассов — повод перейти к композиции."
+      - text: "Потомок переопределяет метод родителя, чтобы тот бросал ошибку «не поддерживается»"
+        correct: true
+        why: "Нарушение принципа подстановки."
+      - text: "Иерархия глубиной пять уровней"
+        correct: true
+        why: "Глубокие иерархии хрупки и сложны."
+      - text: "Своё исключение наследует Exception"
+        why: "Это правильное отношение «является»."
+    explanation: "Наследование хорошо для неглубоких иерархий с настоящим «является»."
+
+tasks:
+  - id: t1
+    title: "Стек на композиции"
+    difficulty: 1
+    statement: |
+      Создайте класс `Stack` **без** наследования от `list` (список хранится внутри):
+
+      - `push(item)`, `pop()` — снять верхний, `peek()` — посмотреть верхний, не снимая; для пустого стека `pop`/`peek` бросают `IndexError("стек пуст")`;
+      - `len(stack)`; пустой стек ложен;
+      - `__repr__` → `Stack([1, 2, 3])` (снизу вверх).
+
+      Методов списка вроде `insert` или `sort` у стека быть не должно.
+    examples:
+      - input: "s = Stack(); s.push(1); s.push(2); s.pop(), s.peek()"
+        output: "(2, 1)"
+    starter: |
+      class Stack(list):
+          def push(self, item):
+              self.append(item)
+
+          def peek(self):
+              return self[-1]
+    hints:
+      - "`self._items = []` в `__init__`; методы делегируют списку."
+      - "Проверку пустоты вынесите в `_check_not_empty()`; `__repr__` — `f\"Stack({self._items})\"`."
+    solution: |
+      class Stack:
+          """Стек: добавление и снятие только сверху."""
+
+          def __init__(self):
+              self._items = []
+
+          def _check_not_empty(self):
+              if not self._items:
+                  raise IndexError("стек пуст")
+
+          def push(self, item):
+              self._items.append(item)
+
+          def pop(self):
+              self._check_not_empty()
+              return self._items.pop()
+
+          def peek(self):
+              self._check_not_empty()
+              return self._items[-1]
+
+          def __len__(self):
+              return len(self._items)
+
+          def __repr__(self):
+              return f"Stack({self._items})"
+    solution_explanation: "Список спрятан внутри, наружу — только операции стека. Инвариант «работаем только с вершиной» больше невозможно нарушить вызовом insert или sort."
+    tests:
+      - name: "Пример"
+        code: |
+          s = Stack()
+          s.push(1)
+          s.push(2)
+          assert (s.pop(), s.peek()) == (2, 1)
+      - name: "Пустой стек"
+        code: |
+          s = Stack()
+          assert not s and len(s) == 0
+          for method in (s.pop, s.peek):
+              try:
+                  method()
+              except IndexError as error:
+                  assert str(error) == "стек пуст"
+              else:
+                  raise AssertionError("Ожидался IndexError")
+      - name: "repr"
+        code: |
+          s = Stack()
+          for x in (1, 2, 3):
+              s.push(x)
+          assert repr(s) == "Stack([1, 2, 3])", repr(s)
+      - name: "Нет лишних методов"
+        code: |
+          assert not issubclass(Stack, list), "Не наследуйте list"
+          for name in ("insert", "sort", "append"):
+              assert not hasattr(Stack(), name), f"У стека не должно быть {name}"
+      - name: "Стеки независимы"
+        code: |
+          a, b = Stack(), Stack()
+          a.push(1)
+          assert len(b) == 0
+
+  - id: t2
+    title: "Логгер из компонентов"
+    difficulty: 2
+    statement: |
+      Соберите логгер из заменяемых частей:
+
+      - форматтеры с методом `format(level, message)`: `PlainFormatter` → `"[INFO] текст"`, `JsonFormatter` → `json.dumps({"level": ..., "message": ...}, ensure_ascii=False)`;
+      - `MemoryOutput` с методом `write(line)` и списком `lines`;
+      - `LevelFilter(min_level)` с методом `allows(level)`; порядок уровней: `DEBUG < INFO < WARNING < ERROR`;
+      - `Logger(formatter, output, level_filter=None)`, метод `log(level, message)` — если фильтр есть и не пропускает уровень, ничего не пишет и возвращает `False`; иначе пишет отформатированную строку и возвращает `True`.
+    examples:
+      - input: "out = MemoryOutput(); Logger(PlainFormatter(), out, LevelFilter(\"INFO\")).log(\"DEBUG\", \"x\"), out.lines"
+        output: "(False, [])"
+    starter: |
+      class Logger:
+          def __init__(self, formatter, output, level_filter=None):
+              pass
+
+          def log(self, level, message):
+              print(f"[{level}] {message}")
+    hints:
+      - "`LEVELS = [\"DEBUG\", \"INFO\", \"WARNING\", \"ERROR\"]`; `allows`: `LEVELS.index(level) >= LEVELS.index(self.min_level)`."
+      - "В log: `if self.level_filter is not None and not self.level_filter.allows(level): return False`."
+    solution: |
+      import json
+
+      LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR"]
+
+
+      class PlainFormatter:
+          def format(self, level, message):
+              return f"[{level}] {message}"
+
+
+      class JsonFormatter:
+          def format(self, level, message):
+              return json.dumps({"level": level, "message": message}, ensure_ascii=False)
+
+
+      class MemoryOutput:
+          def __init__(self):
+              self.lines = []
+
+          def write(self, line):
+              self.lines.append(line)
+
+
+      class LevelFilter:
+          def __init__(self, min_level):
+              self.min_level = min_level
+
+          def allows(self, level):
+              return LEVELS.index(level) >= LEVELS.index(self.min_level)
+
+
+      class Logger:
+          """Логгер, собранный из форматтера, вывода и фильтра."""
+
+          def __init__(self, formatter, output, level_filter=None):
+              self.formatter = formatter
+              self.output = output
+              self.level_filter = level_filter
+
+          def log(self, level, message):
+              if self.level_filter is not None and not self.level_filter.allows(level):
+                  return False
+              self.output.write(self.formatter.format(level, message))
+              return True
+    solution_explanation: "Три независимых измерения — формат, вывод и фильтр — комбинируются при создании логгера. Новый форматтер или вывод добавляется одним классом, без изменения Logger и без подклассов-комбинаций."
+    tests:
+      - name: "Фильтр отсекает"
+        code: |
+          out = MemoryOutput()
+          assert Logger(PlainFormatter(), out, LevelFilter("INFO")).log("DEBUG", "x") is False
+          assert out.lines == []
+      - name: "Plain"
+        code: |
+          out = MemoryOutput()
+          assert Logger(PlainFormatter(), out).log("ERROR", "сбой") is True
+          assert out.lines == ["[ERROR] сбой"]
+      - name: "JSON"
+        code: |
+          out = MemoryOutput()
+          Logger(JsonFormatter(), out, LevelFilter("WARNING")).log("WARNING", "медленно")
+          assert out.lines == ['{"level": "WARNING", "message": "медленно"}'], out.lines
+      - name: "Замена компонента"
+        code: |
+          out = MemoryOutput()
+          logger = Logger(PlainFormatter(), out)
+          logger.log("INFO", "a")
+          logger.formatter = JsonFormatter()
+          logger.log("INFO", "b")
+          assert out.lines == ["[INFO] a", '{"level": "INFO", "message": "b"}']
+      - name: "Любой вывод"
+        code: |
+          class Upper:
+              def __init__(self):
+                  self.got = []
+              def write(self, line):
+                  self.got.append(line.upper())
+          target = Upper()
+          Logger(PlainFormatter(), target).log("INFO", "ok")
+          assert target.got == ["[INFO] OK"]
+
+  - id: t3
+    title: "Стратегии скидок"
+    difficulty: 2
+    statement: |
+      Стратегия скидки — объект с методом `apply(subtotal, items_count)`, возвращающим итоговую сумму:
+
+      - `NoDiscount` — без скидки;
+      - `PercentDiscount(percent)` — скидка `percent`%;
+      - `BulkDiscount(min_items, percent)` — скидка `percent`%, только если товаров не меньше `min_items`.
+
+      Класс `Order(pricing=None)` (по умолчанию `NoDiscount()`): `add(price, quantity=1)`, свойство `items_count` (сумма количеств), `total()` — результат стратегии, округлённый до 2 знаков. Стратегию можно заменить в атрибуте `pricing`.
+    examples:
+      - input: "o = Order(BulkDiscount(3, 10)); o.add(100, 3); o.total()"
+        output: "270.0"
+    starter: |
+      class Order:
+          def __init__(self, pricing=None):
+              self.items = []
+
+          def add(self, price, quantity=1):
+              self.items.append((price, quantity))
+
+          def total(self):
+              return sum(price * quantity for price, quantity in self.items)
+    hints:
+      - "Умолчание-объект создавайте внутри: `self.pricing = pricing if pricing is not None else NoDiscount()` — не пишите `pricing=NoDiscount()` в сигнатуре."
+      - "total: `subtotal = sum(...)`, затем `round(self.pricing.apply(subtotal, self.items_count), 2)`."
+    solution: |
+      class NoDiscount:
+          def apply(self, subtotal, items_count):
+              return subtotal
+
+
+      class PercentDiscount:
+          def __init__(self, percent):
+              self.percent = percent
+
+          def apply(self, subtotal, items_count):
+              return subtotal * (1 - self.percent / 100)
+
+
+      class BulkDiscount:
+          def __init__(self, min_items, percent):
+              self.min_items = min_items
+              self.percent = percent
+
+          def apply(self, subtotal, items_count):
+              if items_count >= self.min_items:
+                  return subtotal * (1 - self.percent / 100)
+              return subtotal
+
+
+      class Order:
+          """Заказ с подменяемой стратегией скидки."""
+
+          def __init__(self, pricing=None):
+              self.pricing = pricing if pricing is not None else NoDiscount()
+              self._items = []
+
+          def add(self, price, quantity=1):
+              self._items.append((price, quantity))
+
+          @property
+          def items_count(self):
+              return sum(quantity for _, quantity in self._items)
+
+          def total(self):
+              subtotal = sum(price * quantity for price, quantity in self._items)
+              return round(self.pricing.apply(subtotal, self.items_count), 2)
+    solution_explanation: "Правило скидки вынесено в стратегию. Order не знает, какие скидки существуют, — новая акция (например, «скидка в выходные») будет новым классом с методом apply."
+    tests:
+      - name: "Оптовая скидка"
+        code: |
+          o = Order(BulkDiscount(3, 10))
+          o.add(100, 3)
+          assert o.total() == 270.0
+      - name: "Оптовая не сработала"
+        code: |
+          o = Order(BulkDiscount(5, 10))
+          o.add(100, 2)
+          assert o.total() == 200
+      - name: "Процент и без скидки"
+        code: |
+          o = Order()
+          o.add(50, 2)
+          o.add(25)
+          assert o.total() == 125 and o.items_count == 3
+          o.pricing = PercentDiscount(20)
+          assert o.total() == 100.0
+      - name: "Любая стратегия"
+        code: |
+          class Minus10:
+              def apply(self, subtotal, items_count):
+                  return subtotal - 10 * items_count
+          o = Order(Minus10())
+          o.add(100, 2)
+          assert o.total() == 180
+      - name: "Заказы независимы"
+        code: |
+          a, b = Order(), Order()
+          a.add(10)
+          assert b.total() == 0 and b.items_count == 0
+
+  - id: t4
+    title: "Клиент с лимитом вызовов"
+    difficulty: 3
+    statement: |
+      Создайте обёртку `LimitedClient(client, max_calls)`, которая через `__getattr__` пропускает к `client` **любые** атрибуты:
+
+      - обычные (не вызываемые) атрибуты возвращаются как есть;
+      - вызов любого метода считается; когда вызовов уже `max_calls`, следующий вызов бросает `RuntimeError("лимит вызовов исчерпан")` (метод клиента при этом не вызывается);
+      - свойство `remaining` — сколько вызовов осталось;
+      - метод `reset()` обнуляет счётчик.
+
+      Проверить, вызываемый ли атрибут, можно встроенной функцией `callable(obj)`.
+    examples:
+      - input: "c = LimitedClient([3, 1, 2], 2); c.count(1), c.index(2), c.remaining"
+        output: "(1, 2, 0)"
+    starter: |
+      class LimitedClient:
+          def __init__(self, client, max_calls):
+              self.client = client
+              self.max_calls = max_calls
+    hints:
+      - "В `__getattr__(self, name)`: `attribute = getattr(self._client, name)`; если `not callable(attribute)` — вернуть его."
+      - "Иначе вернуть вложенную функцию `def limited(*args, **kwargs):`, которая проверяет счётчик, увеличивает его и вызывает `attribute(*args, **kwargs)`."
+    solution: |
+      class LimitedClient:
+          """Обёртка, ограничивающая число вызовов методов клиента."""
+
+          def __init__(self, client, max_calls):
+              self._client = client
+              self._max_calls = max_calls
+              self._calls = 0
+
+          @property
+          def remaining(self):
+              return self._max_calls - self._calls
+
+          def reset(self):
+              self._calls = 0
+
+          def __getattr__(self, name):
+              attribute = getattr(self._client, name)
+              if not callable(attribute):
+                  return attribute
+
+              def limited(*args, **kwargs):
+                  if self._calls >= self._max_calls:
+                      raise RuntimeError("лимит вызовов исчерпан")
+                  self._calls += 1
+                  return attribute(*args, **kwargs)
+
+              return limited
+    solution_explanation: "Собственные атрибуты (remaining, reset, _calls) находятся обычным путём, а всё остальное __getattr__ перенаправляет клиенту. Для методов возвращается функция-обёртка, которая проверяет лимит перед настоящим вызовом. Такие обёртки ограничивают расходы на платные API."
+    tests:
+      - name: "Пример"
+        code: |
+          c = LimitedClient([3, 1, 2], 2)
+          assert (c.count(1), c.index(2), c.remaining) == (1, 2, 0)
+      - name: "Лимит исчерпан"
+        code: |
+          calls = []
+          class Api:
+              def get(self, x):
+                  calls.append(x)
+                  return x
+          c = LimitedClient(Api(), 1)
+          c.get(1)
+          try:
+              c.get(2)
+          except RuntimeError as error:
+              assert str(error) == "лимит вызовов исчерпан"
+          else:
+              raise AssertionError("Ожидался RuntimeError")
+          assert calls == [1], "Метод клиента не должен вызываться сверх лимита"
+      - name: "Обычные атрибуты не считаются"
+        code: |
+          class Api:
+              base_url = "https://api"
+              def ping(self):
+                  return "pong"
+          c = LimitedClient(Api(), 1)
+          assert c.base_url == "https://api" and c.base_url == "https://api"
+          assert c.remaining == 1 and c.ping() == "pong"
+      - name: "reset"
+        code: |
+          c = LimitedClient("abc", 1)
+          c.upper()
+          c.reset()
+          assert c.upper() == "ABC"
+      - name: "Отсутствующий атрибут"
+        code: |
+          c = LimitedClient([], 5)
+          try:
+              c.no_such_method
+          except AttributeError:
+              pass
+          else:
+              raise AssertionError("Ожидался AttributeError")

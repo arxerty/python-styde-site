@@ -1,0 +1,299 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      prices = {"кофе": 199, "чай": 89}
+      print(prices.get("сок"), prices.get("сок", 0), prices.get("чай", 0))
+    options:
+      - text: "`None 0 89`"
+        correct: true
+        why: "get без умолчания возвращает None, с умолчанием — его; для существующего ключа — значение."
+      - text: "Ошибку KeyError"
+        why: "get не бросает исключение — это делает d[key]."
+      - text: "`0 0 89`"
+        why: "Без второго аргумента get возвращает None, а не 0."
+    explanation: "d.get(key, default) — безопасное чтение, когда ключа может не быть."
+
+  - id: q2
+    type: find_bug
+    prompt: "Программа падает при подсчёте слов. Почему?"
+    code: |
+      counts = {}
+      for word in ["a", "b", "a"]:
+          counts[word] += 1
+      print(counts)
+    options:
+      - text: "Для нового слова ключа ещё нет, `counts[word] += 1` читает несуществующий ключ → KeyError"
+        correct: true
+        why: "Нужно `counts[word] = counts.get(word, 0) + 1`."
+      - text: "Словарь нельзя менять в цикле"
+        why: "Менять значения можно; нельзя менять размер во время перебора самого словаря, а здесь перебирается список."
+      - text: "Ключи должны быть числами"
+        why: "Строки — самые частые ключи."
+    explanation: "`+=` сначала читает значение. Для подсчёта используйте get со значением по умолчанию."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      counts = {}
+      for ch in "банан":
+          counts[ch] = counts.get(ch, 0) + 1
+      print(counts)
+    options:
+      - text: "`{'б': 1, 'а': 2, 'н': 2}`"
+        correct: true
+        why: "Порядок ключей — порядок первого появления; «а» и «н» встречаются дважды."
+      - text: "`{'а': 2, 'б': 1, 'н': 2}`"
+        why: "Словарь хранит порядок добавления, а не алфавитный."
+      - text: "`{'б': 1, 'а': 1, 'н': 1}`"
+        why: "get возвращает текущий счётчик, и он увеличивается при повторе."
+    explanation: "Шаблон подсчёта за один проход; порядок ключей — порядок добавления."
+
+  - id: q4
+    type: multiple
+    prompt: "Какие значения могут быть **ключами** словаря? Выберите все."
+    options:
+      - text: "`\"имя\"`"
+        correct: true
+        why: "Строки неизменяемы."
+      - text: "`42`"
+        correct: true
+        why: "Числа неизменяемы."
+      - text: "`(55.7, 37.6)`"
+        correct: true
+        why: "Кортеж из неизменяемых элементов хешируем."
+      - text: "`[1, 2]`"
+        why: "Список изменяем — TypeError: unhashable type."
+      - text: "`{\"a\": 1}`"
+        why: "Словарь изменяем и тоже не может быть ключом."
+    explanation: "Ключ должен быть хешируемым — неизменяемым."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      scores = {"Ада": 95, "Алан": 88}
+      for name, score in scores.items():
+          print(name, score)
+      print("Ада" in scores, 95 in scores)
+    options:
+      - text: |
+          ```
+          Ада 95
+          Алан 88
+          True False
+          ```
+        correct: true
+        why: "items() даёт пары; in проверяет ключи, а 95 — значение."
+      - text: |
+          ```
+          Ада 95
+          Алан 88
+          True True
+          ```
+        why: "Оператор in для словаря ищет только среди ключей."
+      - text: |
+          ```
+          ('Ада', 95)
+          ('Алан', 88)
+          True False
+          ```
+        why: "Пары распакованы в name и score — печатаются два значения через пробел."
+    explanation: "for k, v in d.items() — основной способ перебора; `in` — проверка ключа."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      d = {"a": 1}
+      d["b"] = 2
+      d["a"] = 3
+      print(d, len(d))
+    answer: "{'a': 3, 'b': 2} 2"
+    explanation: "Присваивание существующему ключу заменяет значение, но не меняет позицию ключа."
+
+tasks:
+  - id: t1
+    title: "Частота слов"
+    difficulty: 2
+    statement: |
+      Программа читает текст. Приведите его к нижнему регистру, снимите с краёв слов знаки `.,!?;:—-«»"()`, пустые токены отбросьте. Выведите слова по убыванию частоты в формате `<слово>: <количество>`; при равной частоте — в порядке первого появления.
+    examples:
+      - input: "Кот видит кота. Кот спит, кот!"
+        output: "кот: 3\nвидит: 1\nкота: 1\nспит: 1"
+    starter: |
+      text = input()
+      punctuation = ".,!?;:—-«»\"()"
+      counts = {}
+    hints:
+      - "Подсчёт: `counts[word] = counts.get(word, 0) + 1`."
+      - "Сортировка ключей по значениям: `sorted(counts, key=counts.get, reverse=True)` — стабильность сохранит порядок появления."
+    solution: |
+      text = input()
+      punctuation = ".,!?;:—-«»\"()"
+      counts = {}
+      for token in text.lower().split():
+          word = token.strip(punctuation)
+          if word:
+              counts[word] = counts.get(word, 0) + 1
+      for word in sorted(counts, key=counts.get, reverse=True):
+          print(f"{word}: {counts[word]}")
+    solution_explanation: "Словарь считает частоты за один проход, в отличие от квадратичного подсчёта списками. Порядок вставки в словаре + стабильная сортировка = при равных частотах сохраняется порядок появления."
+    tests:
+      - name: "Пример"
+        stdin: "Кот видит кота. Кот спит, кот!\n"
+        stdout: "кот: 3\nвидит: 1\nкота: 1\nспит: 1"
+      - name: "Одно слово"
+        stdin: "Привет!\n"
+        stdout: "привет: 1"
+      - name: "Пусто"
+        stdin: "\n"
+        stdout: ""
+      - name: "Равные частоты"
+        stdin: "b a b a c\n"
+        stdout: "b: 2\na: 2\nc: 1"
+      - name: "Большой текст (быстро)"
+        stdin: "слово другое третье слово\n"
+        code: |
+          assert __stdout__.strip().splitlines()[0] == "слово: 2"
+
+  - id: t2
+    title: "Справочник"
+    difficulty: 1
+    statement: |
+      Программа читает `n`, затем `n` строк `<имя> <телефон>` (имя — одно слово). Затем читает запросы-имена до слова `стоп` и для каждого выводит телефон или `не найден`.
+    examples:
+      - input: "2\nАда 111\nАлан 222\nАлан\nГрейс\nстоп"
+        output: "222\nне найден"
+    starter: |
+      n = int(input())
+      phones = {}
+    hints:
+      - "Заполнение: `name, phone = input().split()`, `phones[name] = phone`."
+      - "Ответ на запрос: `phones.get(query, \"не найден\")`."
+    solution: |
+      n = int(input())
+      phones = {}
+      for _ in range(n):
+          name, phone = input().split()
+          phones[name] = phone
+      while True:
+          query = input()
+          if query == "стоп":
+              break
+          print(phones.get(query, "не найден"))
+    solution_explanation: "Словарь даёт мгновенный поиск по имени, а get со значением по умолчанию обрабатывает отсутствующие имена без if и без KeyError."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        stdin: "2\nАда 111\nАлан 222\nАлан\nГрейс\nстоп\n"
+        stdout: "222\nне найден"
+      - name: "Повтор имени — последний номер"
+        stdin: "2\nАда 111\nАда 999\nАда\nстоп\n"
+        stdout: "999"
+      - name: "Пустой справочник"
+        stdin: "0\nкто-то\nстоп\n"
+        stdout: "не найден"
+      - name: "Регистр важен"
+        stdin: "1\nАда 1\nада\nстоп\n"
+        stdout: "не найден"
+      - name: "Сразу стоп"
+        stdin: "1\nА 1\nстоп\n"
+        stdout: ""
+
+  - id: t3
+    title: "Группировка по первой букве"
+    difficulty: 2
+    statement: |
+      Программа читает строку слов (в нижнем регистре). Сгруппируйте слова по первой букве и выведите группы по алфавиту букв: `<буква>: <слова через запятую с пробелом в порядке появления>`.
+    examples:
+      - input: "арбуз банан апельсин вишня брусника"
+        output: "а: арбуз, апельсин\nб: банан, брусника\nв: вишня"
+    starter: |
+      words = input().split()
+      groups = {}
+    hints:
+      - "`groups.setdefault(word[0], []).append(word)`."
+      - "Выводите `for letter in sorted(groups):`."
+    solution: |
+      words = input().split()
+      groups = {}
+      for word in words:
+          groups.setdefault(word[0], []).append(word)
+      for letter in sorted(groups):
+          print(f"{letter}: {', '.join(groups[letter])}")
+    solution_explanation: "Шаблон группировки: значение словаря — список, setdefault создаёт его при первом обращении. sorted по ключам задаёт порядок групп."
+    tests:
+      - name: "Пример"
+        stdin: "арбуз банан апельсин вишня брусника\n"
+        stdout: "а: арбуз, апельсин\nб: банан, брусника\nв: вишня"
+      - name: "Одна группа"
+        stdin: "кот кит код\n"
+        stdout: "к: кот, кит, код"
+      - name: "Повторы сохраняются"
+        stdin: "да да\n"
+        stdout: "д: да, да"
+      - name: "Латиница"
+        stdin: "python java pandas numpy\n"
+        stdout: "j: java\nn: numpy\np: python, pandas"
+      - name: "Пусто"
+        stdin: "\n"
+        stdout: ""
+
+  - id: t4
+    title: "Кодирование меток"
+    difficulty: 3
+    statement: |
+      Модели работают с числами, поэтому текстовые метки классов кодируют номерами. Программа читает строку меток через пробел. Присвойте каждой новой метке номер с 0 в порядке первого появления (`label2id`) и выведите:
+
+      ```text
+      Коды: <последовательность номеров через пробел>
+      Словарь: <номер>=<метка> через пробел, по возрастанию номера
+      Обратно: <метки, восстановленные из кодов через словарь id2label>
+      ```
+    examples:
+      - input: "кот пёс кот птица пёс"
+        output: "Коды: 0 1 0 2 1\nСловарь: 0=кот 1=пёс 2=птица\nОбратно: кот пёс кот птица пёс"
+    starter: |
+      labels = input().split()
+      label2id = {}
+    hints:
+      - "Новая метка получает номер `len(label2id)` — текущий размер словаря."
+      - "Обратный словарь: `id2label = {}` и цикл `for label, idx in label2id.items(): id2label[idx] = label`."
+    solution: |
+      labels = input().split()
+      label2id = {}
+      for label in labels:
+          if label not in label2id:
+              label2id[label] = len(label2id)
+      codes = []
+      for label in labels:
+          codes.append(label2id[label])
+      id2label = {}
+      for label, idx in label2id.items():
+          id2label[idx] = label
+      print("Коды:", " ".join(str(code) for code in codes))
+      print("Словарь:", " ".join(f"{idx}={id2label[idx]}" for idx in sorted(id2label)))
+      decoded = []
+      for code in codes:
+          decoded.append(id2label[code])
+      print("Обратно:", " ".join(decoded))
+    solution_explanation: "label2id и id2label — пара словарей, которая есть в каждом ML-проекте классификации (в Hugging Face они так и называются). len(label2id) — удобный способ выдать следующий свободный номер."
+    tests:
+      - name: "Пример"
+        stdin: "кот пёс кот птица пёс\n"
+        stdout: "Коды: 0 1 0 2 1\nСловарь: 0=кот 1=пёс 2=птица\nОбратно: кот пёс кот птица пёс"
+      - name: "Одна метка"
+        stdin: "spam spam spam\n"
+        stdout: "Коды: 0 0 0\nСловарь: 0=spam\nОбратно: spam spam spam"
+      - name: "Все разные"
+        stdin: "a b c\n"
+        stdout: "Коды: 0 1 2\nСловарь: 0=a 1=b 2=c\nОбратно: a b c"
+      - name: "Позитив/негатив"
+        stdin: "neg pos pos neg neutral\n"
+        stdout: "Коды: 0 1 1 0 2\nСловарь: 0=neg 1=pos 2=neutral\nОбратно: neg pos pos neg neutral"
+      - name: "Одно значение"
+        stdin: "x\n"
+        stdout: "Коды: 0\nСловарь: 0=x\nОбратно: x"

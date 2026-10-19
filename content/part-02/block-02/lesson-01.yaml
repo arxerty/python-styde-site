@@ -1,0 +1,475 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Tag:
+          def __init__(self, name):
+              self.name = name
+
+          def __repr__(self):
+              return f"Tag({self.name!r})"
+
+
+      tag = Tag("ml")
+      print(tag)
+      print([tag])
+    options:
+      - text: |
+          ```
+          Tag('ml')
+          [Tag('ml')]
+          ```
+        correct: true
+        why: "Без __str__ print использует __repr__."
+      - text: |
+          ```
+          ml
+          [Tag('ml')]
+          ```
+        why: "__str__ не определён — print не знает «красивого» вида."
+      - text: |
+          ```
+          <__main__.Tag object at 0x...>
+          [Tag('ml')]
+          ```
+        why: "__repr__ определён, и str() использует его как запасной вариант."
+    explanation: "__repr__ служит запасным вариантом для str(); обратное неверно."
+
+  - id: q2
+    type: single
+    prompt: "Что должен вернуть `__eq__`, если `other` — объект неподходящего типа?"
+    options:
+      - text: "`NotImplemented`"
+        correct: true
+        why: "Это сигнал Python попробовать сравнение с другой стороны, а затем вернуть False."
+      - text: "Бросить `NotImplementedError`"
+        why: "Это исключение для нереализованных методов, а не для сравнения."
+      - text: "`None`"
+        why: "None будет воспринят как ложный результат, но это не соглашение протокола."
+      - text: "Бросить `TypeError`"
+        why: "Сравнение на равенство с чужим типом не должно падать."
+    explanation: "NotImplemented возвращают из операторов; NotImplementedError бросают из абстрактных методов."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Point:
+          def __init__(self, x):
+              self.x = x
+
+          def __eq__(self, other):
+              return isinstance(other, Point) and self.x == other.x
+
+
+      try:
+          print(len({Point(1), Point(1)}))
+      except TypeError:
+          print("ошибка")
+    options:
+      - text: "`ошибка`"
+        correct: true
+        why: "Определив __eq__ без __hash__, класс становится нехешируемым."
+      - text: "`1`"
+        why: "Так было бы при наличии согласованного __hash__."
+      - text: "`2`"
+        why: "Множество не создастся вовсе — объекты нехешируемы."
+    explanation: "Чтобы класть объекты с __eq__ в множества, нужен __hash__ из тех же полей."
+
+  - id: q4
+    type: single
+    prompt: "Во что превращается выражение `data[1:5]` для объекта вашего класса?"
+    options:
+      - text: "`data.__getitem__(slice(1, 5, None))`"
+        correct: true
+        why: "Срез передаётся в __getitem__ объектом slice."
+      - text: "`data.__getitem__(1, 5)`"
+        why: "__getitem__ всегда получает один ключ."
+      - text: "`data.__slice__(1, 5)`"
+        why: "Такого метода нет в Python 3."
+      - text: "Срезы для своих классов не поддерживаются"
+        why: "Поддерживаются через __getitem__."
+    explanation: "Индекс, ключ или срез — всё приходит в __getitem__ единственным аргументом."
+
+  - id: q5
+    type: find_bug
+    prompt: "Перебор `for x in Countdown(3): print(x)` никогда не заканчивается. Почему?"
+    code: |
+      class Countdown:
+          def __init__(self, start):
+              self.start = start
+
+          def __getitem__(self, index):
+              if index > self.start:
+                  return None
+              return self.start - index
+    options:
+      - text: "При выходе за границы нужно бросать IndexError, а не возвращать None"
+        correct: true
+        why: "for с __getitem__ останавливается только на IndexError."
+      - text: "Не определён __len__"
+        why: "Для перебора через __getitem__ __len__ не нужен."
+      - text: "Индексы должны начинаться с 1"
+        why: "Перебор начинается с 0 — это правильно."
+    explanation: "Запасной протокол итерации: obj[0], obj[1]… до IndexError."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Inbox:
+          def __init__(self, messages):
+              self.messages = messages
+
+          def __len__(self):
+              return len(self.messages)
+
+
+      inbox = Inbox([])
+      print("пусто" if not inbox else "есть письма")
+    options:
+      - text: "`пусто`"
+        correct: true
+        why: "Без __bool__ истинность определяется через __len__; длина 0 — ложь."
+      - text: "`есть письма`"
+        why: "Объект истинен по умолчанию, только если нет __len__."
+      - text: "TypeError"
+        why: "Проверка истинности работает через __len__."
+    explanation: "Пустой контейнер с __len__ ложен — как пустой список."
+
+tasks:
+  - id: t1
+    title: "Деньги"
+    difficulty: 1
+    statement: |
+      Создайте класс `Money(amount, currency)`:
+
+      - `__repr__` → `Money(100, 'RUB')`;
+      - `__str__` → `100.00 RUB` (сумма с двумя знаками);
+      - `__eq__` — равны, если совпадают сумма и валюта; для объектов другого типа вернуть `NotImplemented`;
+      - `__hash__` — согласованный с `__eq__`, чтобы суммы можно было класть в множества.
+    examples:
+      - input: "str(Money(99.5, \"USD\"))"
+        output: "'99.50 USD'"
+    starter: |
+      class Money:
+          def __init__(self, amount, currency):
+              self.amount = amount
+              self.currency = currency
+    hints:
+      - "В `__eq__`: `if not isinstance(other, Money): return NotImplemented`, затем сравнение кортежей."
+      - "`__hash__`: `return hash((self.amount, self.currency))`."
+    solution: |
+      class Money:
+          """Денежная сумма в определённой валюте."""
+
+          def __init__(self, amount, currency):
+              self.amount = amount
+              self.currency = currency
+
+          def __repr__(self):
+              return f"Money({self.amount}, {self.currency!r})"
+
+          def __str__(self):
+              return f"{self.amount:.2f} {self.currency}"
+
+          def __eq__(self, other):
+              if not isinstance(other, Money):
+                  return NotImplemented
+              return (self.amount, self.currency) == (other.amount, other.currency)
+
+          def __hash__(self):
+              return hash((self.amount, self.currency))
+    solution_explanation: "Сравниваются и хешируются одни и те же поля — так равные объекты гарантированно имеют равные хеши. Для чужого типа NotImplemented позволяет Python корректно вернуть False."
+    tests:
+      - name: "str"
+        call: "str(Money(99.5, \"USD\"))"
+        expected: "'99.50 USD'"
+      - name: "repr"
+        call: "repr(Money(100, \"RUB\"))"
+        expected: "\"Money(100, 'RUB')\""
+      - name: "Равенство"
+        call: "[Money(5, \"EUR\") == Money(5, \"EUR\"), Money(5, \"EUR\") == Money(5, \"USD\"), Money(5, \"EUR\") != Money(6, \"EUR\")]"
+        expected: "[True, False, True]"
+      - name: "Сравнение с другим типом"
+        code: |
+          assert (Money(5, "RUB") == 5) is False
+          assert Money(1, "RUB").__eq__("x") is NotImplemented, "Для чужого типа нужно вернуть NotImplemented"
+      - name: "Множество"
+        call: "len({Money(1, \"RUB\"), Money(1, \"RUB\"), Money(2, \"RUB\")})"
+        expected: "2"
+
+  - id: t2
+    title: "Плейлист"
+    difficulty: 2
+    statement: |
+      Создайте класс `Playlist(name, songs)`:
+
+      - `len(playlist)` — число песен;
+      - `playlist[i]` — песня по индексу (включая отрицательные); `playlist[a:b]` — **новый** `Playlist` с тем же именем и выбранными песнями;
+      - `song in playlist` — проверка без учёта регистра;
+      - `__repr__` → `Playlist('Утро', 3 songs)`.
+
+      Список песен копируется при создании.
+    examples:
+      - input: "Playlist(\"Утро\", [\"A\", \"B\", \"C\"])[1:]"
+        output: "Playlist('Утро', 2 songs)"
+    starter: |
+      class Playlist:
+          def __init__(self, name, songs):
+              self.name = name
+              self.songs = songs
+
+          def __getitem__(self, index):
+              return self.songs[index]
+    hints:
+      - "В `__getitem__`: `if isinstance(index, slice): return Playlist(self.name, self._songs[index])`."
+      - "`__contains__`: `song.lower() in (s.lower() for s in self._songs)`."
+    solution: |
+      class Playlist:
+          """Именованный список песен."""
+
+          def __init__(self, name, songs):
+              self.name = name
+              self._songs = list(songs)
+
+          def __len__(self):
+              return len(self._songs)
+
+          def __getitem__(self, index):
+              if isinstance(index, slice):
+                  return Playlist(self.name, self._songs[index])
+              return self._songs[index]
+
+          def __contains__(self, song):
+              return song.lower() in (s.lower() for s in self._songs)
+
+          def __repr__(self):
+              return f"Playlist({self.name!r}, {len(self)} songs)"
+    solution_explanation: "__getitem__ различает срез и индекс: срез возвращает объект того же типа (как список возвращает список), индекс — одну песню. Отдельный __contains__ задаёт своё правило поиска — без учёта регистра."
+    tests:
+      - name: "Срез"
+        call: "repr(Playlist(\"Утро\", [\"A\", \"B\", \"C\"])[1:])"
+        expected: "\"Playlist('Утро', 2 songs)\""
+      - name: "Индексы"
+        call: "[Playlist(\"p\", [\"a\", \"b\", \"c\"])[0], Playlist(\"p\", [\"a\", \"b\", \"c\"])[-1]]"
+        expected: "['a', 'c']"
+      - name: "len и перебор"
+        code: |
+          p = Playlist("p", ["x", "y"])
+          assert len(p) == 2 and list(p) == ["x", "y"]
+      - name: "in без учёта регистра"
+        code: |
+          p = Playlist("p", ["Bohemian Rhapsody", "Imagine"])
+          assert "imagine" in p and "IMAGINE" in p and "Yesterday" not in p
+      - name: "Срез — новый плейлист"
+        code: |
+          p = Playlist("p", ["a", "b", "c"])
+          part = p[:2]
+          assert isinstance(part, Playlist) and part.name == "p" and list(part) == ["a", "b"]
+          assert len(p) == 3
+      - name: "Копия списка"
+        code: |
+          songs = ["a"]
+          p = Playlist("p", songs)
+          songs.append("b")
+          assert len(p) == 1, "Изменение исходного списка не должно влиять на плейлист"
+
+  - id: t3
+    title: "Разреженный вектор"
+    difficulty: 2
+    statement: |
+      В ML признаки часто хранят **разреженно**: только ненулевые значения. Создайте класс `SparseVector(size)`:
+
+      - `v[i]` — значение (0 для незаданных); индекс вне `0 ≤ i < size` → `IndexError`;
+      - `v[i] = value` — записать; запись нуля удаляет элемент из хранилища; индекс вне диапазона → `IndexError`;
+      - `len(v)` — полная размерность `size`;
+      - свойство `nnz` — число ненулевых элементов;
+      - `__eq__` — равны векторы одного размера с одинаковыми значениями;
+      - `to_list()` — обычный список длины `size`.
+    examples:
+      - input: "v = SparseVector(5); v[3] = 2.5; v.to_list()"
+        output: "[0, 0, 0, 2.5, 0]"
+    starter: |
+      class SparseVector:
+          def __init__(self, size):
+              self.size = size
+              self.values = {}
+
+          def __getitem__(self, index):
+              return self.values[index]
+    hints:
+      - "Храните `self._data = {}`; проверку индекса вынесите в `_check(index)`."
+      - "В `__setitem__`: `if value == 0: self._data.pop(index, None)` иначе `self._data[index] = value`. В `__getitem__` — `self._data.get(index, 0)`."
+    solution: |
+      class SparseVector:
+          """Вектор, хранящий только ненулевые элементы."""
+
+          def __init__(self, size):
+              self.size = size
+              self._data = {}
+
+          def _check(self, index):
+              if not 0 <= index < self.size:
+                  raise IndexError(f"индекс {index} вне диапазона 0..{self.size - 1}")
+
+          def __getitem__(self, index):
+              self._check(index)
+              return self._data.get(index, 0)
+
+          def __setitem__(self, index, value):
+              self._check(index)
+              if value == 0:
+                  self._data.pop(index, None)
+              else:
+                  self._data[index] = value
+
+          def __len__(self):
+              return self.size
+
+          @property
+          def nnz(self):
+              return len(self._data)
+
+          def __eq__(self, other):
+              if not isinstance(other, SparseVector):
+                  return NotImplemented
+              return self.size == other.size and self._data == other._data
+
+          def to_list(self):
+              return [self._data.get(i, 0) for i in range(self.size)]
+    solution_explanation: "Словарь хранит только ненулевые значения, поэтому вектор размером в миллион признаков с десятком ненулевых занимает десяток записей. Удаление нулей при записи поддерживает инвариант — тогда nnz и __eq__ работают простым сравнением словарей."
+    tests:
+      - name: "Пример"
+        code: |
+          v = SparseVector(5)
+          v[3] = 2.5
+          assert v.to_list() == [0, 0, 0, 2.5, 0]
+          assert v[3] == 2.5 and v[0] == 0
+      - name: "Ноль удаляет элемент"
+        code: |
+          v = SparseVector(3)
+          v[1] = 7
+          v[1] = 0
+          assert v.nnz == 0, f"nnz = {v.nnz}"
+      - name: "Индекс вне диапазона"
+        code: |
+          v = SparseVector(3)
+          for action in (lambda: v[3], lambda: v[-1]):
+              try:
+                  action()
+              except IndexError:
+                  pass
+              else:
+                  raise AssertionError("Ожидался IndexError")
+          try:
+              v[10] = 1
+          except IndexError:
+              pass
+          else:
+              raise AssertionError("Запись вне диапазона — IndexError")
+      - name: "len — полный размер"
+        code: |
+          v = SparseVector(1000)
+          v[999] = 1
+          assert len(v) == 1000 and v.nnz == 1
+      - name: "Равенство"
+        code: |
+          a = SparseVector(4)
+          b = SparseVector(4)
+          a[0] = 1
+          b[0] = 1
+          b[2] = 5
+          b[2] = 0
+          assert a == b, "Векторы с одинаковыми значениями равны"
+          assert a != SparseVector(5), "Разный размер — не равны"
+
+  - id: t4
+    title: "Датасет с метками"
+    difficulty: 3
+    statement: |
+      Создайте класс `TextDataset(rows)`, где `rows` — список пар `(text, label)`:
+
+      - тексты нормализуются при создании: пробелы по краям убираются, регистр — нижний;
+      - `len(ds)`; `ds[i]` — словарь `{"text": ..., "label": ...}` (отрицательные индексы работают); `ds[a:b]` — новый `TextDataset`;
+      - `text in ds` — есть ли такой текст (сравнение с нормализацией);
+      - `__repr__` → `TextDataset(size=3)`;
+      - `label_counts()` — словарь `{метка: количество}`;
+      - `split(ratio)` — кортеж из двух `TextDataset`: первые `int(len * ratio)` примеров и остальные.
+    examples:
+      - input: "ds = TextDataset([(\" Отлично \", 1), (\"плохо\", 0)]); ds[0]"
+        output: "{'text': 'отлично', 'label': 1}"
+    starter: |
+      class TextDataset:
+          def __init__(self, rows):
+              self.rows = rows
+
+          def __len__(self):
+              return len(self.rows)
+    hints:
+      - "Храните нормализованные пары в `self._rows`. Для среза: `TextDataset(self._rows[index])` — нормализация повторно ничего не испортит."
+      - "split: `cut = int(len(self) * ratio)`, `return self[:cut], self[cut:]` — переиспользуйте свой же `__getitem__`."
+    solution: |
+      class TextDataset:
+          """Датасет текстов с метками."""
+
+          def __init__(self, rows):
+              self._rows = [(self._normalize(text), label) for text, label in rows]
+
+          @staticmethod
+          def _normalize(text):
+              return text.strip().lower()
+
+          def __len__(self):
+              return len(self._rows)
+
+          def __getitem__(self, index):
+              if isinstance(index, slice):
+                  return TextDataset(self._rows[index])
+              text, label = self._rows[index]
+              return {"text": text, "label": label}
+
+          def __contains__(self, text):
+              target = self._normalize(text)
+              return any(row_text == target for row_text, _ in self._rows)
+
+          def __repr__(self):
+              return f"TextDataset(size={len(self)})"
+
+          def label_counts(self):
+              counts = {}
+              for _, label in self._rows:
+                  counts[label] = counts.get(label, 0) + 1
+              return counts
+
+          def split(self, ratio):
+              cut = int(len(self) * ratio)
+              return self[:cut], self[cut:]
+    solution_explanation: "Нормализация в одном статическом методе используется и при создании, и в __contains__ — правила не разойдутся. split построен на собственном __getitem__ со срезами: класс использует свой же протокол."
+    tests:
+      - name: "Индекс"
+        call: "TextDataset([(\" Отлично \", 1), (\"плохо\", 0)])[0]"
+        expected: "{'text': 'отлично', 'label': 1}"
+      - name: "Отрицательный индекс и len"
+        code: |
+          ds = TextDataset([("a", 0), ("b", 1), ("c", 1)])
+          assert len(ds) == 3 and ds[-1] == {"text": "c", "label": 1}
+      - name: "in с нормализацией"
+        code: |
+          ds = TextDataset([("Привет", 1)])
+          assert "  ПРИВЕТ " in ds and "пока" not in ds
+      - name: "repr и срез"
+        code: |
+          ds = TextDataset([("a", 0), ("b", 1), ("c", 1)])
+          part = ds[1:]
+          assert isinstance(part, TextDataset) and repr(part) == "TextDataset(size=2)", repr(part)
+      - name: "label_counts"
+        call: "TextDataset([(\"a\", \"pos\"), (\"b\", \"neg\"), (\"c\", \"pos\")]).label_counts()"
+        expected: "{'pos': 2, 'neg': 1}"
+      - name: "split"
+        code: |
+          ds = TextDataset([(str(i), i % 2) for i in range(10)])
+          train, test = ds.split(0.8)
+          assert (len(train), len(test)) == (8, 2)
+          assert test[0]["text"] == "8"

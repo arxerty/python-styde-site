@@ -1,0 +1,918 @@
+title: "Практикум: ООП — продвинутый"
+description: |
+  Вопросы и задачи по всему блоку: специальные методы, перегрузка операторов, dataclasses, абстрактные классы и протоколы, композиция, Enum.
+  Последняя задача — мини-проект «Класс Matrix с операциями» — подготовка к линейной алгебре в части 3.
+pass_threshold: 0.7
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Box:
+          def __init__(self, items):
+              self.items = items
+
+          def __len__(self):
+              return len(self.items)
+
+          def __contains__(self, item):
+              return item.lower() in self.items
+
+
+      box = Box(["a", "b"])
+      print(len(box), "A" in box, bool(Box([])))
+    options:
+      - text: "`2 True False`"
+        correct: true
+        why: "len → __len__, in → __contains__ (с lower), пустой объект с __len__ ложен."
+      - text: "`2 False False`"
+        why: "__contains__ приводит элемент к нижнему регистру — \"a\" в списке есть."
+      - text: "`2 True True`"
+        why: "Без __bool__ истинность определяется через __len__."
+    explanation: "Встроенные операции работают через специальные методы объекта."
+
+  - id: q2
+    type: single
+    prompt: "Почему при определении `__eq__` стоит определить и `__hash__` для неизменяемого класса?"
+    options:
+      - text: "Определив __eq__, класс становится нехешируемым — без __hash__ его нельзя класть в set и использовать как ключ"
+        correct: true
+        why: "Python отключает хеш по умолчанию, чтобы не нарушить правило «равные — с равным хешем»."
+      - text: "Иначе == будет сравнивать идентичность"
+        why: "== использует __eq__, хеш здесь не участвует."
+      - text: "__hash__ ускоряет __eq__"
+        why: "Это разные механизмы."
+      - text: "Без __hash__ нельзя вызвать repr"
+        why: "repr не связан с хешем."
+    explanation: "Равные объекты обязаны иметь равные хеши; для неизменяемых объектов хеш строят из тех же полей."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Num:
+          def __init__(self, v):
+              self.v = v
+
+          def __add__(self, other):
+              if isinstance(other, Num):
+                  return Num(self.v + other.v)
+              return NotImplemented
+
+          def __radd__(self, other):
+              return Num(self.v + other)
+
+
+      print((Num(1) + Num(2)).v, (5 + Num(1)).v, sum([Num(1), Num(2)]).v)
+    options:
+      - text: "`3 6 3`"
+        correct: true
+        why: "5 + Num(1) и стартовый 0 в sum обрабатывает __radd__."
+      - text: "TypeError при 5 + Num(1)"
+        why: "int.__add__ вернёт NotImplemented, и Python вызовет Num.__radd__."
+      - text: "`3 6 TypeError`"
+        why: "sum начинает с 0: 0 + Num(1) → __radd__ работает."
+    explanation: "Отражённые методы делают возможным число слева и встроенную sum."
+
+  - id: q4
+    type: find_bug
+    prompt: "Что не так с этим оператором?"
+    code: |
+      class Vector:
+          def __init__(self, x, y):
+              self.x = x
+              self.y = y
+
+          def __mul__(self, k):
+              self.x *= k
+              self.y *= k
+              return self
+    options:
+      - text: "Оператор меняет исходный объект: после w = v * 2 изменится и v"
+        correct: true
+        why: "Нужно return Vector(self.x * k, self.y * k)."
+      - text: "Нельзя умножать атрибуты на число"
+        why: "Можно, проблема в изменении self."
+      - text: "__mul__ должен называться __times__"
+        why: "Оператору * соответствует __mul__."
+    explanation: "Арифметические операторы возвращают новый объект."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from dataclasses import dataclass, field
+
+
+      @dataclass
+      class Run:
+          name: str
+          scores: list = field(default_factory=list)
+          best: float = field(default=0.0, compare=False)
+
+
+      a = Run("x", [1])
+      b = Run("x", [1], best=0.9)
+      print(a == b, a)
+    options:
+      - text: "`True Run(name='x', scores=[1], best=0.0)`"
+        correct: true
+        why: "best исключён из сравнения (compare=False), но остаётся в repr."
+      - text: "`False Run(name='x', scores=[1], best=0.0)`"
+        why: "compare=False убирает поле из __eq__."
+      - text: "`True Run(name='x', scores=[1])`"
+        why: "repr=True по умолчанию — поле видно."
+    explanation: "field() настраивает участие поля в сравнении, repr и __init__."
+
+  - id: q6
+    type: find_bug
+    prompt: "Почему объявление класса падает с ValueError?"
+    code: |
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class Batch:
+          items: list = []
+          size: int = 32
+    options:
+      - text: "Изменяемое умолчание запрещено — нужно field(default_factory=list)"
+        correct: true
+        why: "Иначе все объекты делили бы один список."
+      - text: "Поле size должно идти первым"
+        why: "Оба поля с умолчаниями — порядок допустим."
+      - text: "Датаклассы не поддерживают списки"
+        why: "Поддерживают — через default_factory."
+    explanation: "Датаклассы защищают от ловушки изменяемых умолчаний."
+
+  - id: q7
+    type: single
+    prompt: "Что даёт `@dataclass(frozen=True)`?"
+    options:
+      - text: "Неизменяемость полей и автоматический __hash__"
+        correct: true
+        why: "Объект можно класть в set и использовать как ключ."
+      - text: "Ускоренное создание объектов"
+        why: "frozen не про скорость."
+      - text: "Проверку типов полей"
+        why: "Датаклассы не проверяют типы."
+      - text: "Сортировку объектов"
+        why: "Сравнения даёт order=True."
+    explanation: "Изменённая копия замороженного объекта создаётся через replace()."
+
+  - id: q8
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from abc import ABC, abstractmethod
+
+
+      class Base(ABC):
+          @abstractmethod
+          def run(self):
+              """Запуск."""
+
+          def go(self):
+              return "go:" + self.run()
+
+
+      class Impl(Base):
+          def run(self):
+              return "ok"
+
+
+      print(Impl().go())
+      try:
+          Base()
+      except TypeError:
+          print("нельзя")
+    options:
+      - text: |
+          ```
+          go:ok
+          нельзя
+          ```
+        correct: true
+        why: "Конкретный потомок создаётся и использует общий метод; абстрактный класс — нет."
+      - text: "`go:ok`"
+        why: "Base() бросает TypeError, который перехватывается."
+      - text: "`нельзя`"
+        why: "Impl реализует run и создаётся без ошибок."
+    explanation: "ABC: общий код в базовом классе, обязательные методы — абстрактные."
+
+  - id: q9
+    type: multiple
+    prompt: "Когда уместнее Protocol, чем ABC? Выберите все."
+    options:
+      - text: "Нужно описать, что функция ожидает от аргумента, без требования наследования"
+        correct: true
+        why: "Структурная типизация."
+      - text: "Подходить под интерфейс должны и сторонние классы, которые вы не можете изменить"
+        correct: true
+        why: "Протоколу достаточно наличия методов."
+      - text: "Нужен общий код для всех реализаций"
+        why: "Общий код удобнее держать в абстрактном базовом классе."
+      - text: "Ошибку нужно ловить в момент создания объекта"
+        why: "Это поведение ABC."
+    explanation: "Protocol — интерфейс параметра; ABC — база семейства классов."
+
+  - id: q10
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Engine:
+          def start(self):
+              return "вжух"
+
+
+      class Car:
+          def __init__(self):
+              self.engine = Engine()
+
+          def start(self):
+              return "машина: " + self.engine.start()
+
+
+      car = Car()
+      print(car.start(), isinstance(car, Engine))
+    options:
+      - text: "`машина: вжух False`"
+        correct: true
+        why: "Car использует Engine через композицию и не является двигателем."
+      - text: "`машина: вжух True`"
+        why: "Car не наследует Engine."
+      - text: "`вжух False`"
+        why: "Car.start добавляет префикс."
+    explanation: "Композиция: «имеет», а не «является»."
+
+  - id: q11
+    type: single
+    prompt: "Зачем нужен паттерн «Стратегия»?"
+    options:
+      - text: "Вынести изменяемую часть поведения в отдельный объект или функцию и передавать её параметром"
+        correct: true
+        why: "Поведение меняется без подклассов, даже во время работы."
+      - text: "Чтобы объект нельзя было изменить"
+        why: "Это неизменяемость, а не стратегия."
+      - text: "Чтобы класс имел только один экземпляр"
+        why: "Это другой паттерн (Singleton)."
+      - text: "Чтобы ускорить вызов методов"
+        why: "Стратегия — про гибкость дизайна."
+    explanation: "Стратегия — композиция поведения вместо иерархии подклассов."
+
+  - id: q12
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from enum import Enum, StrEnum
+
+
+      class A(Enum):
+          X = "x"
+
+
+      class B(StrEnum):
+          X = "x"
+
+
+      print(A.X == "x", B.X == "x", A("x").name)
+    options:
+      - text: "`False True X`"
+        correct: true
+        why: "Обычный Enum не равен строке, StrEnum — равен; A(\"x\") ищет по значению."
+      - text: "`True True X`"
+        why: "Члены обычного Enum не равны своим значениям."
+      - text: "`False False x`"
+        why: "StrEnum — строка; name — имя члена, X."
+    explanation: "StrEnum — для значений на границе с JSON и строковыми данными."
+
+  - id: q13
+    type: multiple
+    prompt: "Какие наборы значений удачно описывать перечислением? Выберите все."
+    options:
+      - text: "Статусы задачи: queued, running, done, failed"
+        correct: true
+        why: "Конечный, заранее известный набор."
+      - text: "Роли сообщений диалога"
+        correct: true
+        why: "Фиксированный набор значений."
+      - text: "Уровни логирования"
+        correct: true
+        why: "Классический пример IntEnum."
+      - text: "Названия товаров интернет-магазина"
+        why: "Набор растёт вместе с данными — ему место в базе данных."
+    explanation: "Enum — для конечных, известных заранее и редко меняющихся наборов."
+
+tasks:
+  - id: t1
+    title: "Интервалы"
+    difficulty: 2
+    statement: |
+      Создайте класс `Interval(start, end)` — отрезок целых чисел `[start, end)` (start включён, end — нет); `start > end` → `ValueError`.
+
+      - `x in interval` — входит ли число;
+      - `len(interval)` — количество целых чисел;
+      - `==` и `hash` по границам;
+      - `a & b` — пересечение (новый `Interval`) или `None`, если отрезки не пересекаются (пустое пересечение тоже `None`); для чужого типа — `NotImplemented`;
+      - `__repr__` → `Interval(2, 5)`.
+    examples:
+      - input: "Interval(0, 10) & Interval(5, 20)"
+        output: "Interval(5, 10)"
+    starter: |
+      class Interval:
+          def __init__(self, start, end):
+              self.start = start
+              self.end = end
+    hints:
+      - "`__contains__`: `self.start <= x < self.end`; `__len__`: `self.end - self.start`."
+      - "Пересечение: `start = max(a.start, b.start)`, `end = min(a.end, b.end)`; если `start >= end` — `None`."
+    solution: |
+      class Interval:
+          """Полуоткрытый отрезок целых чисел [start, end)."""
+
+          def __init__(self, start, end):
+              if start > end:
+                  raise ValueError(f"start {start} больше end {end}")
+              self.start = start
+              self.end = end
+
+          def __contains__(self, x):
+              return self.start <= x < self.end
+
+          def __len__(self):
+              return self.end - self.start
+
+          def __eq__(self, other):
+              if not isinstance(other, Interval):
+                  return NotImplemented
+              return (self.start, self.end) == (other.start, other.end)
+
+          def __hash__(self):
+              return hash((self.start, self.end))
+
+          def __and__(self, other):
+              if not isinstance(other, Interval):
+                  return NotImplemented
+              start = max(self.start, other.start)
+              end = min(self.end, other.end)
+              if start >= end:
+                  return None
+              return Interval(start, end)
+
+          def __repr__(self):
+              return f"Interval({self.start}, {self.end})"
+    solution_explanation: "Оператор & перегружен по смыслу «общая часть», как пересечение множеств. Полуоткрытые интервалы — тот же принцип, что у range и срезов: длина равна end - start, а соседние интервалы не перекрываются."
+    tests:
+      - name: "Пересечение"
+        call: "repr(Interval(0, 10) & Interval(5, 20))"
+        expected: "'Interval(5, 10)'"
+      - name: "Нет пересечения"
+        call: "[Interval(0, 5) & Interval(5, 9), Interval(0, 2) & Interval(7, 9)]"
+        expected: "[None, None]"
+      - name: "in и len"
+        code: |
+          r = Interval(2, 5)
+          assert 2 in r and 4 in r and 5 not in r
+          assert len(r) == 3 and len(Interval(3, 3)) == 0
+      - name: "Равенство и хеш"
+        code: |
+          assert Interval(1, 2) == Interval(1, 2) and Interval(1, 2) != Interval(1, 3)
+          assert len({Interval(1, 2), Interval(1, 2)}) == 1
+      - name: "Ошибки"
+        code: |
+          try:
+              Interval(5, 1)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+          try:
+              Interval(0, 1) & 5
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("& с числом должен давать TypeError")
+
+  - id: t2
+    title: "Тикеты поддержки"
+    difficulty: 2
+    statement: |
+      - `IntEnum` `Priority`: `LOW = 1`, `NORMAL = 2`, `URGENT = 3`;
+      - `StrEnum` `TicketStatus`: `OPEN = "open"`, `CLOSED = "closed"`;
+      - датакласс `Ticket`: `title: str`, `priority: Priority = Priority.NORMAL`, `status: TicketStatus = TicketStatus.OPEN`, `tags: list` (по умолчанию пустой). В `__post_init__` строки и числа приводятся к перечислениям: `priority` — по имени без учёта регистра (`"urgent"`) или по числу; `status` — по значению. Неверные значения → `ValueError`;
+      - метод `close()`;
+      - функция `summary(tickets)` → `{"open": число, "closed": число, "urgent_open": число}`.
+    examples:
+      - input: "Ticket(\"Не работает вход\", \"urgent\").priority"
+        output: "<Priority.URGENT: 3>"
+    starter: |
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class Ticket:
+          title: str
+          priority: str = "normal"
+          status: str = "open"
+    hints:
+      - "Приведение priority: `if isinstance(self.priority, str): self.priority = Priority[self.priority.upper()]` (KeyError → ValueError), иначе `Priority(self.priority)`."
+      - "`self.status = TicketStatus(self.status)` работает и для строки, и для члена перечисления."
+    solution: |
+      from dataclasses import dataclass, field
+      from enum import IntEnum, StrEnum
+
+
+      class Priority(IntEnum):
+          LOW = 1
+          NORMAL = 2
+          URGENT = 3
+
+
+      class TicketStatus(StrEnum):
+          OPEN = "open"
+          CLOSED = "closed"
+
+
+      @dataclass
+      class Ticket:
+          title: str
+          priority: Priority = Priority.NORMAL
+          status: TicketStatus = TicketStatus.OPEN
+          tags: list = field(default_factory=list)
+
+          def __post_init__(self):
+              if isinstance(self.priority, str):
+                  try:
+                      self.priority = Priority[self.priority.upper()]
+                  except KeyError:
+                      raise ValueError(f"неизвестный приоритет: {self.priority}") from None
+              else:
+                  self.priority = Priority(self.priority)
+              self.status = TicketStatus(self.status)
+
+          def close(self):
+              self.status = TicketStatus.CLOSED
+
+
+      def summary(tickets):
+          """Статистика по тикетам."""
+          open_tickets = [t for t in tickets if t.status is TicketStatus.OPEN]
+          return {
+              "open": len(open_tickets),
+              "closed": len(tickets) - len(open_tickets),
+              "urgent_open": sum(1 for t in open_tickets if t.priority is Priority.URGENT),
+          }
+    solution_explanation: "__post_init__ работает как граница: всё, что пришло строками и числами (из формы или JSON), превращается в члены перечислений, а неверные значения отсекаются. Дальше код сравнивает проверенные значения через is."
+    tests:
+      - name: "Приведение приоритета"
+        code: |
+          assert Ticket("a", "urgent").priority is Priority.URGENT
+          assert Ticket("a", 1).priority is Priority.LOW
+          assert Ticket("a").priority is Priority.NORMAL
+      - name: "Статус"
+        code: |
+          t = Ticket("a", status="closed")
+          assert t.status is TicketStatus.CLOSED
+          t2 = Ticket("b")
+          t2.close()
+          assert t2.status == "closed"
+      - name: "Неверные значения"
+        code: |
+          for kwargs in ({"priority": "asap"}, {"priority": 7}, {"status": "lost"}):
+              try:
+                  Ticket("x", **kwargs)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"{kwargs} должен вызывать ValueError")
+      - name: "summary"
+        code: |
+          tickets = [Ticket("a", "urgent"), Ticket("b", "urgent"), Ticket("c", "low")]
+          tickets[1].close()
+          assert summary(tickets) == {"open": 2, "closed": 1, "urgent_open": 1}, summary(tickets)
+      - name: "Теги независимы"
+        code: |
+          a, b = Ticket("a"), Ticket("b")
+          a.tags.append("login")
+          assert b.tags == []
+
+  - id: t3
+    title: "Источники данных"
+    difficulty: 2
+    statement: |
+      Создайте абстрактный класс `DataSource(ABC)`:
+
+      - абстрактный метод `read_rows()` — список словарей;
+      - обычные методы `count()` — число строк и `column(name)` — список значений столбца (строки без такого ключа пропускаются).
+
+      Реализации:
+
+      - `ListSource(rows)` — строки из готового списка (копия списка);
+      - `CsvTextSource(text)` — разбор CSV-текста: первая строка — заголовки через запятую, остальные — значения (пустые строки пропускаются); значения — строки.
+
+      Функция `merge(sources)` — все строки всех источников по порядку.
+    examples:
+      - input: "CsvTextSource(\"name,age\\nАда,36\\nАлан,41\").column(\"name\")"
+        output: "['Ада', 'Алан']"
+    starter: |
+      class DataSource:
+          def read_rows(self):
+              return []
+    hints:
+      - "`from abc import ABC, abstractmethod`; count и column используют `self.read_rows()` — реализацию потомка."
+      - "CsvTextSource: `lines = [line for line in text.splitlines() if line.strip()]`, заголовки `lines[0].split(\",\")`, строки — `dict(zip(headers, line.split(\",\")))`."
+    solution: |
+      from abc import ABC, abstractmethod
+
+
+      class DataSource(ABC):
+          """Источник табличных данных."""
+
+          @abstractmethod
+          def read_rows(self):
+              """Вернуть список словарей."""
+
+          def count(self):
+              return len(self.read_rows())
+
+          def column(self, name):
+              return [row[name] for row in self.read_rows() if name in row]
+
+
+      class ListSource(DataSource):
+          def __init__(self, rows):
+              self._rows = list(rows)
+
+          def read_rows(self):
+              return list(self._rows)
+
+
+      class CsvTextSource(DataSource):
+          def __init__(self, text):
+              self._text = text
+
+          def read_rows(self):
+              lines = [line for line in self._text.splitlines() if line.strip()]
+              if not lines:
+                  return []
+              headers = lines[0].split(",")
+              return [dict(zip(headers, line.split(","))) for line in lines[1:]]
+
+
+      def merge(sources):
+          """Объединить строки всех источников."""
+          rows = []
+          for source in sources:
+              rows.extend(source.read_rows())
+          return rows
+    solution_explanation: "Источники различаются только способом получения строк; count и column написаны один раз в базовом классе. merge работает с любым источником — шаблон, на котором построены загрузчики документов в RAG-библиотеках."
+    tests:
+      - name: "CSV-столбец"
+        call: "CsvTextSource(\"name,age\\nАда,36\\nАлан,41\").column(\"name\")"
+        expected: "['Ада', 'Алан']"
+      - name: "Пустые строки и count"
+        call: "CsvTextSource(\"a,b\\n\\n1,2\\n\\n3,4\\n\").count()"
+        expected: "2"
+      - name: "ListSource и column с пропусками"
+        call: "ListSource([{\"x\": 1}, {\"y\": 2}, {\"x\": 3}]).column(\"x\")"
+        expected: "[1, 3]"
+      - name: "merge"
+        call: "merge([ListSource([{\"a\": 1}]), CsvTextSource(\"a\\n2\")])"
+        expected: "[{'a': 1}, {'a': '2'}]"
+      - name: "Абстрактность"
+        code: |
+          try:
+              DataSource()
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("DataSource должен быть абстрактным")
+          for cls in (ListSource, CsvTextSource):
+              assert "count" not in cls.__dict__ and "column" not in cls.__dict__
+
+  - id: t4
+    title: "Длительность"
+    difficulty: 2
+    statement: |
+      Создайте неизменяемый (`frozen`) датакласс `Duration(seconds: int)` (отрицательные → `ValueError`):
+
+      - метод класса `parse(text)` из формата `"Ч:ММ:СС"` или `"ММ:СС"`;
+      - `+` и `-` между длительностями (результат меньше нуля → `ValueError`), `*` на целое число с обеих сторон;
+      - сравнения `<`, `>` и др. (подсказка: `order=True`);
+      - `__str__` → `"1:02:03"` (часы без ведущего нуля, минуты и секунды — двумя цифрами).
+    examples:
+      - input: "str(Duration.parse(\"45:30\") + Duration.parse(\"1:20:00\"))"
+        output: "'2:05:30'"
+    starter: |
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class Duration:
+          seconds: int
+    hints:
+      - "parse: `parts = [int(p) for p in text.split(\":\")]`; для двух частей добавьте 0 часов в начало."
+      - "`__str__`: `hours, rest = divmod(self.seconds, 3600)`, `minutes, seconds = divmod(rest, 60)`, `f\"{hours}:{minutes:02}:{seconds:02}\"`."
+    solution: |
+      from dataclasses import dataclass
+
+
+      @dataclass(frozen=True, order=True)
+      class Duration:
+          """Длительность в секундах."""
+
+          seconds: int
+
+          def __post_init__(self):
+              if self.seconds < 0:
+                  raise ValueError("длительность не может быть отрицательной")
+
+          @classmethod
+          def parse(cls, text):
+              parts = [int(part) for part in text.split(":")]
+              if len(parts) == 2:
+                  parts.insert(0, 0)
+              if len(parts) != 3:
+                  raise ValueError(f"неверный формат: {text!r}")
+              hours, minutes, seconds = parts
+              return cls(hours * 3600 + minutes * 60 + seconds)
+
+          def __add__(self, other):
+              if not isinstance(other, Duration):
+                  return NotImplemented
+              return Duration(self.seconds + other.seconds)
+
+          def __sub__(self, other):
+              if not isinstance(other, Duration):
+                  return NotImplemented
+              return Duration(self.seconds - other.seconds)
+
+          def __mul__(self, factor):
+              if isinstance(factor, bool) or not isinstance(factor, int):
+                  return NotImplemented
+              return Duration(self.seconds * factor)
+
+          def __rmul__(self, factor):
+              return self * factor
+
+          def __str__(self):
+              hours, rest = divmod(self.seconds, 3600)
+              minutes, seconds = divmod(rest, 60)
+              return f"{hours}:{minutes:02}:{seconds:02}"
+    solution_explanation: "Датакласс даёт __init__, __repr__, __eq__, сравнения (order=True) и хеш (frozen=True), а операторы дописаны вручную. Проверка в __post_init__ срабатывает и для результатов операций — отрицательная разность невозможна."
+    tests:
+      - name: "Пример"
+        call: "str(Duration.parse(\"45:30\") + Duration.parse(\"1:20:00\"))"
+        expected: "'2:05:30'"
+      - name: "Умножение и вычитание"
+        code: |
+          d = Duration(90)
+          assert 3 * d == Duration(270) and d * 2 == Duration(180)
+          assert Duration(100) - Duration(40) == Duration(60)
+      - name: "Отрицательные"
+        code: |
+          for action in (lambda: Duration(-1), lambda: Duration(5) - Duration(10)):
+              try:
+                  action()
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError("Ожидался ValueError")
+      - name: "Сравнения и сортировка"
+        code: |
+          items = [Duration(30), Duration(5), Duration(60)]
+          assert sorted(items)[0] == Duration(5) and max(items) == Duration(60)
+          assert Duration(1) < Duration(2)
+      - name: "str"
+        call: "[str(Duration(59)), str(Duration(3600)), str(Duration.parse(\"0:00\"))]"
+        expected: "['0:00:59', '1:00:00', '0:00:00']"
+      - name: "Неизменяемость"
+        code: |
+          from dataclasses import FrozenInstanceError
+          d = Duration(1)
+          try:
+              d.seconds = 5
+          except FrozenInstanceError:
+              pass
+          else:
+              raise AssertionError("Duration должен быть неизменяемым")
+          assert len({Duration(1), Duration(1)}) == 1
+
+  - id: t5
+    title: "Мини-проект: класс Matrix"
+    difficulty: 3
+    mini_project: true
+    statement: |
+      Создайте класс `Matrix(rows)` — матрица чисел. Это подготовка к линейной алгебре (часть 3) и NumPy (блок 4.1).
+
+      **Создание и проверка**: `rows` — непустой список непустых списков чисел одинаковой длины, иначе `ValueError`. Данные копируются.
+
+      **Свойства и представление**:
+
+      - `shape` — кортеж `(строк, столбцов)`;
+      - `__repr__` → `Matrix([[1, 2], [3, 4]])`;
+      - `__str__` — строки матрицы, элементы через пробел, строки через `\n`;
+      - `m[i, j]` — элемент; `m[i]` — копия i-й строки (списком);
+      - `==` — равны при одинаковых элементах.
+
+      **Операции** (возвращают новые матрицы):
+
+      - `+`, `-` — поэлементно, разные размеры → `ValueError`;
+      - `*` на число с обеих сторон, `-m`;
+      - `a @ b` — матричное умножение; число столбцов `a` должно равняться числу строк `b`, иначе `ValueError`;
+      - `transpose()` — транспонирование;
+      - `determinant()` — определитель квадратной матрицы (разложением по первой строке); для неквадратной — `ValueError`.
+
+      **Конструкторы**: методы класса `identity(n)` — единичная матрица и `zeros(rows, cols)`.
+    examples:
+      - input: "Matrix([[1, 2], [3, 4]]) @ Matrix.identity(2)"
+        output: "Matrix([[1, 2], [3, 4]])"
+    starter: |
+      class Matrix:
+          def __init__(self, rows):
+              self.rows = rows
+
+          def __add__(self, other):
+              return [[a + b for a, b in zip(r1, r2)] for r1, r2 in zip(self.rows, other.rows)]
+    hints:
+      - "Храните `self._rows = [list(row) for row in rows]`. В `__getitem__`: `if isinstance(key, tuple): i, j = key; return self._rows[i][j]`, иначе — `list(self._rows[key])`. Транспонирование: `[list(column) for column in zip(*self._rows)]`."
+      - "Умножение: элемент `[i][j]` = `sum(a[i][k] * b[k][j] for k in range(n))`; удобно взять столбцы `b` из транспонированной матрицы. Определитель: для 1×1 — сам элемент; иначе `sum((-1) ** j * m[0][j] * det(минор_j))`, где минор — матрица без строки 0 и столбца j."
+    solution: |
+      class Matrix:
+          """Матрица чисел с основными операциями линейной алгебры."""
+
+          def __init__(self, rows):
+              if not rows or not all(rows):
+                  raise ValueError("матрица должна быть непустой")
+              width = len(rows[0])
+              for row in rows:
+                  if len(row) != width:
+                      raise ValueError("все строки должны быть одной длины")
+                  for value in row:
+                      if isinstance(value, bool) or not isinstance(value, (int, float)):
+                          raise ValueError(f"элемент должен быть числом, получено {value!r}")
+              self._rows = [list(row) for row in rows]
+
+          @classmethod
+          def zeros(cls, rows, cols):
+              return cls([[0] * cols for _ in range(rows)])
+
+          @classmethod
+          def identity(cls, n):
+              return cls([[1 if i == j else 0 for j in range(n)] for i in range(n)])
+
+          @property
+          def shape(self):
+              return len(self._rows), len(self._rows[0])
+
+          def __repr__(self):
+              return f"Matrix({self._rows})"
+
+          def __str__(self):
+              return "\n".join(" ".join(str(value) for value in row) for row in self._rows)
+
+          def __getitem__(self, key):
+              if isinstance(key, tuple):
+                  i, j = key
+                  return self._rows[i][j]
+              return list(self._rows[key])
+
+          def __eq__(self, other):
+              if not isinstance(other, Matrix):
+                  return NotImplemented
+              return self._rows == other._rows
+
+          def _check_same_shape(self, other):
+              if self.shape != other.shape:
+                  raise ValueError(f"размеры не совпадают: {self.shape} и {other.shape}")
+
+          def _elementwise(self, other, operation):
+              return Matrix([
+                  [operation(a, b) for a, b in zip(row_a, row_b)]
+                  for row_a, row_b in zip(self._rows, other._rows)
+              ])
+
+          def __add__(self, other):
+              if not isinstance(other, Matrix):
+                  return NotImplemented
+              self._check_same_shape(other)
+              return self._elementwise(other, lambda a, b: a + b)
+
+          def __sub__(self, other):
+              if not isinstance(other, Matrix):
+                  return NotImplemented
+              self._check_same_shape(other)
+              return self._elementwise(other, lambda a, b: a - b)
+
+          def __mul__(self, scalar):
+              if isinstance(scalar, bool) or not isinstance(scalar, (int, float)):
+                  return NotImplemented
+              return Matrix([[value * scalar for value in row] for row in self._rows])
+
+          def __rmul__(self, scalar):
+              return self * scalar
+
+          def __neg__(self):
+              return self * -1
+
+          def transpose(self):
+              return Matrix([list(column) for column in zip(*self._rows)])
+
+          def __matmul__(self, other):
+              if not isinstance(other, Matrix):
+                  return NotImplemented
+              if self.shape[1] != other.shape[0]:
+                  raise ValueError(f"нельзя умножить {self.shape} на {other.shape}")
+              columns = other.transpose()._rows
+              return Matrix([
+                  [sum(a * b for a, b in zip(row, column)) for column in columns]
+                  for row in self._rows
+              ])
+
+          def determinant(self):
+              rows, cols = self.shape
+              if rows != cols:
+                  raise ValueError("определитель есть только у квадратной матрицы")
+              if rows == 1:
+                  return self._rows[0][0]
+              total = 0
+              for j, value in enumerate(self._rows[0]):
+                  minor = Matrix([row[:j] + row[j + 1:] for row in self._rows[1:]])
+                  total += (-1) ** j * value * minor.determinant()
+              return total
+    solution_explanation: |
+      Что здесь от каждого урока блока:
+
+      - **Специальные методы**: `__repr__`/`__str__` для двух представлений, `__getitem__` различает `m[i, j]` (ключ — кортеж) и `m[i]`, `__eq__` сравнивает содержимое.
+      - **Перегрузка операторов**: `+`, `-`, `*`, `@`, унарный минус; `NotImplemented` для чужих типов, `ValueError` для несовместимых размеров, `__rmul__` для `2 * m`.
+      - **Методы класса** `identity` и `zeros` — альтернативные конструкторы.
+      - **Переиспользование**: `_elementwise` убирает дублирование между `+` и `-`, умножение строится на транспонировании, определитель — рекурсия по минорам.
+
+      Ровно такой интерфейс у массивов NumPy: `A @ B`, `A.T`, `A * 2`, `A[i, j]`. В блоке 4.1 вы увидите, что NumPy делает то же самое, но в сотни раз быстрее.
+    tests:
+      - name: "Единичная матрица"
+        call: "repr(Matrix([[1, 2], [3, 4]]) @ Matrix.identity(2))"
+        expected: "'Matrix([[1, 2], [3, 4]])'"
+      - name: "Умножение матриц"
+        code: |
+          a = Matrix([[1, 2, 3], [4, 5, 6]])
+          b = Matrix([[7, 8], [9, 10], [11, 12]])
+          assert a @ b == Matrix([[58, 64], [139, 154]]), repr(a @ b)
+          assert (a @ b).shape == (2, 2)
+      - name: "Несовместимые размеры"
+        code: |
+          for action in (lambda: Matrix([[1, 2]]) @ Matrix([[1, 2]]), lambda: Matrix([[1]]) + Matrix([[1, 2]])):
+              try:
+                  action()
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError("Ожидался ValueError")
+      - name: "Поэлементные операции"
+        code: |
+          a = Matrix([[1, 2], [3, 4]])
+          assert a + a == 2 * a == a * 2 == Matrix([[2, 4], [6, 8]])
+          assert a - a == Matrix.zeros(2, 2) and -a == Matrix([[-1, -2], [-3, -4]])
+          assert a == Matrix([[1, 2], [3, 4]]), "Операции не должны менять исходную матрицу"
+      - name: "Индексация, транспонирование, str"
+        code: |
+          m = Matrix([[1, 2, 3], [4, 5, 6]])
+          assert m[1, 2] == 6 and m[0] == [1, 2, 3]
+          row = m[0]
+          row[0] = 100
+          assert m[0, 0] == 1, "m[i] должен возвращать копию строки"
+          assert m.transpose() == Matrix([[1, 4], [2, 5], [3, 6]])
+          assert str(Matrix([[1, 2], [3, 4]])) == "1 2\n3 4"
+      - name: "Определитель"
+        code: |
+          assert Matrix([[5]]).determinant() == 5
+          assert Matrix([[1, 2], [3, 4]]).determinant() == -2
+          assert Matrix([[2, 0, 1], [1, 3, 2], [1, 1, 2]]).determinant() == 6
+          assert Matrix.identity(4).determinant() == 1
+          try:
+              Matrix([[1, 2]]).determinant()
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Для неквадратной матрицы — ValueError")
+      - name: "Проверка входных данных"
+        code: |
+          for bad in ([], [[]], [[1, 2], [3]], [[1, "2"]]):
+              try:
+                  Matrix(bad)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"Matrix({bad!r}) должен бросать ValueError")
+          source = [[1, 2]]
+          m = Matrix(source)
+          source[0][0] = 99
+          assert m[0, 0] == 1, "Данные должны копироваться"
+      - name: "Чужой тип"
+        code: |
+          try:
+              Matrix([[1]]) + 1
+          except TypeError:
+              pass
+          else:
+              raise AssertionError("Matrix + число должен давать TypeError")

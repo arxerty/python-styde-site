@@ -1,0 +1,319 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def double(x):
+          print(x * 2)
+
+
+      result = double(5)
+      print(result)
+    options:
+      - text: |
+          ```
+          10
+          None
+          ```
+        correct: true
+        why: "Функция печатает 10, но ничего не возвращает — результат вызова None."
+      - text: |
+          ```
+          10
+          10
+          ```
+        why: "print внутри функции не возвращает значение."
+      - text: "`10`"
+        why: "Второй print выводит результат вызова — None."
+    explanation: "Без return функция возвращает None. Вычисляющие функции должны возвращать результат."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def first_negative(numbers):
+          for n in numbers:
+              if n < 0:
+                  return n
+          return 0
+
+
+      print(first_negative([3, -1, -5]), first_negative([1, 2]))
+    options:
+      - text: "`-1 0`"
+        correct: true
+        why: "return внутри цикла сразу завершает функцию; если отрицательных нет, срабатывает return после цикла."
+      - text: "`-5 0`"
+        why: "return срабатывает на первом найденном — дальше цикл не идёт."
+      - text: "`-1 None`"
+        why: "После цикла есть return 0."
+    explanation: "return немедленно выходит из функции — удобно для поиска."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему `classify(-5)` возвращает None?"
+    code: |
+      def classify(x):
+          if x > 0:
+              return "положительное"
+          elif x == 0:
+              return "ноль"
+
+
+      print(classify(-5))
+    options:
+      - text: "Для отрицательных чисел нет ветки с return — функция доходит до конца и возвращает None"
+        correct: true
+        why: "Нужна ветка `else: return \"отрицательное\"`."
+      - text: "Функции не работают с отрицательными числами"
+        why: "Работают с любыми значениями."
+      - text: "elif нельзя использовать в функциях"
+        why: "Можно."
+    explanation: "Каждый путь выполнения функции, возвращающей значение, должен заканчиваться return."
+
+  - id: q4
+    type: multiple
+    prompt: "Какие утверждения верны? Выберите все."
+    options:
+      - text: "Строка `def` не выполняет тело функции — только определяет её"
+        correct: true
+        why: "Тело выполняется при вызове."
+      - text: "`return a, b` возвращает кортеж"
+        correct: true
+        why: "Запятая создаёт кортеж; его удобно распаковать."
+      - text: "Переменная, созданная внутри функции, доступна после её завершения"
+        why: "Локальные переменные исчезают вместе с кадром вызова."
+      - text: "Параметр — имя в определении, аргумент — значение при вызове"
+        correct: true
+        why: "def f(x): x — параметр; f(5): 5 — аргумент."
+    explanation: "Определение ≠ вызов; локальные переменные живут только во время вызова."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def add_item(items):
+          items.append("новый")
+          return len(items)
+
+
+      data = ["a"]
+      count = add_item(data)
+      print(count, data)
+    options:
+      - text: "`2 ['a', 'новый']`"
+        correct: true
+        why: "Параметр ссылается на тот же список — append меняет исходный data."
+      - text: "`2 ['a']`"
+        why: "Функция работает с тем же объектом, а не с копией."
+      - text: "`None ['a', 'новый']`"
+        why: "Функция явно возвращает len(items)."
+    explanation: "Аргументы передаются ссылками: изменяемый объект можно изменить внутри функции."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def f(x):
+          return x * 2 + 1
+
+
+      print(f(f(3)))
+    answer: "15"
+    explanation: "Сначала внутренний вызов: f(3) = 7, затем f(7) = 15."
+
+tasks:
+  - id: t1
+    title: "Среднее значение"
+    difficulty: 1
+    statement: |
+      Напишите функцию `average(numbers)`, которая **возвращает** среднее арифметическое списка чисел. Для пустого списка верните `None`.
+    examples:
+      - input: "average([5, 4, 5, 3])"
+        output: "4.25"
+      - input: "average([])"
+        output: "None"
+    starter: |
+      def average(numbers):
+          print(sum(numbers) / len(numbers))
+    hints:
+      - "Замените print на return — тест проверяет возвращённое значение."
+      - "Пустой список — проверьте в начале: `if not numbers: return None`."
+    solution: |
+      def average(numbers):
+          if not numbers:
+              return None
+          return sum(numbers) / len(numbers)
+    solution_explanation: "Ранний return обрабатывает граничный случай до деления на ноль. Основная формула — в одной строке после проверки."
+    tests:
+      - name: "Обычный список"
+        call: "average([5, 4, 5, 3])"
+        expected: "4.25"
+      - name: "Пустой список"
+        call: "average([])"
+        expected: "None"
+      - name: "Один элемент"
+        call: "average([7])"
+        expected: "7.0"
+      - name: "Отрицательные"
+        call: "average([-2, 2, -4])"
+        expected: "-4 / 3"
+      - name: "Дробные"
+        call: "average([0.1, 0.2])"
+        expected: "0.15"
+      - name: "Не печатает"
+        code: |
+          import contextlib
+          import io
+          buffer = io.StringIO()
+          with contextlib.redirect_stdout(buffer):
+              average([1, 2])
+          assert buffer.getvalue() == "", "Функция не должна ничего печатать — только возвращать"
+
+  - id: t2
+    title: "Подсчёт гласных"
+    difficulty: 1
+    statement: |
+      Напишите функцию `count_vowels(text)`, которая возвращает количество гласных в строке — русских (`аеёиоуыэюя`) и английских (`aeiou`) в любом регистре.
+    examples:
+      - input: "count_vowels(\"Привет, AI!\")"
+        output: "4"
+    starter: |
+      def count_vowels(text):
+          pass
+    hints:
+      - "Перебирайте `text.lower()` и проверяйте `char in VOWELS`."
+      - "Можно одной строкой: `return sum(1 for ch in text.lower() if ch in VOWELS)`."
+    solution: |
+      VOWELS = "аеёиоуыэюяaeiou"
+
+
+      def count_vowels(text):
+          return sum(1 for char in text.lower() if char in VOWELS)
+    solution_explanation: "Нормализация регистра и генераторное выражение внутри sum. Строка гласных вынесена в константу уровня модуля."
+    tests:
+      - name: "Пример"
+        call: "count_vowels(\"Привет, AI!\")"
+        expected: "4"
+      - name: "Пустая строка"
+        call: "count_vowels(\"\")"
+        expected: "0"
+      - name: "Без гласных"
+        call: "count_vowels(\"ткнм 123\")"
+        expected: "0"
+      - name: "Заглавные"
+        call: "count_vowels(\"ЁЛКА AEIOU\")"
+        expected: "7"
+      - name: "Длинный текст"
+        call: "count_vowels(\"машинное обучение\" * 100)"
+        expected: "900"
+
+  - id: t3
+    title: "Оценка по баллам"
+    difficulty: 2
+    statement: |
+      Напишите функцию `grade(score)`, возвращающую строку:
+
+      - меньше 0 или больше 100 → `"ошибка"`;
+      - 90–100 → `"отлично"`, 75–89 → `"хорошо"`, 60–74 → `"удовлетворительно"`, иначе → `"неудовлетворительно"`.
+
+      Используйте ранний возврат — без `elif` и `else`.
+    examples:
+      - input: "grade(82)"
+        output: "'хорошо'"
+    starter: |
+      def grade(score):
+          if score >= 90:
+              return "отлично"
+          if score >= 75:
+              return "хорошо"
+    hints:
+      - "Сначала верните «ошибку» для некорректных значений: `if score < 0 or score > 100: return \"ошибка\"`."
+      - "Последняя строка функции — `return \"неудовлетворительно\"`: до неё дойдут только оставшиеся случаи."
+    solution: |
+      def grade(score):
+          if score < 0 or score > 100:
+              return "ошибка"
+          if score >= 90:
+              return "отлично"
+          if score >= 75:
+              return "хорошо"
+          if score >= 60:
+              return "удовлетворительно"
+          return "неудовлетворительно"
+    solution_explanation: "Каждый return завершает функцию, поэтому следующий if проверяется только если предыдущие не сработали — elif не нужен. Последний return гарантирует, что функция никогда не вернёт None."
+    constraints:
+      forbid: ["elif", "else"]
+      message: "Решите через ранний возврат."
+    tests:
+      - name: "82"
+        call: "grade(82)"
+        expected: "'хорошо'"
+      - name: "Граница 90"
+        call: "grade(90)"
+        expected: "'отлично'"
+      - name: "Граница 60"
+        call: "grade(60)"
+        expected: "'удовлетворительно'"
+      - name: "Низкий балл"
+        call: "grade(10)"
+        expected: "'неудовлетворительно'"
+      - name: "Больше 100"
+        call: "grade(101)"
+        expected: "'ошибка'"
+      - name: "Отрицательный"
+        call: "grade(-1)"
+        expected: "'ошибка'"
+      - name: "Сто"
+        call: "grade(100)"
+        expected: "'отлично'"
+
+  - id: t4
+    title: "Пара с заданной суммой"
+    difficulty: 3
+    statement: |
+      Напишите функцию `find_pair(numbers, target)`, которая возвращает кортеж `(i, j)` — **индексы** первой пары элементов с суммой `target`, где `i < j`. «Первая» — с наименьшим `i`, а при равном `i` — с наименьшим `j`. Если пары нет — `None`.
+    examples:
+      - input: "find_pair([3, 8, 1, 7], 10)"
+        output: "(0, 3)"
+      - input: "find_pair([1, 2], 100)"
+        output: "None"
+    starter: |
+      def find_pair(numbers, target):
+          for i in range(len(numbers)):
+              for j in range(len(numbers)):
+                  if numbers[i] + numbers[j] == target:
+                      print(i, j)
+    hints:
+      - "Внутренний цикл начинайте с `i + 1`, чтобы i < j и элемент не складывался сам с собой."
+      - "При находке — `return i, j`: это сразу выходит из обоих циклов. После циклов — `return None`."
+    solution: |
+      def find_pair(numbers, target):
+          for i in range(len(numbers)):
+              for j in range(i + 1, len(numbers)):
+                  if numbers[i] + numbers[j] == target:
+                      return i, j
+          return None
+    solution_explanation: "return во вложенном цикле — самый чистый способ прервать поиск: функция завершается целиком, без флагов. Явный `return None` в конце делает намерение очевидным."
+    tests:
+      - name: "Пример"
+        call: "find_pair([3, 8, 1, 7], 10)"
+        expected: "(0, 3)"
+      - name: "Нет пары"
+        call: "find_pair([1, 2], 100)"
+        expected: "None"
+      - name: "Элемент сам с собой не считается"
+        call: "find_pair([5, 1], 10)"
+        expected: "None"
+      - name: "Одинаковые значения"
+        call: "find_pair([5, 5], 10)"
+        expected: "(0, 1)"
+      - name: "Первая по i"
+        call: "find_pair([1, 9, 2, 8], 10)"
+        expected: "(0, 1)"
+      - name: "Пустой список"
+        call: "find_pair([], 0)"
+        expected: "None"
+      - name: "Отрицательные"
+        call: "find_pair([-3, 4, 7], 4)"
+        expected: "(0, 2)"

@@ -1,0 +1,491 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from pydantic import BaseModel
+
+
+      class Item(BaseModel):
+          name: str
+          count: int
+
+
+      item = Item(name="gpu", count="3")
+      print(item.count + 1)
+    options:
+      - text: "`4`"
+        correct: true
+        why: "В нестрогом режиме Pydantic приводит строку \"3\" к int."
+      - text: "`31`"
+        why: "Поле count уже int — сложение числовое."
+      - text: "ValidationError"
+        why: "Строка из цифр однозначно приводится к целому."
+    explanation: "Pydantic проверяет и преобразует данные к аннотированным типам."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from pydantic import BaseModel, Field, ValidationError
+
+
+      class Config(BaseModel):
+          lr: float = Field(gt=0)
+          epochs: int = Field(ge=1)
+          name: str
+
+
+      try:
+          Config(lr=-1, epochs=0, name="run")
+      except ValidationError as error:
+          print(error.error_count(), [e["loc"][0] for e in error.errors()])
+    options:
+      - text: "`2 ['lr', 'epochs']`"
+        correct: true
+        why: "Pydantic собирает все ошибки сразу; name корректно."
+      - text: "`1 ['lr']`"
+        why: "Проверка не останавливается на первой ошибке."
+      - text: "`3 ['lr', 'epochs', 'name']`"
+        why: "name передан и корректен."
+    explanation: "ValidationError содержит полный список проблем."
+
+  - id: q3
+    type: find_bug
+    prompt: "После создания модели поле `email` всегда равно None. Почему?"
+    code: |
+      from pydantic import BaseModel, field_validator
+
+
+      class User(BaseModel):
+          email: str
+
+          @field_validator("email")
+          @classmethod
+          def normalize(cls, value: str) -> str:
+              if "@" not in value:
+                  raise ValueError("нет @")
+              value.strip().lower()
+    options:
+      - text: "Валидатор не возвращает значение — нужно return value.strip().lower()"
+        correct: true
+        why: "Результат валидатора становится значением поля."
+      - text: "Нельзя бросать ValueError в валидаторе"
+        why: "Именно так сообщают об ошибке."
+      - text: "Порядок декораторов неверный"
+        why: "Порядок правильный: field_validator, затем classmethod."
+    explanation: "Валидатор поля обязан вернуть итоговое значение."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from pydantic import BaseModel
+
+
+      class Settings(BaseModel):
+          model: str
+          temperature: float = 0.7
+
+
+      s = Settings(model="mini", temprature=0.1)
+      print(s.model_dump())
+    options:
+      - text: "`{'model': 'mini', 'temperature': 0.7}`"
+        correct: true
+        why: "По умолчанию лишние поля игнорируются — опечатка пропала молча."
+      - text: "`{'model': 'mini', 'temperature': 0.1}`"
+        why: "temprature — другое имя, оно не связано с temperature."
+      - text: "ValidationError: extra_forbidden"
+        why: "Так было бы с ConfigDict(extra=\"forbid\")."
+    explanation: "Для конфигураций включайте extra=\"forbid\", чтобы опечатки становились ошибками."
+
+  - id: q5
+    type: single
+    prompt: "Что означает `loc == ('layers', 2, 'units')` в ошибке валидации?"
+    options:
+      - text: "Ошибка в поле units третьего элемента списка layers"
+        correct: true
+        why: "Путь: поле layers → индекс 2 → поле units."
+      - text: "Ошибка во втором поле модели layers"
+        why: "Число в пути — индекс элемента списка."
+      - text: "Две ошибки: в layers и в units"
+        why: "Это путь к одной ошибке."
+      - text: "Значение units равно 2"
+        why: "loc — путь, а не значение; значение — в ключе input."
+    explanation: "loc указывает точный путь к ошибке во вложенной структуре."
+
+  - id: q6
+    type: multiple
+    prompt: "Какие ограничения можно задать через `Field`? Выберите все."
+    options:
+      - text: "`gt=0` — строго больше нуля"
+        correct: true
+        why: "Числовое ограничение."
+      - text: "`min_length=1` — непустая строка или список"
+        correct: true
+        why: "Ограничение длины."
+      - text: "`pattern=r\"^[a-z]+$\"` — соответствие регулярному выражению"
+        correct: true
+        why: "Для строк."
+      - text: "`unique=True` — уникальность значения среди всех объектов"
+        why: "Такого параметра нет — это задача базы данных."
+    explanation: "Field задаёт ограничения, которые проверяются при создании модели."
+
+tasks:
+  - id: t1
+    title: "Модель запроса к LLM"
+    difficulty: 1
+    statement: |
+      Опишите Pydantic-модель `ChatRequest`:
+
+      - `model: str` — непустая;
+      - `prompt: str` — длина от 1 до 4000;
+      - `temperature: float` — от 0 до 2 включительно, по умолчанию 0.7;
+      - `max_tokens: int` — больше 0 и не больше 4096, по умолчанию 256;
+      - `stop: list[str] | None` — по умолчанию `None`.
+
+      Функция `validate_request(data: dict) -> tuple[ChatRequest | None, list[str]]` возвращает модель и пустой список, а при ошибках — `None` и список строк `"<поле>: <type>"` для каждой ошибки.
+    examples:
+      - input: "validate_request({\"model\": \"mini\", \"prompt\": \"Привет\", \"temperature\": 3})[1]"
+        output: "['temperature: less_than_equal']"
+    starter: |
+      from pydantic import BaseModel
+
+
+      class ChatRequest(BaseModel):
+          model: str
+          prompt: str
+
+
+      def validate_request(data):
+          return ChatRequest(**data), []
+    hints:
+      - "`from pydantic import BaseModel, Field, ValidationError`; например `temperature: float = Field(default=0.7, ge=0, le=2)`."
+      - "В validate_request: `try: return ChatRequest.model_validate(data), []` / `except ValidationError as error:` и список `f\"{e['loc'][0]}: {e['type']}\"`."
+    solution: |
+      from pydantic import BaseModel, Field, ValidationError
+
+
+      class ChatRequest(BaseModel):
+          model: str = Field(min_length=1)
+          prompt: str = Field(min_length=1, max_length=4000)
+          temperature: float = Field(default=0.7, ge=0, le=2)
+          max_tokens: int = Field(default=256, gt=0, le=4096)
+          stop: list[str] | None = None
+
+
+      def validate_request(data: dict) -> tuple[ChatRequest | None, list[str]]:
+          """Проверить запрос: модель или список ошибок."""
+          try:
+              return ChatRequest.model_validate(data), []
+          except ValidationError as error:
+              return None, [f"{item['loc'][0]}: {item['type']}" for item in error.errors()]
+    solution_explanation: "Ограничения описаны декларативно в Field, а функция превращает ValidationError в компактный список «поле: код ошибки» — удобно для ответа пользователю или лога."
+    tests:
+      - name: "Пример"
+        call: "validate_request({\"model\": \"mini\", \"prompt\": \"Привет\", \"temperature\": 3})[1]"
+        expected: "['temperature: less_than_equal']"
+      - name: "Корректный запрос и значения по умолчанию"
+        code: |
+          request, errors = validate_request({"model": "mini", "prompt": "Привет"})
+          assert errors == [] and request.temperature == 0.7 and request.max_tokens == 256 and request.stop is None
+      - name: "Несколько ошибок"
+        call: "sorted(validate_request({\"model\": \"\", \"prompt\": \"\", \"max_tokens\": 0})[1])"
+        expected: "['max_tokens: greater_than', 'model: string_too_short', 'prompt: string_too_short']"
+      - name: "Отсутствующие поля"
+        call: "validate_request({})[1]"
+        expected: "['model: missing', 'prompt: missing']"
+      - name: "Приведение типов и stop"
+        code: |
+          request, errors = validate_request({"model": "m", "prompt": "p", "max_tokens": "100", "stop": ["###"]})
+          assert errors == [] and request.max_tokens == 100 and request.stop == ["###"]
+
+  - id: t2
+    title: "Сеть из слоёв"
+    difficulty: 2
+    statement: |
+      Опишите модели:
+
+      - `Layer`: `in_features: int` и `out_features: int` (оба > 0), `activation: Literal["relu", "tanh", "none"] = "relu"`;
+      - `Network`: `name: str`, `layers: list[Layer]` (хотя бы один слой).
+
+      В `Network` добавьте `@model_validator(mode="after")`: выход каждого слоя должен совпадать со входом следующего, иначе `ValueError` с сообщением `"слой <i>: ожидалось <out>, получено <in>"` (i — индекс слоя, у которого вход не совпал).
+
+      Метод `num_params()` — число параметров: сумма `in * out + out` по слоям.
+    examples:
+      - input: "Network(name=\"mlp\", layers=[{\"in_features\": 4, \"out_features\": 8}, {\"in_features\": 8, \"out_features\": 2}]).num_params()"
+        output: "58"
+    starter: |
+      from pydantic import BaseModel
+
+
+      class Layer(BaseModel):
+          in_features: int
+          out_features: int
+
+
+      class Network(BaseModel):
+          name: str
+          layers: list[Layer]
+    hints:
+      - "`layers: list[Layer] = Field(min_length=1)`; `activation: Literal[\"relu\", \"tanh\", \"none\"] = \"relu\"`."
+      - "В валидаторе: `for i in range(1, len(self.layers)):` сравните `self.layers[i - 1].out_features` и `self.layers[i].in_features`; в конце `return self`."
+    solution: |
+      from typing import Literal
+
+      from pydantic import BaseModel, Field, model_validator
+
+
+      class Layer(BaseModel):
+          in_features: int = Field(gt=0)
+          out_features: int = Field(gt=0)
+          activation: Literal["relu", "tanh", "none"] = "relu"
+
+
+      class Network(BaseModel):
+          name: str
+          layers: list[Layer] = Field(min_length=1)
+
+          @model_validator(mode="after")
+          def check_shapes(self) -> "Network":
+              for i in range(1, len(self.layers)):
+                  expected = self.layers[i - 1].out_features
+                  actual = self.layers[i].in_features
+                  if expected != actual:
+                      raise ValueError(f"слой {i}: ожидалось {expected}, получено {actual}")
+              return self
+
+          def num_params(self) -> int:
+              return sum(layer.in_features * layer.out_features + layer.out_features for layer in self.layers)
+    solution_explanation: "Ограничения отдельных полей — в Field и Literal, а связь между слоями проверяет model_validator: он видит уже проверенные объекты Layer. Модель Pydantic остаётся обычным классом — в ней можно определять методы."
+    tests:
+      - name: "Пример"
+        call: "Network(name=\"mlp\", layers=[{\"in_features\": 4, \"out_features\": 8}, {\"in_features\": 8, \"out_features\": 2}]).num_params()"
+        expected: "58"
+      - name: "Несовпадение размеров"
+        code: |
+          from pydantic import ValidationError
+          try:
+              Network(name="bad", layers=[{"in_features": 4, "out_features": 8}, {"in_features": 6, "out_features": 2}])
+          except ValidationError as error:
+              assert "слой 1: ожидалось 8, получено 6" in error.errors()[0]["msg"], error.errors()[0]["msg"]
+          else:
+              raise AssertionError("Ожидался ValidationError")
+      - name: "Ограничения слоя"
+        code: |
+          from pydantic import ValidationError
+          for bad in ({"in_features": 0, "out_features": 1}, {"in_features": 1, "out_features": 1, "activation": "gelu"}):
+              try:
+                  Layer(**bad)
+              except ValidationError:
+                  pass
+              else:
+                  raise AssertionError(f"{bad} должен вызывать ValidationError")
+      - name: "Пустая сеть"
+        code: |
+          from pydantic import ValidationError
+          try:
+              Network(name="empty", layers=[])
+          except ValidationError as error:
+              assert error.errors()[0]["type"] == "too_short"
+          else:
+              raise AssertionError("Ожидался ValidationError")
+      - name: "Объекты Layer"
+        code: |
+          net = Network(name="n", layers=[{"in_features": 3, "out_features": 3, "activation": "tanh"}])
+          assert isinstance(net.layers[0], Layer) and net.layers[0].activation == "tanh"
+
+  - id: t3
+    title: "Регистрация пользователя"
+    difficulty: 2
+    statement: |
+      Модель `User` с настройками `extra="forbid"` и `str_strip_whitespace=True`:
+
+      - `username: str` — 3–20 символов, только строчные латинские буквы, цифры и `_` (используйте `pattern`); перед проверкой приводится к нижнему регистру — для этого нужен валидатор с `mode="before"`;
+      - `email: str` — `@field_validator`: должен содержать ровно один `@`, а после него точку; приводится к нижнему регистру; иначе `ValueError("некорректный email")`;
+      - `age: int | None = None` — если указан, не меньше 13.
+    examples:
+      - input: "User(username=\" Ada_L \", email=\"Ada@Example.com\").model_dump()"
+        output: "{'username': 'ada_l', 'email': 'ada@example.com', 'age': None}"
+    starter: |
+      from pydantic import BaseModel
+
+
+      class User(BaseModel):
+          username: str
+          email: str
+          age: int | None = None
+    hints:
+      - "`@field_validator(\"username\", mode=\"before\")` получает сырое значение до проверки типа и pattern: `return value.strip().lower() if isinstance(value, str) else value`."
+      - "`username: str = Field(min_length=3, max_length=20, pattern=r\"^[a-z0-9_]+$\")`; `age: int | None = Field(default=None, ge=13)`."
+    solution: |
+      from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+      class User(BaseModel):
+          model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+          username: str = Field(min_length=3, max_length=20, pattern=r"^[a-z0-9_]+$")
+          email: str
+          age: int | None = Field(default=None, ge=13)
+
+          @field_validator("username", mode="before")
+          @classmethod
+          def lower_username(cls, value: object) -> object:
+              if isinstance(value, str):
+                  return value.strip().lower()
+              return value
+
+          @field_validator("email")
+          @classmethod
+          def check_email(cls, value: str) -> str:
+              local, sep, domain = value.partition("@")
+              if not sep or not local or "@" in domain or "." not in domain:
+                  raise ValueError("некорректный email")
+              return value.lower()
+    solution_explanation: "Валидатор с mode=\"before\" работает до встроенных проверок — поэтому «Ada_L» сначала становится «ada_l», а затем проходит pattern. Обычный (after) валидатор email получает уже строку и может её нормализовать."
+    tests:
+      - name: "Пример"
+        call: "User(username=\" Ada_L \", email=\"Ada@Example.com\").model_dump()"
+        expected: "{'username': 'ada_l', 'email': 'ada@example.com', 'age': None}"
+      - name: "Неверный username"
+        code: |
+          from pydantic import ValidationError
+          for name in ("ab", "ада", "a-b-c", "x" * 21):
+              try:
+                  User(username=name, email="a@b.c")
+              except ValidationError:
+                  pass
+              else:
+                  raise AssertionError(f"username {name!r} должен быть отвергнут")
+      - name: "Неверный email"
+        code: |
+          from pydantic import ValidationError
+          for email in ("ada.example.com", "a@@b.c", "a@bc", "@b.c"):
+              try:
+                  User(username="ada", email=email)
+              except ValidationError as error:
+                  assert "некорректный email" in error.errors()[0]["msg"]
+              else:
+                  raise AssertionError(f"email {email!r} должен быть отвергнут")
+      - name: "Возраст"
+        code: |
+          from pydantic import ValidationError
+          assert User(username="ada", email="a@b.c", age="30").age == 30
+          try:
+              User(username="ada", email="a@b.c", age=12)
+          except ValidationError:
+              pass
+          else:
+              raise AssertionError("Возраст меньше 13 недопустим")
+      - name: "Лишние поля запрещены"
+        code: |
+          from pydantic import ValidationError
+          try:
+              User(username="ada", email="a@b.c", admin=True)
+          except ValidationError as error:
+              assert error.errors()[0]["type"] == "extra_forbidden"
+          else:
+              raise AssertionError("Ожидался extra_forbidden")
+
+  - id: t4
+    title: "Проверка пакета переводов"
+    difficulty: 3
+    statement: |
+      Модель `Transfer`:
+
+      - `source: str`, `target: str` — непустые;
+      - `amount: float` — больше 0, не больше двух знаков после запятой (`@field_validator`: `round(value, 2) != value` → `ValueError`);
+      - `currency: Literal["RUB", "USD", "EUR"] = "RUB"`;
+      - `@model_validator(mode="after")`: `source != target`, иначе `ValueError("перевод самому себе")`.
+
+      Функция `check_batch(rows: list[dict]) -> dict` возвращает:
+
+      ```
+      {"ok": число корректных,
+       "errors": {индекс: [коды type ошибок]},
+       "totals": {валюта: сумма корректных переводов, округлённая до 2 знаков}}
+      ```
+    examples:
+      - input: "check_batch([{\"source\": \"a\", \"target\": \"b\", \"amount\": 10.5}, {\"source\": \"a\", \"target\": \"a\", \"amount\": 1}])"
+        output: "{'ok': 1, 'errors': {1: ['value_error']}, 'totals': {'RUB': 10.5}}"
+    starter: |
+      from pydantic import BaseModel
+
+
+      class Transfer(BaseModel):
+          source: str
+          target: str
+          amount: float
+
+
+      def check_batch(rows):
+          return {"ok": len(rows), "errors": {}, "totals": {}}
+    hints:
+      - "Ошибки из своих валидаторов имеют type `value_error`. Коды берите из `error.errors()`: `[item[\"type\"] for item in error.errors()]`."
+      - "totals: `totals[t.currency] = round(totals.get(t.currency, 0) + t.amount, 2)`."
+    solution: |
+      from typing import Literal
+
+      from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+
+
+      class Transfer(BaseModel):
+          source: str = Field(min_length=1)
+          target: str = Field(min_length=1)
+          amount: float = Field(gt=0)
+          currency: Literal["RUB", "USD", "EUR"] = "RUB"
+
+          @field_validator("amount")
+          @classmethod
+          def two_decimals(cls, value: float) -> float:
+              if round(value, 2) != value:
+                  raise ValueError("не больше двух знаков после запятой")
+              return value
+
+          @model_validator(mode="after")
+          def different_accounts(self) -> "Transfer":
+              if self.source == self.target:
+                  raise ValueError("перевод самому себе")
+              return self
+
+
+      def check_batch(rows: list[dict]) -> dict:
+          """Проверить пакет переводов."""
+          ok = 0
+          errors: dict[int, list[str]] = {}
+          totals: dict[str, float] = {}
+          for index, row in enumerate(rows):
+              try:
+                  transfer = Transfer.model_validate(row)
+              except ValidationError as error:
+                  errors[index] = [item["type"] for item in error.errors()]
+                  continue
+              ok += 1
+              totals[transfer.currency] = round(totals.get(transfer.currency, 0) + transfer.amount, 2)
+          return {"ok": ok, "errors": errors, "totals": totals}
+    solution_explanation: "Модель описывает правила одного перевода, а функция обрабатывает пакет: некорректные строки не останавливают обработку, а попадают в отчёт с машиночитаемыми кодами ошибок. model_validator срабатывает, только если все поля прошли проверку."
+    tests:
+      - name: "Пример"
+        call: "check_batch([{\"source\": \"a\", \"target\": \"b\", \"amount\": 10.5}, {\"source\": \"a\", \"target\": \"a\", \"amount\": 1}])"
+        expected: "{'ok': 1, 'errors': {1: ['value_error']}, 'totals': {'RUB': 10.5}}"
+      - name: "Разные валюты"
+        call: "check_batch([{\"source\": \"a\", \"target\": \"b\", \"amount\": 0.1, \"currency\": \"USD\"}, {\"source\": \"c\", \"target\": \"d\", \"amount\": 0.2, \"currency\": \"USD\"}, {\"source\": \"e\", \"target\": \"f\", \"amount\": 5}])[\"totals\"]"
+        expected: "{'USD': 0.3, 'RUB': 5.0}"
+      - name: "Коды ошибок"
+        call: "check_batch([{\"source\": \"\", \"target\": \"b\", \"amount\": -1, \"currency\": \"BTC\"}])[\"errors\"]"
+        expected: "{0: ['string_too_short', 'greater_than', 'literal_error']}"
+      - name: "Знаки после запятой"
+        code: |
+          from pydantic import ValidationError
+          try:
+              Transfer(source="a", target="b", amount=1.005)
+          except ValidationError as error:
+              assert error.errors()[0]["type"] == "value_error"
+          else:
+              raise AssertionError("Три знака после запятой недопустимы")
+          assert Transfer(source="a", target="b", amount="12.34").amount == 12.34
+      - name: "Пустой пакет"
+        call: "check_batch([])"
+        expected: "{'ok': 0, 'errors': {}, 'totals': {}}"

@@ -1,0 +1,417 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "Сколько стоит `items[500_000]` для списка из миллиона элементов по сравнению с `items[5]`?"
+    options:
+      - text: "Столько же: адрес элемента вычисляется арифметикой, O(1)"
+        correct: true
+        why: "Список — непрерывный массив ссылок."
+      - text: "В 100 000 раз дольше — нужно пройти элементы до нужного"
+        why: "Так устроен связный список, а не list в Python."
+      - text: "Зависит от типа элементов"
+        why: "Массив хранит ссылки одинакового размера."
+      - text: "O(log n), как бинарный поиск"
+        why: "Индексация не требует поиска."
+    explanation: "Доступ по индексу в list — O(1)."
+
+  - id: q2
+    type: single
+    prompt: "Почему `items.pop(0)` в большом списке медленный, а `items.pop()` — быстрый?"
+    options:
+      - text: "После удаления первого элемента все остальные ссылки сдвигаются на одну позицию — O(n)"
+        correct: true
+        why: "Массив должен оставаться непрерывным."
+      - text: "pop(0) сортирует список"
+        why: "Сортировки не происходит."
+      - text: "pop(0) копирует список целиком в новую память"
+        why: "Сдвигаются ссылки внутри того же массива."
+      - text: "Разницы нет"
+        why: "Удаление с конца не требует сдвига."
+    explanation: "Для очередей используйте collections.deque."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      d = {1: "a", True: "b", 1.0: "c"}
+      print(d, len(d))
+    options:
+      - text: "`{1: 'c'} 1`"
+        correct: true
+        why: "1, True и 1.0 равны и имеют одинаковый хеш — это один ключ; сохраняется первый ключ и последнее значение."
+      - text: "`{1: 'a', True: 'b', 1.0: 'c'} 3`"
+        why: "Равные ключи с равными хешами — один ключ словаря."
+      - text: "`{1.0: 'c'} 1`"
+        why: "Ключом остаётся первый вставленный объект — 1."
+    explanation: "Словарь ищет ключ по хешу и ==; равные значения считаются одним ключом."
+
+  - id: q4
+    type: find_bug
+    prompt: "Функция работает часами на корпусе из миллиона токенов. В чём проблема?"
+    code: |
+      STOP_WORDS = ["и", "в", "на", "с", "по"] * 4000
+
+
+      def clean(tokens):
+          return [t for t in tokens if t not in STOP_WORDS]
+    options:
+      - text: "Проверка `in` по списку — O(m) на каждый токен; нужно множество: set(STOP_WORDS)"
+        correct: true
+        why: "С множеством каждая проверка — O(1)."
+      - text: "Списковое включение медленнее цикла"
+        why: "Дело не во включении, а в проверке по списку."
+      - text: "Токены нужно отсортировать"
+        why: "Сортировка не поможет."
+    explanation: "Многократные проверки принадлежности — через set."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      counts = {}
+      for pair in [(1, 2), (2, 1), (1, 2)]:
+          counts[pair] = counts.get(pair, 0) + 1
+      print(counts)
+    options:
+      - text: "`{(1, 2): 2, (2, 1): 1}`"
+        correct: true
+        why: "Кортежи хешируемы; (1, 2) и (2, 1) — разные ключи."
+      - text: "`{(1, 2): 3}`"
+        why: "Порядок элементов кортежа важен."
+      - text: "TypeError: unhashable type"
+        why: "Кортежи из чисел хешируемы."
+    explanation: "Кортежи — удобные составные ключи словаря."
+
+  - id: q6
+    type: multiple
+    prompt: "Какие операции выполняются в среднем за O(1)? Выберите все."
+    options:
+      - text: "`key in my_dict`"
+        correct: true
+        why: "Хеш-таблица."
+      - text: "`my_list.append(x)`"
+        correct: true
+        why: "Амортизированно O(1)."
+      - text: "`x in my_set`"
+        correct: true
+        why: "Хеш-таблица."
+      - text: "`x in my_list`"
+        why: "Перебор элементов — O(n)."
+    explanation: "Знайте стоимость операций своих структур данных."
+
+tasks:
+  - id: t1
+    title: "Быстрая фильтрация токенов"
+    difficulty: 1
+    statement: |
+      - `remove_stop_words(tokens, stop_words)` — список токенов без стоп-слов (порядок сохраняется);
+      - `known_ratio(tokens, vocab)` — доля токенов, входящих в словарь `vocab` (список), округление до 3 знаков; для пустого списка — 0.0.
+
+      Функции должны работать быстро на больших входах: 200 000 токенов и 50 000 слов в словаре.
+    examples:
+      - input: "remove_stop_words([\"кот\", \"и\", \"пёс\"], [\"и\", \"в\"])"
+        output: "['кот', 'пёс']"
+    starter: |
+      def remove_stop_words(tokens, stop_words):
+          return [t for t in tokens if t not in stop_words]
+
+
+      def known_ratio(tokens, vocab):
+          if not tokens:
+              return 0.0
+          return round(sum(1 for t in tokens if t in vocab) / len(tokens), 3)
+    hints:
+      - "Проверка `in` по списку — перебор. Преобразуйте список в множество **один раз** до цикла."
+      - "`stop = set(stop_words)`, затем `[t for t in tokens if t not in stop]`."
+    solution: |
+      def remove_stop_words(tokens, stop_words):
+          """Токены без стоп-слов."""
+          stop = set(stop_words)
+          return [token for token in tokens if token not in stop]
+
+
+      def known_ratio(tokens, vocab):
+          """Доля токенов из словаря."""
+          if not tokens:
+              return 0.0
+          known = set(vocab)
+          return round(sum(1 for token in tokens if token in known) / len(tokens), 3)
+    solution_explanation: "Множество строится один раз за O(m), после чего каждая проверка — O(1). Итого O(n + m) вместо O(n·m) — на больших данных это разница между миллисекундами и минутами."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        call: "remove_stop_words([\"кот\", \"и\", \"пёс\"], [\"и\", \"в\"])"
+        expected: "['кот', 'пёс']"
+      - name: "known_ratio"
+        call: "[known_ratio([\"a\", \"b\", \"c\"], [\"a\", \"c\", \"z\"]), known_ratio([], [\"a\"])]"
+        expected: "[0.667, 0.0]"
+      - name: "Большие данные: стоп-слова"
+        code: |
+          tokens = [f"w{i % 60000}" for i in range(200_000)]
+          stop = [f"w{i}" for i in range(0, 100_000, 2)]
+          result = remove_stop_words(tokens, stop)
+          assert len(result) == 100_000
+      - name: "Большие данные: словарь"
+        code: |
+          tokens = [f"t{i}" for i in range(200_000)]
+          vocab = [f"t{i}" for i in range(50_000)]
+          assert known_ratio(tokens, vocab) == 0.25
+      - name: "Аргументы не меняются"
+        code: |
+          stop = ["и"]
+          remove_stop_words(["и", "да"], stop)
+          assert stop == ["и"]
+
+  - id: t2
+    title: "Очередь на двух стеках"
+    difficulty: 2
+    statement: |
+      Создайте класс `TwoStackQueue` — очередь FIFO **без** `pop(0)` и `insert(0, ...)`: внутри два списка — входной (`append` в конец) и выходной. Когда выходной пуст, все элементы из входного переносятся в него в обратном порядке, и дальше элементы снимаются с его конца.
+
+      - `enqueue(item)`, `dequeue()` (пустая очередь → `IndexError`), `peek()` (пустая → `IndexError`), `len(queue)`.
+
+      Операции должны быть амортизированно O(1): 200 000 операций — быстро.
+    examples:
+      - input: "q = TwoStackQueue(); q.enqueue(1); q.enqueue(2); q.dequeue()"
+        output: "1"
+    starter: |
+      class TwoStackQueue:
+          def __init__(self):
+              self.items = []
+
+          def enqueue(self, item):
+              self.items.append(item)
+
+          def dequeue(self):
+              return self.items.pop(0)
+    hints:
+      - "Вспомогательный метод `_shift()`: `if not self._out: while self._in: self._out.append(self._in.pop())`."
+      - "dequeue и peek вызывают `_shift()`, затем работают с `self._out[-1]`."
+    solution: |
+      class TwoStackQueue:
+          """Очередь на двух списках с амортизированным O(1)."""
+
+          def __init__(self):
+              self._in = []
+              self._out = []
+
+          def enqueue(self, item):
+              self._in.append(item)
+
+          def _shift(self):
+              if not self._out:
+                  while self._in:
+                      self._out.append(self._in.pop())
+
+          def dequeue(self):
+              self._shift()
+              if not self._out:
+                  raise IndexError("очередь пуста")
+              return self._out.pop()
+
+          def peek(self):
+              self._shift()
+              if not self._out:
+                  raise IndexError("очередь пуста")
+              return self._out[-1]
+
+          def __len__(self):
+              return len(self._in) + len(self._out)
+    solution_explanation: "Каждый элемент переносится из входного списка в выходной ровно один раз, а все операции работают с концами списков. Поэтому в среднем на операцию приходится постоянная работа — амортизированное O(1)."
+    timeout: 5
+    tests:
+      - name: "FIFO"
+        code: |
+          q = TwoStackQueue()
+          for i in range(3):
+              q.enqueue(i)
+          assert q.dequeue() == 0
+          q.enqueue(3)
+          assert [q.dequeue() for _ in range(3)] == [1, 2, 3]
+      - name: "peek и len"
+        code: |
+          q = TwoStackQueue()
+          q.enqueue("a")
+          q.enqueue("b")
+          assert q.peek() == "a" and len(q) == 2
+      - name: "Пустая очередь"
+        code: |
+          q = TwoStackQueue()
+          for method in (q.dequeue, q.peek):
+              try:
+                  method()
+              except IndexError:
+                  pass
+              else:
+                  raise AssertionError("Ожидался IndexError")
+      - name: "Производительность"
+        code: |
+          q = TwoStackQueue()
+          for i in range(200_000):
+              q.enqueue(i)
+          total = 0
+          while len(q):
+              total += q.dequeue()
+          assert total == sum(range(200_000))
+      - name: "Без pop(0)"
+        code: |
+          assert "pop(0)" not in __source__ and "insert(0" not in __source__
+
+  - id: t3
+    title: "Хеш-таблица с открытой адресацией"
+    difficulty: 3
+    statement: |
+      Создайте класс `OpenHashMap` **без использования встроенных dict и set** для хранения данных: внутри — список ячеек фиксированной длины (сначала 8), каждая ячейка — `None` или пара `(ключ, значение)`.
+
+      - индекс ячейки: `hash(key) % capacity`; при коллизии — **линейное пробирование**: следующая ячейка (по кругу), пока не найдётся нужный ключ или пустая ячейка;
+      - `m[key] = value` — вставка или замена; после вставки, если элементов больше 2/3 ёмкости, ёмкость удваивается и все элементы перераспределяются;
+      - `m[key]` — значение или `KeyError`; `key in m`; `len(m)`; атрибут `capacity`.
+
+      Удаление реализовывать не нужно.
+    examples:
+      - input: "m = OpenHashMap(); m[\"a\"] = 1; m[\"a\"] = 2; (m[\"a\"], len(m))"
+        output: "(2, 1)"
+    starter: |
+      class OpenHashMap:
+          def __init__(self):
+              self.data = {}
+
+          def __setitem__(self, key, value):
+              self.data[key] = value
+
+          def __getitem__(self, key):
+              return self.data[key]
+    hints:
+      - "Метод `_find(key)` возвращает индекс ячейки, где лежит ключ, или первой пустой ячейки на пути пробирования: `i = hash(key) % self.capacity`, `while self._slots[i] is not None and self._slots[i][0] != key: i = (i + 1) % self.capacity`."
+      - "Расширение: сохраните старые пары, создайте `[None] * (capacity * 2)`, обнулите счётчик и вставьте пары заново через `self[key] = value`."
+    solution: |
+      class OpenHashMap:
+          """Хеш-таблица с открытой адресацией и линейным пробированием."""
+
+          def __init__(self, capacity=8):
+              self.capacity = capacity
+              self._slots = [None] * capacity
+              self._size = 0
+
+          def _find(self, key):
+              index = hash(key) % self.capacity
+              while self._slots[index] is not None and self._slots[index][0] != key:
+                  index = (index + 1) % self.capacity
+              return index
+
+          def __setitem__(self, key, value):
+              index = self._find(key)
+              if self._slots[index] is None:
+                  self._size += 1
+              self._slots[index] = (key, value)
+              if self._size > self.capacity * 2 / 3:
+                  self._resize()
+
+          def __getitem__(self, key):
+              slot = self._slots[self._find(key)]
+              if slot is None:
+                  raise KeyError(key)
+              return slot[1]
+
+          def __contains__(self, key):
+              return self._slots[self._find(key)] is not None
+
+          def __len__(self):
+              return self._size
+
+          def _resize(self):
+              pairs = [slot for slot in self._slots if slot is not None]
+              self.capacity *= 2
+              self._slots = [None] * self.capacity
+              self._size = 0
+              for key, value in pairs:
+                  self[key] = value
+    solution_explanation: "Так в целом устроен встроенный dict: ключ определяет стартовую ячейку, а коллизии разрешаются поиском следующей свободной. Запас пустых ячеек (заполнение не больше 2/3) гарантирует, что пустая ячейка всегда найдётся и цепочки пробирования остаются короткими."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        code: |
+          m = OpenHashMap()
+          m["a"] = 1
+          m["a"] = 2
+          assert (m["a"], len(m)) == (2, 1)
+      - name: "Коллизии"
+        code: |
+          m = OpenHashMap()
+          for key in (0, 8, 16, 24):
+              m[key] = key * 10
+          assert all(m[k] == k * 10 for k in (0, 8, 16, 24)) and 32 not in m
+      - name: "Расширение"
+        code: |
+          m = OpenHashMap()
+          for i in range(100):
+              m[f"k{i}"] = i
+          assert len(m) == 100 and m.capacity >= 151 and all(m[f"k{i}"] == i for i in range(100))
+      - name: "KeyError и in"
+        code: |
+          m = OpenHashMap()
+          m[(1, 2)] = "кортеж"
+          assert (1, 2) in m and "x" not in m
+          try:
+              m["x"]
+          except KeyError:
+              pass
+          else:
+              raise AssertionError("Ожидался KeyError")
+      - name: "Без встроенного dict"
+        code: |
+          m = OpenHashMap()
+          m["a"] = 1
+          assert not any(isinstance(v, (dict, set)) for v in vars(m).values()), "Храните данные в списке ячеек"
+          big = OpenHashMap()
+          for i in range(50_000):
+              big[i] = i
+          assert big[49_999] == 49_999
+
+  - id: t4
+    title: "Пара с заданной суммой"
+    difficulty: 2
+    statement: |
+      Напишите `two_sum(numbers, target)` — индексы `(i, j)`, `i < j`, первой найденной пары с суммой `target` (при проходе слева направо — пара, у которой `j` минимален), или `None`. Решение должно быть O(n): для 200 000 чисел — быстро. Используйте словарь «значение → индекс».
+    examples:
+      - input: "two_sum([3, 8, 1, 5, 7], 13)"
+        output: "(1, 3)"
+    starter: |
+      def two_sum(numbers, target):
+          for i in range(len(numbers)):
+              for j in range(i + 1, len(numbers)):
+                  if numbers[i] + numbers[j] == target:
+                      return i, j
+          return None
+    hints:
+      - "Идите по списку один раз; для текущего числа `x` нужная пара — `target - x`. Если она уже встречалась (есть в словаре) — ответ найден."
+      - "Сохраняйте в словарь только первое появление значения: `seen.setdefault(x, index)` — после проверки."
+    solution: |
+      def two_sum(numbers, target):
+          """Индексы пары с суммой target за один проход."""
+          seen = {}
+          for index, value in enumerate(numbers):
+              complement = target - value
+              if complement in seen:
+                  return seen[complement], index
+              seen.setdefault(value, index)
+          return None
+    solution_explanation: "Вместо перебора всех пар (O(n²)) словарь отвечает на вопрос «встречалось ли нужное число» за O(1). Это классический пример: правильная структура данных превращает квадратичный алгоритм в линейный."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        call: "two_sum([3, 8, 1, 5, 7], 13)"
+        expected: "(1, 3)"
+      - name: "Нет пары"
+        call: "[two_sum([1, 2, 3], 100), two_sum([], 1), two_sum([5], 10)]"
+        expected: "[None, None, None]"
+      - name: "Одинаковые числа"
+        call: "two_sum([5, 1, 5], 10)"
+        expected: "(0, 2)"
+      - name: "Минимальный j"
+        call: "two_sum([1, 9, 2, 8, 0, 10], 10)"
+        expected: "(0, 1)"
+      - name: "Большие данные"
+        code: |
+          numbers = list(range(200_000))
+          assert two_sum(numbers, 399_997) == (199_998, 199_999)

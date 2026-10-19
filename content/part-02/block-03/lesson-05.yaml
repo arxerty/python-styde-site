@@ -1,0 +1,347 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from itertools import groupby
+
+      print([key for key, _ in groupby("aabbbaac")])
+    options:
+      - text: "`['a', 'b', 'a', 'c']`"
+        correct: true
+        why: "groupby объединяет только подряд идущие одинаковые элементы."
+      - text: "`['a', 'b', 'c']`"
+        why: "Без сортировки повторная серия 'a' — отдельная группа."
+      - text: "`['a', 'a', 'b', 'b', 'b', 'a', 'a', 'c']`"
+        why: "groupby выдаёт по одной паре на серию."
+    explanation: "Для группировки всех одинаковых элементов сначала отсортируйте данные."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from itertools import islice
+
+      it = iter(range(10))
+      first = list(islice(it, 3))
+      second = list(islice(it, 3))
+      print(first, second)
+    options:
+      - text: "`[0, 1, 2] [3, 4, 5]`"
+        correct: true
+        why: "islice потребляет элементы итератора — второй вызов продолжает с места остановки."
+      - text: "`[0, 1, 2] [0, 1, 2]`"
+        why: "Так было бы для списка; итератор помнит позицию."
+      - text: "`[0, 1, 2] []`"
+        why: "islice забрал только три элемента, остальные остались."
+    explanation: "islice — ленивый срез, который продвигает исходный итератор."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from itertools import product, combinations
+
+      print(len(list(product("ab", repeat=3))), len(list(combinations("abcd", 2))))
+    options:
+      - text: "`8 6`"
+        correct: true
+        why: "2³ = 8 вариантов; сочетаний из 4 по 2 — 6."
+      - text: "`6 12`"
+        why: "product с repeat=3 — 2·2·2; combinations не учитывает порядок."
+      - text: "`8 12`"
+        why: "12 — это размещения (permutations) из 4 по 2."
+    explanation: "product — декартово произведение, combinations — наборы без учёта порядка."
+
+  - id: q4
+    type: find_bug
+    prompt: "Почему все группы оказываются пустыми?"
+    code: |
+      from itertools import groupby
+
+      data = sorted(["ab", "ac", "ba"])
+      groups = list(groupby(data, key=lambda s: s[0]))
+      result = {key: list(group) for key, group in groups}
+    options:
+      - text: "Итератор группы действителен только до перехода к следующей; list(groupby(...)) уже прошёл все группы"
+        correct: true
+        why: "Нужно сразу: {key: list(group) for key, group in groupby(...)}."
+      - text: "Данные нужно сортировать по убыванию"
+        why: "Сортировка верная; проблема в сохранении итераторов групп."
+      - text: "groupby не принимает параметр key"
+        why: "Принимает."
+    explanation: "Превращайте группы в списки в момент перебора groupby."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from itertools import takewhile, dropwhile
+
+      data = [1, 3, 5, 2, 7]
+      print(list(takewhile(lambda x: x % 2, data)), list(dropwhile(lambda x: x % 2, data)))
+    options:
+      - text: "`[1, 3, 5] [2, 7]`"
+        correct: true
+        why: "takewhile берёт до первого чётного; dropwhile выдаёт всё с первого чётного, включая 7."
+      - text: "`[1, 3, 5, 7] [2]`"
+        why: "takewhile останавливается навсегда на первом ложном условии."
+      - text: "`[1, 3, 5] [2]`"
+        why: "dropwhile после первого ложного выдаёт все оставшиеся элементы."
+    explanation: "takewhile/dropwhile реагируют только на первое нарушение условия, это не фильтры."
+
+  - id: q6
+    type: multiple
+    prompt: "Какие вызовы дают бесконечные итераторы? Выберите все."
+    options:
+      - text: "`count(1)`"
+        correct: true
+        why: "Счётчик без конца."
+      - text: "`cycle([1, 2])`"
+        correct: true
+        why: "Повторяет по кругу бесконечно."
+      - text: "`repeat(\"x\")`"
+        correct: true
+        why: "Без второго аргумента — бесконечно."
+      - text: "`repeat(\"x\", 3)`"
+        why: "С количеством — ровно 3 элемента."
+    explanation: "Бесконечные итераторы используют с islice, zip или takewhile."
+
+tasks:
+  - id: t1
+    title: "Сжатие серий"
+    difficulty: 1
+    statement: |
+      Run-length encoding: `"aaabcc"` → `[("a", 3), ("b", 1), ("c", 2)]`.
+
+      - `rle(text)` — сжатие с помощью `itertools.groupby`;
+      - `unrle(pairs)` — обратное преобразование в строку.
+    examples:
+      - input: "rle(\"aaabcc\")"
+        output: "[('a', 3), ('b', 1), ('c', 2)]"
+    starter: |
+      def rle(text):
+          return [(ch, text.count(ch)) for ch in sorted(set(text))]
+
+
+      def unrle(pairs):
+          return ""
+    hints:
+      - "`[(ch, sum(1 for _ in group)) for ch, group in groupby(text)]` — длину группы считаем без списка."
+      - "`\"\".join(ch * count for ch, count in pairs)`."
+    solution: |
+      from itertools import groupby
+
+
+      def rle(text):
+          """Сжать подряд идущие повторы."""
+          return [(ch, sum(1 for _ in group)) for ch, group in groupby(text)]
+
+
+      def unrle(pairs):
+          """Восстановить строку из пар (символ, количество)."""
+          return "".join(ch * count for ch, count in pairs)
+    solution_explanation: "groupby без сортировки — именно то, что нужно для серий: повторная серия того же символа остаётся отдельной парой."
+    constraints:
+      require: ["groupby"]
+      message: "Используйте itertools.groupby"
+    tests:
+      - name: "Пример"
+        call: "rle(\"aaabcc\")"
+        expected: "[('a', 3), ('b', 1), ('c', 2)]"
+      - name: "Повторная серия"
+        call: "rle(\"aabaa\")"
+        expected: "[('a', 2), ('b', 1), ('a', 2)]"
+      - name: "Пустая строка"
+        call: "[rle(\"\"), unrle([])]"
+        expected: "[[], '']"
+      - name: "Туда и обратно"
+        code: |
+          for text in ("ммммама", "xyz", "0000011"):
+              assert unrle(rle(text)) == text
+      - name: "unrle"
+        call: "unrle([(\"-\", 3), (\"!\", 1)])"
+        expected: "'---!'"
+
+  - id: t2
+    title: "Срезы итераторов"
+    difficulty: 2
+    statement: |
+      Напишите функции, работающие с **любыми** итерируемыми объектами (в том числе бесконечными генераторами), с помощью `islice`:
+
+      - `head(iterable, n)` — список первых `n` элементов;
+      - `skip(iterable, n)` — итератор без первых `n` элементов;
+      - `every_nth(iterable, n)` — итератор по элементам с индексами 0, n, 2n, …;
+      - `nth(iterable, i, default=None)` — элемент с индексом `i` или `default`, если элементов меньше.
+    examples:
+      - input: "head(every_nth(count(), 3), 4)"
+        output: "[0, 3, 6, 9]"
+    setup: |
+      from itertools import count
+    starter: |
+      def head(iterable, n):
+          return list(iterable)[:n]
+    hints:
+      - "`islice(iterable, n)`, `islice(iterable, n, None)`, `islice(iterable, 0, None, n)`."
+      - "nth: `next(islice(iterable, i, None), default)`."
+    solution: |
+      from itertools import islice
+
+
+      def head(iterable, n):
+          """Первые n элементов списком."""
+          return list(islice(iterable, n))
+
+
+      def skip(iterable, n):
+          """Итератор без первых n элементов."""
+          return islice(iterable, n, None)
+
+
+      def every_nth(iterable, n):
+          """Каждый n-й элемент, начиная с первого."""
+          return islice(iterable, 0, None, n)
+
+
+      def nth(iterable, i, default=None):
+          """Элемент с индексом i или default."""
+          return next(islice(iterable, i, None), default)
+    solution_explanation: "islice даёт срезы любых итераторов, не вычисляя лишнего, поэтому функции работают даже с бесконечным count(). В паре с next и значением по умолчанию islice безопасно достаёт i-й элемент."
+    tests:
+      - name: "Пример"
+        call: "head(every_nth(count(), 3), 4)"
+        expected: "[0, 3, 6, 9]"
+      - name: "skip"
+        call: "list(skip(\"abcde\", 2))"
+        expected: "['c', 'd', 'e']"
+      - name: "nth"
+        call: "[nth(count(10), 5), nth([1, 2], 5, \"нет\"), nth(iter(\"xyz\"), 0)]"
+        expected: "[15, 'нет', 'x']"
+      - name: "head короче n"
+        call: "head(range(3), 10)"
+        expected: "[0, 1, 2]"
+      - name: "Ленивость skip"
+        code: |
+          it = skip(count(), 1_000_000)
+          assert next(it) == 1_000_000
+
+  - id: t3
+    title: "Сетка гиперпараметров"
+    difficulty: 2
+    statement: |
+      Сетка — словарь `{параметр: список значений}`.
+
+      - генератор `grid_configs(grid)` выдаёт словари-конфигурации для всех комбинаций (порядок — как у `itertools.product` по ключам в порядке словаря);
+      - `count_configs(grid)` — число комбинаций **без перебора** (произведение длин);
+      - `sample_configs(grid, budget)` — список первых `budget` конфигураций.
+    examples:
+      - input: "list(grid_configs({\"lr\": [0.1, 0.01], \"batch\": [32]}))"
+        output: "[{'lr': 0.1, 'batch': 32}, {'lr': 0.01, 'batch': 32}]"
+    starter: |
+      def grid_configs(grid):
+          for key, values in grid.items():
+              for value in values:
+                  yield {key: value}
+    hints:
+      - "`names = list(grid)`; `for values in product(*grid.values()): yield dict(zip(names, values))`."
+      - "`math.prod(len(v) for v in grid.values())` и `list(islice(grid_configs(grid), budget))`."
+    solution: |
+      import math
+      from itertools import islice, product
+
+
+      def grid_configs(grid):
+          """Все комбинации значений сетки."""
+          names = list(grid)
+          for values in product(*grid.values()):
+              yield dict(zip(names, values))
+
+
+      def count_configs(grid):
+          """Количество комбинаций без перебора."""
+          return math.prod(len(values) for values in grid.values())
+
+
+      def sample_configs(grid, budget):
+          """Первые budget конфигураций."""
+          return list(islice(grid_configs(grid), budget))
+    solution_explanation: "product разворачивает список списков значений в комбинации, zip приклеивает к ним имена параметров. Размер сетки считается формулой — перебирать миллионы вариантов ради подсчёта не нужно."
+    tests:
+      - name: "Пример"
+        call: "list(grid_configs({\"lr\": [0.1, 0.01], \"batch\": [32]}))"
+        expected: "[{'lr': 0.1, 'batch': 32}, {'lr': 0.01, 'batch': 32}]"
+      - name: "Порядок product"
+        call: "[tuple(c.values()) for c in grid_configs({\"a\": [1, 2], \"b\": [\"x\", \"y\"]})]"
+        expected: "[(1, 'x'), (1, 'y'), (2, 'x'), (2, 'y')]"
+      - name: "count_configs без перебора"
+        call: "count_configs({\"a\": list(range(100)), \"b\": list(range(100)), \"c\": list(range(100)), \"d\": list(range(100))})"
+        expected: "100000000"
+      - name: "sample_configs"
+        call: "sample_configs({\"a\": list(range(1000)), \"b\": list(range(1000))}, 3)"
+        expected: "[{'a': 0, 'b': 0}, {'a': 0, 'b': 1}, {'a': 0, 'b': 2}]"
+      - name: "Генератор"
+        code: |
+          import inspect
+          assert inspect.isgeneratorfunction(grid_configs)
+
+  - id: t4
+    title: "Анализ кривой обучения"
+    difficulty: 3
+    statement: |
+      `losses` — значения функции потерь по эпохам. Используйте `itertools`:
+
+      - `best_so_far(losses)` — список лучшего (минимального) значения на каждый момент (`accumulate`);
+      - `first_epoch_below(losses, target)` — номер эпохи (с 1), на которой loss впервые ≤ `target`, или `None`;
+      - `trend_runs(losses)` — серии изменений между соседними эпохами: список пар `("down" | "up" | "flat", длина_серии)` (`pairwise` + `groupby`).
+    examples:
+      - input: "trend_runs([5, 4, 3, 3.5, 4, 2])"
+        output: "[('down', 2), ('up', 2), ('down', 1)]"
+    starter: |
+      def best_so_far(losses):
+          return sorted(losses)
+    hints:
+      - "`list(accumulate(losses, min))`; `next((i for i, loss in enumerate(losses, start=1) if loss <= target), None)`."
+      - "Направление пары: `\"down\" if b < a else \"up\" if b > a else \"flat\"`; затем `groupby` по направлениям и длина группы через `sum(1 for _ in group)`."
+    solution: |
+      from itertools import accumulate, groupby, pairwise
+
+
+      def best_so_far(losses):
+          """Минимальный loss на каждый момент."""
+          return list(accumulate(losses, min))
+
+
+      def first_epoch_below(losses, target):
+          """Номер первой эпохи с loss <= target."""
+          return next((epoch for epoch, loss in enumerate(losses, start=1) if loss <= target), None)
+
+
+      def _direction(a, b):
+          if b < a:
+              return "down"
+          if b > a:
+              return "up"
+          return "flat"
+
+
+      def trend_runs(losses):
+          """Серии убывания, роста и плато."""
+          directions = (_direction(a, b) for a, b in pairwise(losses))
+          return [(direction, sum(1 for _ in run)) for direction, run in groupby(directions)]
+    solution_explanation: "pairwise превращает ряд в изменения между соседями, генератор — в направления, а groupby без сортировки склеивает подряд идущие одинаковые направления в серии. Длинная серия «up» — признак переобучения или слишком большого learning rate."
+    tests:
+      - name: "Пример"
+        call: "trend_runs([5, 4, 3, 3.5, 4, 2])"
+        expected: "[('down', 2), ('up', 2), ('down', 1)]"
+      - name: "best_so_far"
+        call: "best_so_far([2.0, 1.5, 1.7, 1.2, 1.3])"
+        expected: "[2.0, 1.5, 1.5, 1.2, 1.2]"
+      - name: "first_epoch_below"
+        call: "[first_epoch_below([2.0, 1.5, 0.9, 0.8], 1.0), first_epoch_below([2.0, 1.5], 1.0)]"
+        expected: "[3, None]"
+      - name: "Плато"
+        call: "trend_runs([1, 1, 1, 0.5])"
+        expected: "[('flat', 2), ('down', 1)]"
+      - name: "Короткие ряды"
+        call: "[trend_runs([1]), trend_runs([]), best_so_far([])]"
+        expected: "[[], [], []]"

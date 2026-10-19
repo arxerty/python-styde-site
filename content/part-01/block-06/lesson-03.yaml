@@ -1,0 +1,295 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def f(first, *rest):
+          return first, rest
+
+
+      print(f(1, 2, 3), f(9))
+    options:
+      - text: "`(1, (2, 3)) (9, ())`"
+        correct: true
+        why: "Первый аргумент — в first, остальные собираются в кортеж rest (возможно, пустой)."
+      - text: "`(1, [2, 3]) (9, [])`"
+        why: "*args собирает аргументы в кортеж, а не в список."
+      - text: "Ошибку при вызове f(9)"
+        why: "*rest может быть пустым."
+    explanation: "*args — кортеж оставшихся позиционных аргументов."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def show(**options):
+          return sorted(options)
+
+
+      print(show(b=2, a=1), show())
+    options:
+      - text: "`['a', 'b'] []`"
+        correct: true
+        why: "options — словарь; sorted перебирает и сортирует его ключи."
+      - text: "`[1, 2] []`"
+        why: "Перебор словаря идёт по ключам, а не значениям."
+      - text: "Ошибку: kwargs нельзя сортировать"
+        why: "Это обычный словарь."
+    explanation: "**kwargs — словарь «имя аргумента → значение»."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def area(width, height):
+          return width * height
+
+
+      size = [3, 4]
+      dims = {"height": 5, "width": 2}
+      print(area(*size), area(**dims))
+    options:
+      - text: "`12 10`"
+        correct: true
+        why: "*size → area(3, 4); **dims → area(height=5, width=2)."
+      - text: "`12 Ошибка`"
+        why: "Порядок ключей не важен — аргументы передаются по имени."
+      - text: "`7 7`"
+        why: "Функция перемножает аргументы."
+    explanation: "При вызове * распаковывает последовательность, ** — словарь."
+
+  - id: q4
+    type: find_bug
+    prompt: "Функция должна суммировать числа, но `total([1, 2, 3])` падает с TypeError. Почему?"
+    code: |
+      def total(*numbers):
+          return sum(numbers)
+
+
+      print(total([1, 2, 3]))
+    options:
+      - text: "Список передан как один аргумент: numbers = ([1, 2, 3],), а sum не может сложить списки с 0; нужно `total(*[1, 2, 3])`"
+        correct: true
+        why: "sum пытается вычислить 0 + [1, 2, 3] → TypeError."
+      - text: "*numbers нельзя передать в sum"
+        why: "Кортеж чисел sum принимает."
+      - text: "Функция должна называться иначе"
+        why: "Имя не влияет."
+    explanation: "Чтобы передать элементы списка как отдельные аргументы, распакуйте его звёздочкой."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие определения функций синтаксически корректны? Выберите все."
+    options:
+      - text: "`def f(a, *args, sep=\" \", **kwargs):`"
+        correct: true
+        why: "Правильный порядок видов параметров."
+      - text: "`def f(*args, flag=False):`"
+        correct: true
+        why: "flag после *args — только именованный."
+      - text: "`def f(**kwargs):`"
+        correct: true
+        why: "Только именованные аргументы."
+      - text: "`def f(**kwargs, *args):`"
+        why: "**kwargs должен быть последним."
+      - text: "`def f(*args, *more):`"
+        why: "*args может быть только один."
+    explanation: "Порядок: обычные → по умолчанию → *args → только именованные → **kwargs."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      items = ["x", "y", "z"]
+      print(*items, sep="-")
+    answer: "x-y-z"
+    explanation: "*items передаёт элементы как отдельные аргументы print, sep задаёт разделитель."
+
+tasks:
+  - id: t1
+    title: "Максимум из аргументов"
+    difficulty: 1
+    statement: |
+      Напишите функцию `my_max(*numbers)`, которая возвращает наибольший из переданных аргументов, а если аргументов нет — `None`. Встроенную `max` не используйте.
+    examples:
+      - input: "my_max(3, 9, 2)"
+        output: "9"
+      - input: "my_max()"
+        output: "None"
+    starter: |
+      def my_max(numbers):
+          pass
+    hints:
+      - "Добавьте звёздочку перед параметром — тогда numbers станет кортежем всех аргументов."
+      - "Пустой кортеж — `return None`; иначе приём «текущий рекорд»."
+    solution: |
+      def my_max(*numbers):
+          if not numbers:
+              return None
+          best = numbers[0]
+          for n in numbers[1:]:
+              if n > best:
+                  best = n
+          return best
+    solution_explanation: "*numbers превращает любые аргументы в кортеж. Пустой кортеж обрабатывается ранним возвратом."
+    tests:
+      - name: "Без встроенной max"
+        code: |
+          assert "max(" not in __source__.replace("my_max(", ""), "Не используйте встроенную max()"
+      - name: "Три числа"
+        call: "my_max(3, 9, 2)"
+        expected: "9"
+      - name: "Без аргументов"
+        call: "my_max()"
+        expected: "None"
+      - name: "Один аргумент"
+        call: "my_max(-5)"
+        expected: "-5"
+      - name: "Отрицательные"
+        call: "my_max(-3, -1, -7)"
+        expected: "-1"
+      - name: "Распаковка списка"
+        call: "my_max(*[4, 8, 15, 16, 23, 42])"
+        expected: "42"
+
+  - id: t2
+    title: "HTML-тег"
+    difficulty: 2
+    statement: |
+      Напишите функцию `make_tag(name, text="", **attributes)`, возвращающую HTML-элемент: открывающий тег с атрибутами в порядке передачи, текст и закрывающий тег.
+
+      Атрибут `class_` (с подчёркиванием, потому что `class` — ключевое слово) выводится как `class`.
+    examples:
+      - input: "make_tag(\"a\", \"Главная\", href=\"/\")"
+        output: "'<a href=\"/\">Главная</a>'"
+      - input: "make_tag(\"p\", \"Текст\", class_=\"note\", id=\"x\")"
+        output: "'<p class=\"note\" id=\"x\">Текст</p>'"
+    starter: |
+      def make_tag(name, text=""):
+          return f"<{name}>{text}</{name}>"
+    hints:
+      - "Перебирайте `attributes.items()` и собирайте строки вида `key=\"value\"`; `key.rstrip(\"_\")` уберёт подчёркивание."
+      - "Атрибуты склейте через пробел; если их нет, открывающий тег — просто `<name>`."
+    solution: |
+      def make_tag(name, text="", **attributes):
+          parts = [name]
+          for key, value in attributes.items():
+              parts.append(f'{key.rstrip("_")}="{value}"')
+          return f"<{' '.join(parts)}>{text}</{name}>"
+    solution_explanation: "**attributes собирает любые именованные аргументы в словарь, сохраняя порядок. rstrip(\"_\") — распространённое соглашение для имён, совпадающих с ключевыми словами (class_, type_)."
+    tests:
+      - name: "Ссылка"
+        call: "make_tag(\"a\", \"Главная\", href=\"/\")"
+        expected: "'<a href=\"/\">Главная</a>'"
+      - name: "class_ и порядок"
+        call: "make_tag(\"p\", \"Текст\", class_=\"note\", id=\"x\")"
+        expected: "'<p class=\"note\" id=\"x\">Текст</p>'"
+      - name: "Без атрибутов"
+        call: "make_tag(\"b\", \"жирный\")"
+        expected: "'<b>жирный</b>'"
+      - name: "Без текста"
+        call: "make_tag(\"div\", id=\"main\")"
+        expected: "'<div id=\"main\"></div>'"
+      - name: "Числовой атрибут"
+        call: "make_tag(\"img\", width=100)"
+        expected: "'<img width=\"100\"></img>'"
+
+  - id: t3
+    title: "Логгер"
+    difficulty: 2
+    statement: |
+      Напишите функцию `log(level, *messages, sep=" | ", **context)`, которая возвращает строку:
+
+      `[LEVEL] сообщение1 | сообщение2 {ключ=значение, ключ=значение}`
+
+      - уровень — в верхнем регистре в квадратных скобках;
+      - сообщения через `sep` (могут быть не строками — превращайте через `str`);
+      - если есть контекст — через пробел пары `ключ=значение` через `, ` в фигурных скобках.
+    examples:
+      - input: "log(\"info\", \"старт\", \"порт 8000\", user=\"ada\", attempt=2)"
+        output: "'[INFO] старт | порт 8000 {user=ada, attempt=2}'"
+    starter: |
+      def log(level, messages):
+          pass
+    hints:
+      - "Сообщения: `sep.join(str(m) for m in messages)`."
+      - "Контекст: `\", \".join(f\"{k}={v}\" for k, v in context.items())`; добавляйте его, только если словарь не пуст."
+    solution: |
+      def log(level, *messages, sep=" | ", **context):
+          line = f"[{level.upper()}] " + sep.join(str(m) for m in messages)
+          if context:
+              pairs = ", ".join(f"{key}={value}" for key, value in context.items())
+              line += " {" + pairs + "}"
+          return line
+    solution_explanation: "*messages собирает произвольное число сообщений, sep после него — только именованный, **context — всё остальное. Фигурные скобки добавлены склейкой, чтобы не возиться с их удвоением в f-строке."
+    tests:
+      - name: "Пример"
+        call: "log(\"info\", \"старт\", \"порт 8000\", user=\"ada\", attempt=2)"
+        expected: "'[INFO] старт | порт 8000 {user=ada, attempt=2}'"
+      - name: "Без контекста"
+        call: "log(\"error\", \"нет ключа\")"
+        expected: "'[ERROR] нет ключа'"
+      - name: "Свой разделитель"
+        call: "log(\"debug\", 1, 2, 3, sep=\"; \")"
+        expected: "'[DEBUG] 1; 2; 3'"
+      - name: "Без сообщений"
+        call: "log(\"warn\", code=429)"
+        expected: "'[WARN]  {code=429}'"
+      - name: "Не строки"
+        call: "log(\"info\", 3.14, None, True)"
+        expected: "'[INFO] 3.14 | None | True'"
+
+  - id: t4
+    title: "Запуск с конфигурацией"
+    difficulty: 3
+    statement: |
+      Дана функция обучения (уже написана в заготовке):
+
+      ```python
+      def train(*, epochs, lr, batch_size=32):
+          return f"epochs={epochs}, lr={lr}, batch={batch_size}"
+      ```
+
+      Напишите функцию `run_experiments(base, *overrides)`, где `base` — словарь параметров по умолчанию, а каждый `override` — словарь изменений. Для каждого override вызовите `train` с параметрами `base`, обновлёнными этим override, и верните **список** результатов. Если overrides не переданы — один запуск с `base`. Словарь `base` изменять нельзя.
+    examples:
+      - input: "run_experiments({\"epochs\": 5, \"lr\": 0.1}, {\"lr\": 0.01}, {\"epochs\": 10})"
+        output: "['epochs=5, lr=0.01, batch=32', 'epochs=10, lr=0.1, batch=32']"
+    starter: |
+      def train(*, epochs, lr, batch_size=32):
+          return f"epochs={epochs}, lr={lr}, batch={batch_size}"
+
+
+      def run_experiments(base, *overrides):
+          pass
+    hints:
+      - "Слияние без изменения base: `params = base | override` — создаёт новый словарь."
+      - "Вызов с распаковкой: `train(**params)`. Пустые overrides — замените на `({},)`."
+    solution: |
+      def train(*, epochs, lr, batch_size=32):
+          return f"epochs={epochs}, lr={lr}, batch={batch_size}"
+
+
+      def run_experiments(base, *overrides):
+          if not overrides:
+              overrides = ({},)
+          return [train(**(base | override)) for override in overrides]
+    solution_explanation: "`base | override` создаёт новый словарь — base остаётся нетронутым. `**` превращает словарь в именованные аргументы train. Пустой override `{}` даёт запуск с базовыми параметрами."
+    tests:
+      - name: "Два эксперимента"
+        call: "run_experiments({\"epochs\": 5, \"lr\": 0.1}, {\"lr\": 0.01}, {\"epochs\": 10})"
+        expected: "['epochs=5, lr=0.01, batch=32', 'epochs=10, lr=0.1, batch=32']"
+      - name: "Без изменений"
+        call: "run_experiments({\"epochs\": 1, \"lr\": 0.5})"
+        expected: "['epochs=1, lr=0.5, batch=32']"
+      - name: "Меняется batch_size"
+        call: "run_experiments({\"epochs\": 1, \"lr\": 0.5}, {\"batch_size\": 64})"
+        expected: "['epochs=1, lr=0.5, batch=64']"
+      - name: "base не изменяется"
+        code: |
+          base = {"epochs": 3, "lr": 0.2}
+          run_experiments(base, {"lr": 0.9}, {"epochs": 7})
+          assert base == {"epochs": 3, "lr": 0.2}, f"base изменился: {base}"
+      - name: "Возвращает список"
+        code: |
+          result = run_experiments({"epochs": 1, "lr": 1}, {}, {})
+          assert isinstance(result, list) and len(result) == 2

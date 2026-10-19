@@ -1,0 +1,326 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      rate = 0.1
+
+
+      def tax(amount):
+          return amount * rate
+
+
+      rate = 0.2
+      print(tax(100))
+    options:
+      - text: "`20.0`"
+        correct: true
+        why: "Глобальная переменная читается в момент вызова — к тому времени rate уже 0.2."
+      - text: "`10.0`"
+        why: "Функция не «запоминает» значение rate при определении — она ищет имя при выполнении."
+      - text: "Ошибку UnboundLocalError"
+        why: "Внутри функции rate только читается, не присваивается — ошибки нет."
+    explanation: "Имена ищутся при выполнении функции по правилу LEGB."
+
+  - id: q2
+    type: find_bug
+    prompt: "Почему вызов падает с `UnboundLocalError`?"
+    code: |
+      total = 0
+
+
+      def add(x):
+          total = total + x
+          return total
+
+
+      add(5)
+    options:
+      - text: "Присваивание `total = ...` делает total локальной во всей функции, а справа она читается до присваивания"
+        correct: true
+        why: "Нужно передать total параметром (или объявить global)."
+      - text: "Нельзя использовать имя total"
+        why: "Имя допустимое."
+      - text: "Функция должна возвращать None"
+        why: "Ошибка возникает до return."
+    explanation: "Python решает, локально ли имя, по наличию присваивания в теле функции."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      model = "small"
+
+
+      def switch():
+          model = "large"
+          return model
+
+
+      print(switch(), model)
+    options:
+      - text: "`large small`"
+        correct: true
+        why: "Внутри создаётся новая локальная model; глобальная не меняется."
+      - text: "`large large`"
+        why: "Без global присваивание не трогает глобальную переменную."
+      - text: "`small small`"
+        why: "Функция возвращает свою локальную переменную."
+    explanation: "Локальная переменная затеняет глобальную с тем же именем."
+
+  - id: q4
+    type: single
+    prompt: "В каком порядке Python ищет имя?"
+    options:
+      - text: "Local → Enclosing → Global → Built-in"
+        correct: true
+        why: "Правило LEGB: от ближайшей области к самой общей."
+      - text: "Built-in → Global → Enclosing → Local"
+        why: "Тогда локальные переменные никогда не затеняли бы встроенные."
+      - text: "Global → Local → Built-in"
+        why: "Локальная область проверяется первой."
+      - text: "Только Local и Built-in"
+        why: "Глобальные и охватывающие области тоже проверяются."
+    explanation: "Поэтому `list = [...]` в модуле закрывает встроенную функцию list."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def make_counter():
+          count = 0
+
+          def tick():
+              nonlocal count
+              count += 1
+              return count
+
+          return tick
+
+
+      a = make_counter()
+      b = make_counter()
+      a()
+      a()
+      print(a(), b())
+    options:
+      - text: "`3 1`"
+        correct: true
+        why: "У каждого вызова make_counter свой count; a вызван трижды, b — один раз."
+      - text: "`3 4`"
+        why: "Счётчики независимы — это не глобальная переменная."
+      - text: "`1 1`"
+        why: "nonlocal позволяет изменять count внешней функции между вызовами tick."
+    explanation: "Замыкание хранит собственное состояние для каждого созданного экземпляра."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      items = []
+
+
+      def remember(x):
+          items.append(x)
+
+
+      remember(1)
+      remember(2)
+      print(len(items))
+    answer: "2"
+    explanation: "global не нужен: имя items только читается, а меняется сам список. Но это всё равно скрытая зависимость от глобального состояния."
+
+tasks:
+  - id: t1
+    title: "Чистая функция скидки"
+    difficulty: 1
+    statement: |
+      Напишите **чистую** функцию `apply_discount(prices, percent)`, которая возвращает **новый** список цен со скидкой `percent` процентов, округлённых до 2 знаков. Исходный список изменять нельзя, глобальные переменные не использовать.
+    examples:
+      - input: "apply_discount([100, 250.5], 10)"
+        output: "[90.0, 225.45]"
+    starter: |
+      prices = [100, 250.5]
+
+
+      def apply_discount(percent):
+          for i in range(len(prices)):
+              prices[i] = prices[i] * (1 - percent / 100)
+    hints:
+      - "Список передаётся параметром, а результат возвращается через return."
+      - "`return [round(p * (1 - percent / 100), 2) for p in prices]`."
+    solution: |
+      def apply_discount(prices, percent):
+          return [round(price * (1 - percent / 100), 2) for price in prices]
+    solution_explanation: "Чистая функция: всё нужное приходит через параметры, результат — через return, снаружи ничего не меняется. Comprehension создаёт новый список."
+    constraints:
+      forbid: ["global"]
+    tests:
+      - name: "Пример"
+        call: "apply_discount([100, 250.5], 10)"
+        expected: "[90.0, 225.45]"
+      - name: "Без скидки"
+        call: "apply_discount([10, 20], 0)"
+        expected: "[10.0, 20.0]"
+      - name: "Пустой список"
+        call: "apply_discount([], 50)"
+        expected: "[]"
+      - name: "Исходный список не меняется"
+        code: |
+          original = [100, 200]
+          apply_discount(original, 25)
+          assert original == [100, 200], f"Исходный список изменён: {original}"
+      - name: "Полная скидка"
+        call: "apply_discount([99.99], 100)"
+        expected: "[0.0]"
+
+  - id: t2
+    title: "Накопительные суммы"
+    difficulty: 2
+    statement: |
+      Заготовка использует глобальную переменную и падает с `UnboundLocalError`. Перепишите её как чистую функцию `running_totals(numbers)`, возвращающую список накопительных сумм: каждый элемент — сумма всех чисел до текущего включительно.
+    examples:
+      - input: "running_totals([3, 1, 4])"
+        output: "[3, 4, 8]"
+    starter: |
+      total = 0
+
+
+      def running_totals(numbers):
+          result = []
+          for n in numbers:
+              total += n
+              result.append(total)
+          return result
+    hints:
+      - "Сделайте total локальной: заведите `total = 0` внутри функции перед циклом."
+      - "Глобальная переменная total не нужна вовсе — удалите её."
+    solution: |
+      def running_totals(numbers):
+          result = []
+          total = 0
+          for n in numbers:
+              total += n
+              result.append(total)
+          return result
+    solution_explanation: "Накопитель должен жить внутри функции: тогда каждый вызов начинает с нуля, и функция не зависит от внешнего состояния."
+    constraints:
+      forbid: ["global"]
+    tests:
+      - name: "Пример"
+        call: "running_totals([3, 1, 4])"
+        expected: "[3, 4, 8]"
+      - name: "Повторный вызов начинается с нуля"
+        code: |
+          running_totals([10, 10])
+          assert running_totals([1, 2]) == [1, 3], "Второй вызов должен начинаться с нуля"
+      - name: "Пусто"
+        call: "running_totals([])"
+        expected: "[]"
+      - name: "Отрицательные"
+        call: "running_totals([5, -5, 2])"
+        expected: "[5, 0, 2]"
+      - name: "Один элемент"
+        call: "running_totals([7])"
+        expected: "[7]"
+
+  - id: t3
+    title: "Фабрика множителей"
+    difficulty: 2
+    statement: |
+      Напишите функцию `make_multiplier(factor)`, которая возвращает **функцию** одного аргумента `x`, умножающую его на `factor`.
+    examples:
+      - input: "make_multiplier(3)(5)"
+        output: "15"
+    starter: |
+      def make_multiplier(factor):
+          return factor * x
+    hints:
+      - "Внутри определите вложенную функцию `def multiply(x):` и верните её — без скобок."
+      - "Вложенная функция видит factor из охватывающей области (Enclosing)."
+    solution: |
+      def make_multiplier(factor):
+          def multiply(x):
+              return x * factor
+          return multiply
+    solution_explanation: "Замыкание: multiply запоминает factor внешней функции. Возвращается сама функция (без вызова), поэтому её можно вызвать позже."
+    tests:
+      - name: "Утроение"
+        call: "make_multiplier(3)(5)"
+        expected: "15"
+      - name: "Удвоение строки"
+        call: "make_multiplier(2)(\"ab\")"
+        expected: "'abab'"
+      - name: "Возвращает функцию"
+        code: |
+          f = make_multiplier(10)
+          assert callable(f), "make_multiplier должна возвращать функцию"
+      - name: "Независимые множители"
+        code: |
+          double = make_multiplier(2)
+          triple = make_multiplier(3)
+          assert (double(4), triple(4)) == (8, 12)
+      - name: "Дробный множитель"
+        call: "make_multiplier(0.5)(9)"
+        expected: "4.5"
+
+  - id: t4
+    title: "Трекер стоимости"
+    difficulty: 3
+    statement: |
+      Напишите `make_cost_tracker(price_per_million)`, возвращающую функцию `track(tokens)`. Каждый вызов `track` добавляет стоимость `tokens / 1_000_000 * price_per_million` к накопленной сумме и **возвращает** общую сумму, округлённую до 6 знаков. Разные трекеры не влияют друг на друга. Без `global`.
+    examples:
+      - input: "t = make_cost_tracker(2.0); t(1500); t(3000)"
+        output: "0.009"
+    starter: |
+      total = 0
+
+
+      def make_cost_tracker(price_per_million):
+          def track(tokens):
+              global total
+              total += tokens / 1_000_000 * price_per_million
+              return total
+          return track
+    hints:
+      - "Перенесите `total = 0.0` внутрь make_cost_tracker."
+      - "Внутри track объявите `nonlocal total` — это переменная охватывающей функции, а не глобальная."
+    solution: |
+      def make_cost_tracker(price_per_million):
+          total = 0.0
+
+          def track(tokens):
+              nonlocal total
+              total += tokens / 1_000_000 * price_per_million
+              return round(total, 6)
+
+          return track
+    solution_explanation: "Состояние хранится в замыкании: у каждого трекера свой total. С global все трекеры делили бы одну сумму — в сервисе это смешало бы расходы разных пользователей."
+    constraints:
+      forbid: ["global"]
+    tests:
+      - name: "Накопление"
+        code: |
+          t = make_cost_tracker(2.0)
+          t(1500)
+          assert t(3000) == 0.009, f"Ожидалось 0.009"
+      - name: "Первый вызов"
+        code: |
+          t = make_cost_tracker(15.0)
+          assert t(1000) == 0.015
+      - name: "Трекеры независимы"
+        code: |
+          a = make_cost_tracker(1.0)
+          b = make_cost_tracker(1.0)
+          a(1_000_000)
+          assert b(1_000_000) == 1.0, "Трекеры должны иметь собственные суммы"
+      - name: "Ноль токенов"
+        code: |
+          t = make_cost_tracker(3.0)
+          assert t(0) == 0.0
+      - name: "Много вызовов"
+        code: |
+          t = make_cost_tracker(10.0)
+          for _ in range(100):
+              result = t(1000)
+          assert result == 1.0, f"Ожидалось 1.0, получено {result}"

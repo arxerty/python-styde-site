@@ -1,0 +1,386 @@
+questions:
+  - id: q1
+    type: single
+    prompt: "Что ускоряет асинхронный код?"
+    options:
+      - text: "Работу, в которой много ожидания: сетевые запросы, обращения к базам и API"
+        correct: true
+        why: "Пока одна задача ждёт, выполняются другие."
+      - text: "Любые вычисления — за счёт нескольких ядер"
+        why: "asyncio работает в одном потоке и не распараллеливает вычисления."
+      - text: "Только работу с файлами"
+        why: "Главный выигрыш — в сетевых операциях."
+      - text: "Ничего — это лишь другой синтаксис"
+        why: "При многих ожиданиях выигрыш может быть в десятки раз."
+    explanation: "asyncio — для I/O-bound задач."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import asyncio
+
+
+      async def answer(n):
+          await asyncio.sleep(0.01 * (3 - n))
+          return n * 10
+
+
+      async def main():
+          return await asyncio.gather(answer(1), answer(2), answer(3))
+
+
+      print(asyncio.run(main()))
+    options:
+      - text: "`[10, 20, 30]`"
+        correct: true
+        why: "gather возвращает результаты в порядке переданных корутин, а не в порядке завершения."
+      - text: "`[30, 20, 10]`"
+        why: "Хотя answer(3) завершится первой, порядок результатов — как в аргументах."
+      - text: "`<coroutine object ...>`"
+        why: "asyncio.run выполняет корутину и возвращает её результат."
+    explanation: "gather собирает результаты в исходном порядке."
+
+  - id: q3
+    type: find_bug
+    prompt: "Пять «параллельных» запросов выполняются так же долго, как последовательные. Почему?"
+    code: |
+      import asyncio
+      import time
+
+
+      async def call_api(prompt):
+          time.sleep(1)
+          return prompt
+
+
+      async def main():
+          return await asyncio.gather(*(call_api(p) for p in "abcde"))
+    options:
+      - text: "time.sleep блокирует весь цикл событий; нужно await asyncio.sleep (или асинхронный клиент)"
+        correct: true
+        why: "Блокирующий вызов не уступает управление другим задачам."
+      - text: "gather выполняет корутины по очереди"
+        why: "gather запускает их одновременно — мешает блокирующий вызов."
+      - text: "Корутины нельзя создавать в генераторном выражении"
+        why: "Можно."
+    explanation: "В асинхронном коде все ожидания должны быть асинхронными."
+
+  - id: q4
+    type: single
+    prompt: "Как выполняются задачи в asyncio?"
+    options:
+      - text: "В одном потоке; задача работает до ближайшего await и там уступает управление циклу событий"
+        correct: true
+        why: "Кооперативная многозадачность."
+      - text: "Каждая задача — в отдельном потоке"
+        why: "Потоки не создаются."
+      - text: "Каждая задача — в отдельном процессе на своём ядре"
+        why: "Это ProcessPoolExecutor."
+      - text: "Задачи прерываются интерпретатором каждые 5 мс"
+        why: "Так переключаются потоки; задачи asyncio переключаются только в await."
+    explanation: "Переключение задач происходит в точках await."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import math
+
+
+      def batch_time(n, seconds, concurrency):
+          return math.ceil(n / concurrency) * seconds
+
+
+      print(batch_time(100, 2, 1), batch_time(100, 2, 30), batch_time(100, 2, 100))
+    options:
+      - text: "`200 8 2`"
+        correct: true
+        why: "Волнами по 30: ⌈100/30⌉ = 4 волны по 2 с."
+      - text: "`200 6.67 2`"
+        why: "Волн целое число — округление вверх."
+      - text: "`2 8 200`"
+        why: "concurrency = 1 — всё последовательно."
+    explanation: "С ограничением k запросы идут волнами: ⌈n/k⌉ · t."
+
+  - id: q6
+    type: multiple
+    prompt: "Какие задачи хорошо ускоряются asyncio? Выберите все."
+    options:
+      - text: "Отправить 500 промптов в LLM API"
+        correct: true
+        why: "Почти всё время — ожидание ответов."
+      - text: "Скачать 200 веб-страниц"
+        correct: true
+        why: "Сетевое ожидание."
+      - text: "Одновременно опросить три поисковых сервиса в RAG"
+        correct: true
+        why: "Ожидания идут параллельно."
+      - text: "Посчитать простые числа до 10 миллионов на чистом Python"
+        why: "Это вычисления — нужны процессы."
+    explanation: "asyncio — инструмент для ожидания."
+
+tasks:
+  - id: t1
+    title: "Оценка выигрыша"
+    difficulty: 1
+    statement: |
+      - `batch_time(n, seconds, concurrency=None)` — время выполнения `n` запросов по `seconds` секунд: без лимита (`None`) — все одновременно (`seconds`, а для `n = 0` — 0); с лимитом `k` — волнами: `⌈n / k⌉ · seconds`; `concurrency < 1` → `ValueError`;
+      - `speedup(n, seconds, concurrency=None)` — во сколько раз это быстрее синхронного выполнения (`n · seconds`), округлённо до 1 знака; для `n = 0` — `1.0`.
+    examples:
+      - input: "[batch_time(1000, 2.0, 50), speedup(1000, 2.0, 50)]"
+        output: "[40.0, 50.0]"
+    starter: |
+      def batch_time(n, seconds, concurrency=None):
+          return n * seconds
+    hints:
+      - "`math.ceil(n / concurrency) * seconds`."
+      - "speedup: `round(n * seconds / batch_time(...), 1)`."
+    solution: |
+      import math
+
+
+      def batch_time(n, seconds, concurrency=None):
+          """Время пакета запросов при заданной одновременности."""
+          if concurrency is None:
+              return seconds if n else 0
+          if concurrency < 1:
+              raise ValueError("concurrency должно быть не меньше 1")
+          return math.ceil(n / concurrency) * seconds
+
+
+      def speedup(n, seconds, concurrency=None):
+          """Выигрыш по сравнению с последовательным выполнением."""
+          if n == 0:
+              return 1.0
+          return round(n * seconds / batch_time(n, seconds, concurrency), 1)
+    solution_explanation: "Модель «волн» объясняет, почему даже ограниченная параллельность даёт огромный выигрыш: при лимите 50 тысяча двухсекундных запросов идёт 20 волнами."
+    tests:
+      - name: "Пример"
+        call: "[batch_time(1000, 2.0, 50), speedup(1000, 2.0, 50)]"
+        expected: "[40.0, 50.0]"
+      - name: "Без лимита"
+        call: "[batch_time(10, 3), speedup(10, 3), batch_time(0, 3)]"
+        expected: "[3, 10.0, 0]"
+      - name: "Неполная волна"
+        call: "[batch_time(7, 1, 3), speedup(7, 1, 3)]"
+        expected: "[3, 2.3]"
+      - name: "Последовательно"
+        call: "speedup(5, 1, 1)"
+        expected: "1.0"
+      - name: "Ошибка"
+        code: |
+          try:
+              batch_time(5, 1, 0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+
+  - id: t2
+    title: "Первая асинхронная функция"
+    difficulty: 1
+    statement: |
+      Синхронная версия «запроса» ждёт через `time.sleep`. Напишите асинхронную:
+
+      - `async def fetch(name, delay)` — ждёт `delay` секунд через `asyncio.sleep` и возвращает `{"name": name, "status": "ok"}`;
+      - `async def fetch_all(names, delay)` — запускает `fetch` для всех имён **одновременно** (`asyncio.gather`) и возвращает список результатов в исходном порядке.
+
+      Тесты вызывают `asyncio.run(fetch_all(...))`: 10 «запросов» по 0.1 с должны занять заметно меньше секунды.
+    examples:
+      - input: "asyncio.run(fetch_all([\"a\", \"b\"], 0.01))"
+        output: "[{'name': 'a', 'status': 'ok'}, {'name': 'b', 'status': 'ok'}]"
+    setup: |
+      import asyncio
+    starter: |
+      import time
+
+
+      def fetch(name, delay):
+          time.sleep(delay)
+          return {"name": name, "status": "ok"}
+
+
+      def fetch_all(names, delay):
+          return [fetch(name, delay) for name in names]
+    hints:
+      - "`async def fetch(name, delay):` и внутри `await asyncio.sleep(delay)`."
+      - "`return await asyncio.gather(*(fetch(name, delay) for name in names))` — gather возвращает список; звёздочка распаковывает корутины в аргументы."
+    solution: |
+      import asyncio
+
+
+      async def fetch(name, delay):
+          """Имитация сетевого запроса."""
+          await asyncio.sleep(delay)
+          return {"name": name, "status": "ok"}
+
+
+      async def fetch_all(names, delay):
+          """Все запросы одновременно."""
+          return list(await asyncio.gather(*(fetch(name, delay) for name in names)))
+    solution_explanation: "await asyncio.sleep уступает управление, и все ожидания идут одновременно: 10 запросов по 0.1 с занимают около 0.1 с вместо секунды."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(fetch_all([\"a\", \"b\"], 0.01))"
+        expected: "[{'name': 'a', 'status': 'ok'}, {'name': 'b', 'status': 'ok'}]"
+      - name: "Одновременность"
+        code: |
+          import time
+          start = time.perf_counter()
+          results = asyncio.run(fetch_all([str(i) for i in range(10)], 0.1))
+          elapsed = time.perf_counter() - start
+          assert len(results) == 10 and elapsed < 0.5, f"10 запросов заняли {elapsed:.2f} с — они идут по очереди?"
+      - name: "fetch — корутина"
+        code: |
+          import inspect
+          assert inspect.iscoroutinefunction(fetch) and inspect.iscoroutinefunction(fetch_all)
+      - name: "Один запрос"
+        call: "asyncio.run(fetch(\"x\", 0))"
+        expected: "{'name': 'x', 'status': 'ok'}"
+      - name: "Пустой список"
+        call: "asyncio.run(fetch_all([], 0.1))"
+        expected: "[]"
+
+  - id: t3
+    title: "Найдите блокирующий вызов"
+    difficulty: 2
+    statement: |
+      Код в заготовке «асинхронный», но работает так же медленно, как синхронный. Исправьте его, сохранив логику: `summarize(doc)` «отправляет» документ модели (ожидание `0.1` с) и возвращает первые 3 слова документа через `" "` с многоточием; `summarize_all(docs)` обрабатывает документы одновременно и возвращает словарь `{номер документа: резюме}`.
+    examples:
+      - input: "asyncio.run(summarize_all([\"Python популярен в машинном обучении\"]))"
+        output: "{0: 'Python популярен в...'}"
+    setup: |
+      import asyncio
+    starter: |
+      import asyncio
+      import time
+
+
+      async def summarize(doc):
+          time.sleep(0.1)
+          return " ".join(doc.split()[:3]) + "..."
+
+
+      async def summarize_all(docs):
+          results = await asyncio.gather(*(summarize(d) for d in docs))
+          return dict(enumerate(results))
+    hints:
+      - "`time.sleep` не уступает управление циклу событий — все задачи ждут по очереди."
+      - "Замените его на `await asyncio.sleep(0.1)`."
+    solution: |
+      import asyncio
+
+
+      async def summarize(doc):
+          """Резюме документа (имитация запроса к модели)."""
+          await asyncio.sleep(0.1)
+          return " ".join(doc.split()[:3]) + "..."
+
+
+      async def summarize_all(docs):
+          """Резюме всех документов одновременно."""
+          results = await asyncio.gather(*(summarize(doc) for doc in docs))
+          return dict(enumerate(results))
+    solution_explanation: "Одна строка time.sleep превращала асинхронный код в последовательный. В реальном коде то же самое делает синхронный HTTP-клиент внутри async def."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(summarize_all([\"Python популярен в машинном обучении\"]))"
+        expected: "{0: 'Python популярен в...'}"
+      - name: "Скорость"
+        code: |
+          import time
+          start = time.perf_counter()
+          result = asyncio.run(summarize_all([f"документ номер {i} текст" for i in range(10)]))
+          elapsed = time.perf_counter() - start
+          assert result[9] == "документ номер 9..." and elapsed < 0.5, f"{elapsed:.2f} с"
+      - name: "Без time.sleep"
+        code: |
+          assert "time.sleep" not in __source__
+      - name: "Короткий документ"
+        call: "asyncio.run(summarize(\"привет\"))"
+        expected: "'привет...'"
+      - name: "Пусто"
+        call: "asyncio.run(summarize_all([]))"
+        expected: "{}"
+
+  - id: t4
+    title: "Двухэтапная обработка"
+    difficulty: 3
+    statement: |
+      Каждый документ проходит два «сетевых» этапа: `embed` (ожидание `0.1` с, результат — длина текста) и `store` (ожидание `0.05` с, результат — `"doc-<номер>"`). Этапы одного документа идут **последовательно**, а разные документы — **одновременно**.
+
+      - `async def process(index, text)` → `{"id": "doc-<index>", "length": len(text)}`;
+      - `async def process_all(texts)` → `{"results": список в исходном порядке, "total_length": сумма длин}`.
+
+      Для 20 документов общее время должно быть около 0.15 с, а не 3 с.
+    examples:
+      - input: "asyncio.run(process_all([\"ab\", \"cde\"]))"
+        output: "{'results': [{'id': 'doc-0', 'length': 2}, {'id': 'doc-1', 'length': 3}], 'total_length': 5}"
+    setup: |
+      import asyncio
+    starter: |
+      import asyncio
+
+
+      async def process(index, text):
+          await asyncio.sleep(0.1)
+          await asyncio.sleep(0.05)
+          return {"id": f"doc-{index}", "length": len(text)}
+
+
+      async def process_all(texts):
+          results = []
+          for index, text in enumerate(texts):
+              results.append(await process(index, text))
+          return {"results": results, "total_length": sum(r["length"] for r in results)}
+    hints:
+      - "Цикл с `await` внутри обрабатывает документы по одному. Создайте все корутины и передайте их в `asyncio.gather`."
+      - "Внутри process оставьте два `await` подряд — этапы одного документа зависят друг от друга."
+    solution: |
+      import asyncio
+
+
+      async def embed(text):
+          await asyncio.sleep(0.1)
+          return len(text)
+
+
+      async def store(index):
+          await asyncio.sleep(0.05)
+          return f"doc-{index}"
+
+
+      async def process(index, text):
+          """Эмбеддинг, затем сохранение — последовательно."""
+          length = await embed(text)
+          doc_id = await store(index)
+          return {"id": doc_id, "length": length}
+
+
+      async def process_all(texts):
+          """Все документы одновременно."""
+          results = list(await asyncio.gather(*(process(i, t) for i, t in enumerate(texts))))
+          return {"results": results, "total_length": sum(r["length"] for r in results)}
+    solution_explanation: "Зависимые шаги идут через последовательные await, а независимые документы — через gather. Время одного документа — 0.15 с, и все документы укладываются примерно в это же время. Цикл с await внутри, как в заготовке, — частая ошибка: формально асинхронно, фактически последовательно."
+    tests:
+      - name: "Пример"
+        call: "asyncio.run(process_all([\"ab\", \"cde\"]))"
+        expected: "{'results': [{'id': 'doc-0', 'length': 2}, {'id': 'doc-1', 'length': 3}], 'total_length': 5}"
+      - name: "Скорость"
+        code: |
+          import time
+          start = time.perf_counter()
+          out = asyncio.run(process_all(["x" * i for i in range(20)]))
+          elapsed = time.perf_counter() - start
+          assert out["total_length"] == 190 and elapsed < 0.6, f"{elapsed:.2f} с — документы обрабатываются по очереди?"
+      - name: "Порядок"
+        code: |
+          out = asyncio.run(process_all(["ccc", "a", "bb"]))
+          assert [r["id"] for r in out["results"]] == ["doc-0", "doc-1", "doc-2"]
+      - name: "Один документ"
+        call: "asyncio.run(process(7, \"текст\"))"
+        expected: "{'id': 'doc-7', 'length': 5}"
+      - name: "Пусто"
+        call: "asyncio.run(process_all([]))"
+        expected: "{'results': [], 'total_length': 0}"

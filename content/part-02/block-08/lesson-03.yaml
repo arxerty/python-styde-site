@@ -1,0 +1,841 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from unittest.mock import Mock
+
+      client = Mock()
+      client.complete.return_value = "ok"
+      client.complete("a")
+      client.complete("b", temperature=1)
+      print(client.complete.call_count, client.complete.call_args.args, client.complete.call_args.kwargs)
+    options:
+      - text: "`2 ('b',) {'temperature': 1}`"
+        correct: true
+        why: "call_args хранит аргументы последнего вызова."
+      - text: "`2 ('a',) {}`"
+        why: "call_args — последний вызов, все вызовы — в call_args_list."
+      - text: "`1 ('b',) {'temperature': 1}`"
+        why: "Мок вызывался дважды."
+    explanation: "Мок записывает каждый вызов: call_count, call_args, call_args_list."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from unittest.mock import Mock
+
+      api = Mock(side_effect=[1, ValueError("плохо"), 3])
+      results = []
+      for _ in range(3):
+          try:
+              results.append(api())
+          except ValueError as error:
+              results.append(str(error))
+      print(results)
+    options:
+      - text: "`[1, 'плохо', 3]`"
+        correct: true
+        why: "Элементы side_effect выдаются по очереди, исключение бросается."
+      - text: "`[1, ValueError('плохо'), 3]`"
+        why: "Исключение из последовательности бросается, а не возвращается."
+      - text: "`[[1, ValueError('плохо'), 3], ...]`"
+        why: "Итерируемый side_effect возвращает элементы по одному."
+    explanation: "side_effect-последовательность — основной инструмент для тестов повторов."
+
+  - id: q3
+    type: find_bug
+    prompt: "Тест всё равно ходит в сеть. Почему?"
+    code: |
+      # report.py
+      from weather_api import fetch_temperature
+
+      def make_report(city):
+          return f"{city}: {fetch_temperature(city)}°C"
+
+      # test_report.py
+      from unittest.mock import patch
+      import report
+
+      def test_report():
+          with patch("weather_api.fetch_temperature", return_value=20):
+              assert report.make_report("Омск") == "Омск: 20°C"
+    options:
+      - text: "Имя импортировано в report через from ... import, подменять нужно `report.fetch_temperature`"
+        correct: true
+        why: "patch подменяет имя там, где его ищут при вызове, — в модуле report."
+      - text: "patch нельзя использовать как контекстный менеджер"
+        why: "Можно: и как with, и как декоратор."
+      - text: "return_value должен быть строкой"
+        why: "Тип возвращаемого значения не связан с проблемой."
+    explanation: "Правило: подменяйте там, где используют, а не там, где определено."
+
+  - id: q4
+    type: single
+    prompt: "Как сделать, чтобы мок при вызове **бросал** `TimeoutError`?"
+    options:
+      - text: "`Mock(side_effect=TimeoutError)`"
+        correct: true
+        why: "Класс или объект исключения в side_effect бросается при вызове."
+      - text: "`Mock(return_value=TimeoutError())`"
+        why: "Так мок вернёт объект исключения как обычное значение."
+      - text: "`Mock(raises=TimeoutError)`"
+        why: "У Mock нет параметра raises."
+      - text: "`Mock().throw(TimeoutError)`"
+        why: "Такого метода нет; вызов просто создаст дочерний мок."
+    explanation: "Исключения — через side_effect, значения — через return_value."
+
+  - id: q5
+    type: multiple
+    prompt: "Что разумно подменять моками в тестах AI-приложения? Выберите все."
+    options:
+      - text: "HTTP-запросы к LLM-провайдеру"
+        correct: true
+        why: "Медленно, платно и нестабильно — классическая граница системы."
+      - text: "`time.sleep` в логике повторов"
+        correct: true
+        why: "Иначе тест будет ждать по-настоящему."
+      - text: "Отправку писем и сообщений"
+        correct: true
+        why: "Тест не должен иметь внешних последствий."
+      - text: "Собственную чистую функцию подсчёта токенов внутри проверяемого кода"
+        why: "Чистые функции быстрые и детерминированные — их проверяют по-настоящему, иначе тест проверяет реализацию."
+    explanation: "Мокают границы системы: сеть, диск, время, случайность, внешние побочные эффекты."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from unittest.mock import Mock
+
+      sender = Mock()
+      sender.send("Привет")
+      sender.send("Пока")
+      try:
+          sender.send.assert_called_once_with("Привет")
+          print("проверка прошла")
+      except AssertionError:
+          print("проверка упала")
+      sender.send.assert_any_call("Привет")
+      print("any_call прошла")
+    options:
+      - text: |
+          ```text
+          проверка упала
+          any_call прошла
+          ```
+        correct: true
+        why: "Вызовов два, а assert_called_once_with требует ровно один; assert_any_call ищет среди всех."
+      - text: |
+          ```text
+          проверка прошла
+          any_call прошла
+          ```
+        why: "assert_called_once_with проверяет и число вызовов."
+      - text: "`проверка упала`"
+        why: "Вызов «Привет» был, поэтому assert_any_call проходит."
+    explanation: "assert_called_once_with — ровно один вызов с такими аргументами; assert_any_call — хотя бы один."
+
+tasks:
+  - id: t1
+    title: "Тесты с Mock для оповещения о расходах"
+    difficulty: 1
+    statement: |
+      Функция `notify_if_expensive(cost, limit, sender)` **уже определена** — не переопределяйте её:
+
+      ```python
+      def notify_if_expensive(cost, limit, sender):
+          if cost > limit:
+              sender.send(f"Расход ${cost:.2f} превысил лимит ${limit:.2f}")
+              return True
+          return False
+      ```
+
+      Напишите **не меньше трёх** тестов `test_...`, передавая вместо `sender` объект `Mock` и проверяя и результат, и вызовы `send`. Тесты должны падать на версиях с ошибками: `>=` вместо `>`, сообщение не отправляется, сообщение без двух знаков после точки, сообщение отправляется дважды, перепутаны расход и лимит в тексте.
+    examples:
+      - input: "notify_if_expensive(12.5, 10, Mock())"
+        output: "True"
+    setup: |
+      from unittest.mock import Mock
+
+
+      def notify_if_expensive(cost, limit, sender):
+          if cost > limit:
+              sender.send(f"Расход ${cost:.2f} превысил лимит ${limit:.2f}")
+              return True
+          return False
+
+
+      _REFERENCE = notify_if_expensive
+
+
+      def _mutant_ge(cost, limit, sender):
+          if cost >= limit:
+              sender.send(f"Расход ${cost:.2f} превысил лимит ${limit:.2f}")
+              return True
+          return False
+
+
+      def _mutant_silent(cost, limit, sender):
+          return cost > limit
+
+
+      def _mutant_format(cost, limit, sender):
+          if cost > limit:
+              sender.send(f"Расход ${cost} превысил лимит ${limit}")
+              return True
+          return False
+
+
+      def _mutant_twice(cost, limit, sender):
+          if cost > limit:
+              for _ in range(2):
+                  sender.send(f"Расход ${cost:.2f} превысил лимит ${limit:.2f}")
+              return True
+          return False
+
+
+      def _mutant_swapped(cost, limit, sender):
+          if cost > limit:
+              sender.send(f"Расход ${limit:.2f} превысил лимит ${cost:.2f}")
+              return True
+          return False
+
+
+      def _student_tests():
+          return [value for name, value in list(globals().items()) if name.startswith("test_") and callable(value)]
+
+
+      def _failures(implementation):
+          namespace = globals()
+          saved = namespace["notify_if_expensive"]
+          namespace["notify_if_expensive"] = implementation
+          failed = 0
+          try:
+              for test in _student_tests():
+                  try:
+                      test()
+                  except BaseException:
+                      failed += 1
+          finally:
+              namespace["notify_if_expensive"] = saved
+          return failed
+    starter: |
+      from unittest.mock import Mock
+
+
+      def test_cheap_request():
+          assert notify_if_expensive(1, 10, Mock()) is False
+    hints:
+      - "Проверяйте вызов точно: `sender.send.assert_called_once_with(\"Расход $12.50 превысил лимит $10.00\")` — так ловятся и формат, и перепутанные числа, и двойной вызов."
+      - "Граница: `cost == limit` → `False` и `sender.send.assert_not_called()`."
+    solution: |
+      from unittest.mock import Mock
+
+
+      def test_cheap_request_does_not_notify():
+          sender = Mock()
+          assert notify_if_expensive(1, 10, sender) is False
+          sender.send.assert_not_called()
+
+
+      def test_exactly_at_limit_does_not_notify():
+          sender = Mock()
+          assert notify_if_expensive(10, 10, sender) is False
+          sender.send.assert_not_called()
+
+
+      def test_expensive_request_notifies_once():
+          sender = Mock()
+          assert notify_if_expensive(12.5, 10, sender) is True
+          sender.send.assert_called_once_with("Расход $12.50 превысил лимит $10.00")
+    solution_explanation: "Мок заменяет настоящую отправку и записывает вызовы. assert_called_once_with проверяет сразу число вызовов, формат и порядок чисел в тексте, а assert_not_called на границе ловит >= вместо >."
+    constraints:
+      require: ["Mock"]
+      message: "Используйте unittest.mock.Mock вместо настоящего отправителя."
+    tests:
+      - name: "Не меньше трёх тестов"
+        code: |
+          assert len(_student_tests()) >= 3, f"Найдено тестов: {len(_student_tests())}"
+      - name: "Функция не переопределена"
+        code: |
+          assert notify_if_expensive is _REFERENCE, "Не переопределяйте функцию — пишите только тесты"
+      - name: "Тесты проходят на правильной функции"
+        code: |
+          failed = _failures(_REFERENCE)
+          assert failed == 0, f"На правильной функции упало тестов: {failed}"
+      - name: "Ловят >= вместо >"
+        code: |
+          assert _failures(_mutant_ge) > 0, "Ни один тест не проверяет расход, равный лимиту"
+      - name: "Ловят отсутствие отправки"
+        code: |
+          assert _failures(_mutant_silent) > 0, "Ни один тест не проверяет, что send вызван"
+      - name: "Ловят неверный формат"
+        code: |
+          assert _failures(_mutant_format) > 0, "Ни один тест не проверяет текст сообщения"
+      - name: "Ловят двойную отправку"
+        code: |
+          assert _failures(_mutant_twice) > 0, "Ни один тест не проверяет число вызовов send"
+      - name: "Ловят перепутанные числа"
+        code: |
+          assert _failures(_mutant_swapped) > 0, "Ни один тест не заметил, что расход и лимит перепутаны"
+
+  - id: t2
+    title: "Тесты повторов с side_effect"
+    difficulty: 2
+    statement: |
+      Уже определены исключение `RateLimitError(retry_after=None)` и функция `ask_with_retry(client, prompt, attempts=3, sleep=None)` — не переопределяйте их:
+
+      ```python
+      def ask_with_retry(client, prompt, attempts=3, sleep=None):
+          for attempt in range(1, attempts + 1):
+              try:
+                  return client.complete(prompt)
+              except RateLimitError as error:
+                  if attempt == attempts:
+                      raise
+                  delay = error.retry_after if error.retry_after is not None else 2 ** (attempt - 1)
+                  sleep(delay)
+      ```
+
+      Напишите **не меньше трёх** тестов, подменяя `client.complete` моком с `side_effect`, а `sleep` — моком (тесты не должны ждать). Они должны падать на версиях с ошибками: пауза без экспоненты (всегда 1), игнорируется `retry_after`, на одну попытку меньше, повторяются любые исключения, последняя ошибка проглатывается (возвращается `None`), лишняя пауза после последней попытки.
+    examples:
+      - input: "ask_with_retry(Mock(**{'complete.return_value': 'ok'}), 'hi', sleep=Mock())"
+        output: "'ok'"
+    setup: |
+      from unittest.mock import Mock, call
+
+
+      class RateLimitError(Exception):
+          def __init__(self, retry_after=None):
+              super().__init__("rate limit")
+              self.retry_after = retry_after
+
+
+      def ask_with_retry(client, prompt, attempts=3, sleep=None):
+          for attempt in range(1, attempts + 1):
+              try:
+                  return client.complete(prompt)
+              except RateLimitError as error:
+                  if attempt == attempts:
+                      raise
+                  delay = error.retry_after if error.retry_after is not None else 2 ** (attempt - 1)
+                  sleep(delay)
+
+
+      _REFERENCE = ask_with_retry
+
+
+      def _make(constant_delay=False, ignore_retry_after=False, attempts_shift=0, catch_all=False, swallow=False, extra_sleep=False):
+          caught = Exception if catch_all else RateLimitError
+
+          def ask_with_retry(client, prompt, attempts=3, sleep=None):
+              total = attempts + attempts_shift
+              for attempt in range(1, total + 1):
+                  try:
+                      return client.complete(prompt)
+                  except caught as error:
+                      retry_after = None if ignore_retry_after else getattr(error, "retry_after", None)
+                      delay = retry_after if retry_after is not None else (1 if constant_delay else 2 ** (attempt - 1))
+                      if attempt == total:
+                          if extra_sleep:
+                              sleep(delay)
+                          if swallow:
+                              return None
+                          raise
+                      sleep(delay)
+              return None
+
+          return ask_with_retry
+
+
+      _MUTANTS = {
+          "constant": _make(constant_delay=True),
+          "retry_after": _make(ignore_retry_after=True),
+          "fewer": _make(attempts_shift=-1),
+          "catch_all": _make(catch_all=True),
+          "swallow": _make(swallow=True),
+          "extra_sleep": _make(extra_sleep=True),
+      }
+
+
+      def _student_tests():
+          return [value for name, value in list(globals().items()) if name.startswith("test_") and callable(value)]
+
+
+      def _failures(implementation):
+          namespace = globals()
+          saved = namespace["ask_with_retry"]
+          namespace["ask_with_retry"] = implementation
+          failed = 0
+          try:
+              for test in _student_tests():
+                  try:
+                      test()
+                  except BaseException:
+                      failed += 1
+          finally:
+              namespace["ask_with_retry"] = saved
+          return failed
+    starter: |
+      from unittest.mock import Mock
+
+
+      def test_first_try():
+          client = Mock()
+          client.complete.return_value = "ok"
+          assert ask_with_retry(client, "hi", sleep=Mock()) == "ok"
+    hints:
+      - "Успех с третьей попытки: `client.complete.side_effect = [RateLimitError(), RateLimitError(), \"ok\"]`, затем `assert sleep.call_args_list == [call(1), call(2)]` — так видны и экспонента, и число попыток."
+      - "Отдельные тесты: `RateLimitError(retry_after=7)` → `sleep.assert_called_once_with(7)`; все попытки неудачны → `pytest.raises(RateLimitError)` и `sleep.call_count == attempts - 1`; `ValueError` → не повторяется."
+    solution: |
+      from unittest.mock import Mock, call
+
+      import pytest
+
+
+      def make_client(*effects):
+          client = Mock()
+          client.complete.side_effect = list(effects)
+          return client
+
+
+      def test_succeeds_on_third_attempt_with_backoff():
+          client = make_client(RateLimitError(), RateLimitError(), "ok")
+          sleep = Mock()
+          assert ask_with_retry(client, "hi", attempts=3, sleep=sleep) == "ok"
+          assert client.complete.call_count == 3
+          assert sleep.call_args_list == [call(1), call(2)]
+
+
+      def test_uses_retry_after():
+          client = make_client(RateLimitError(retry_after=7), "ok")
+          sleep = Mock()
+          assert ask_with_retry(client, "hi", sleep=sleep) == "ok"
+          sleep.assert_called_once_with(7)
+
+
+      def test_gives_up_after_all_attempts():
+          client = make_client(RateLimitError(), RateLimitError(), RateLimitError())
+          sleep = Mock()
+          with pytest.raises(RateLimitError):
+              ask_with_retry(client, "hi", attempts=3, sleep=sleep)
+          assert client.complete.call_count == 3
+          assert sleep.call_count == 2
+
+
+      def test_other_errors_are_not_retried():
+          client = make_client(ValueError("bad"))
+          sleep = Mock()
+          with pytest.raises(ValueError):
+              ask_with_retry(client, "hi", sleep=sleep)
+          client.complete.assert_called_once_with("hi")
+          sleep.assert_not_called()
+    solution_explanation: "side_effect со списком задаёт сценарий «две ошибки, потом успех», а мок sleep фиксирует паузы без реального ожидания. Каждый тест проверяет одно поведение: экспоненту и число попыток, Retry-After, отказ после последней попытки без лишней паузы и отсутствие повторов для других ошибок."
+    constraints:
+      require: ["side_effect"]
+      message: "Сценарии ошибок задайте через side_effect."
+    tests:
+      - name: "Не меньше трёх тестов"
+        code: |
+          assert len(_student_tests()) >= 3, f"Найдено тестов: {len(_student_tests())}"
+      - name: "Функция не переопределена"
+        code: |
+          assert ask_with_retry is _REFERENCE, "Не переопределяйте ask_with_retry — пишите только тесты"
+      - name: "Тесты проходят на правильной функции"
+        code: |
+          failed = _failures(_REFERENCE)
+          assert failed == 0, f"На правильной функции упало тестов: {failed}"
+      - name: "Ловят паузу без экспоненты"
+        code: |
+          assert _failures(_MUTANTS["constant"]) > 0, "Ни один тест не проверяет растущие паузы"
+      - name: "Ловят игнорирование retry_after"
+        code: |
+          assert _failures(_MUTANTS["retry_after"]) > 0, "Ни один тест не проверяет retry_after"
+      - name: "Ловят лишнюю/недостающую попытку"
+        code: |
+          assert _failures(_MUTANTS["fewer"]) > 0, "Ни один тест не проверяет число попыток"
+      - name: "Ловят повтор любых исключений"
+        code: |
+          assert _failures(_MUTANTS["catch_all"]) > 0, "Ни один тест не проверяет, что другие ошибки не повторяются"
+      - name: "Ловят проглоченную ошибку"
+        code: |
+          assert _failures(_MUTANTS["swallow"]) > 0, "Ни один тест не проверяет исключение после последней попытки"
+      - name: "Ловят лишнюю паузу"
+        code: |
+          assert _failures(_MUTANTS["extra_sleep"]) > 0, "Ни один тест не проверяет число пауз при отказе"
+
+  - id: t3
+    title: "Свой Mock"
+    difficulty: 3
+    statement: |
+      Реализуйте класс `SimpleMock(return_value=None, side_effect=None)` — упрощённый `unittest.mock.Mock`.
+
+      - **Вызов** `mock(*args, **kwargs)` добавляет пару `(args, kwargs)` в список `mock.calls` и увеличивает `mock.call_count`. Дальше:
+        - `side_effect is None` → вернуть `return_value`;
+        - `side_effect` — класс или объект исключения → бросить его;
+        - `side_effect` — вызываемый объект → вернуть `side_effect(*args, **kwargs)`;
+        - иначе это последовательность: каждый вызов берёт следующий элемент (исключение — бросить); когда элементы кончились — `StopIteration`.
+      - `return_value` и `side_effect` можно менять и после создания: `mock.side_effect = [...]`.
+      - **Атрибуты**: обращение к несуществующему атрибуту (не начинающемуся с `_`) создаёт дочерний `SimpleMock`, и при повторном обращении возвращается **тот же** объект. Атрибуты с `_` в начале → `AttributeError`.
+      - `assert_called_once_with(*args, **kwargs)` — если вызовов не ровно один: `AssertionError(f"ожидался 1 вызов, было {call_count}")`; если аргументы другие — `AssertionError` с любым текстом.
+      - `assert_not_called()` — `AssertionError`, если вызовы были.
+    examples:
+      - input: "use_client()"
+        output: "('Ответ', 1)"
+    setup: |
+      def use_client():
+          client = SimpleMock()
+          client.complete.return_value = "Ответ"
+          return client.complete("Привет"), client.complete.call_count
+    starter: |
+      class SimpleMock:
+          def __init__(self, return_value=None, side_effect=None):
+              self.return_value = return_value
+              self.side_effect = side_effect
+
+          def __call__(self, *args, **kwargs):
+              return self.return_value
+    hints:
+      - "`__getattr__` вызывается только для **отсутствующих** атрибутов: создайте ребёнка, сохраните его через `setattr(self, name, child)` и верните. Поля `calls`, `call_count` и служебные задайте в `__init__`."
+      - "Порядок проверок в `__call__`: класс исключения (`isinstance(e, type) and issubclass(e, BaseException)`), объект исключения, `callable(e)`, иначе итератор — создайте его через `iter()` один раз и пересоздайте, только если `side_effect` заменили другим объектом."
+    solution: |
+      def _is_exception(value):
+          return isinstance(value, BaseException) or (isinstance(value, type) and issubclass(value, BaseException))
+
+
+      class SimpleMock:
+          """Упрощённый Mock: возвращаемое значение, side_effect, запись вызовов."""
+
+          def __init__(self, return_value=None, side_effect=None):
+              self.return_value = return_value
+              self.side_effect = side_effect
+              self.calls = []
+              self.call_count = 0
+              self._source = None
+              self._iterator = None
+
+          def __getattr__(self, name):
+              if name.startswith("_"):
+                  raise AttributeError(name)
+              child = SimpleMock()
+              setattr(self, name, child)
+              return child
+
+          def __call__(self, *args, **kwargs):
+              self.calls.append((args, kwargs))
+              self.call_count += 1
+              effect = self.side_effect
+              if effect is None:
+                  return self.return_value
+              if _is_exception(effect):
+                  raise effect
+              if callable(effect):
+                  return effect(*args, **kwargs)
+              if self._source is not effect:
+                  self._source = effect
+                  self._iterator = iter(effect)
+              item = next(self._iterator)
+              if _is_exception(item):
+                  raise item
+              return item
+
+          def assert_called_once_with(self, *args, **kwargs):
+              if self.call_count != 1:
+                  raise AssertionError(f"ожидался 1 вызов, было {self.call_count}")
+              if self.calls[0] != (args, kwargs):
+                  raise AssertionError(f"ожидался вызов {(args, kwargs)}, был {self.calls[0]}")
+
+          def assert_not_called(self):
+              if self.call_count:
+                  raise AssertionError(f"ожидалось 0 вызовов, было {self.call_count}")
+    solution_explanation: "__getattr__ срабатывает только для отсутствующих атрибутов, поэтому дети создаются лениво и кэшируются обычным setattr. Итератор по side_effect создаётся один раз и пересоздаётся при замене последовательности — так каждый вызов получает следующий элемент."
+    tests:
+      - name: "Пример"
+        call: "use_client()"
+        expected: "('Ответ', 1)"
+      - name: "Запись вызовов"
+        code: |
+          mock = SimpleMock(return_value=5)
+          assert mock(1, 2, key="v") == 5
+          mock()
+          assert mock.calls == [((1, 2), {"key": "v"}), ((), {})], mock.calls
+          assert mock.call_count == 2
+      - name: "Дети создаются один раз"
+        code: |
+          client = SimpleMock()
+          assert client.chat is client.chat
+          assert client.chat.completions is client.chat.completions
+          assert isinstance(client.chat, SimpleMock)
+          try:
+              client._private
+          except AttributeError:
+              pass
+          else:
+              raise AssertionError("Атрибут с _ должен давать AttributeError")
+      - name: "side_effect: исключения и функция"
+        code: |
+          for effect in [TimeoutError, TimeoutError("медленно")]:
+              mock = SimpleMock(side_effect=effect)
+              try:
+                  mock()
+              except TimeoutError:
+                  pass
+              else:
+                  raise AssertionError(f"Ожидался TimeoutError для {effect!r}")
+              assert mock.call_count == 1
+          doubler = SimpleMock(side_effect=lambda x: x * 2)
+          assert doubler(21) == 42
+      - name: "side_effect: последовательность"
+        code: |
+          mock = SimpleMock()
+          mock.side_effect = [1, ConnectionError("нет сети"), 3]
+          results = []
+          for _ in range(3):
+              try:
+                  results.append(mock())
+              except ConnectionError as error:
+                  results.append(str(error))
+          assert results == [1, "нет сети", 3], results
+          try:
+              mock()
+          except StopIteration:
+              pass
+          else:
+              raise AssertionError("Когда элементы кончились, нужен StopIteration")
+          mock.side_effect = ["новый"]
+          assert mock() == "новый"
+      - name: "assert_called_once_with"
+        code: |
+          mock = SimpleMock()
+          try:
+              mock.assert_called_once_with()
+          except AssertionError as error:
+              assert str(error) == "ожидался 1 вызов, было 0", str(error)
+          else:
+              raise AssertionError("Должна быть ошибка: вызовов не было")
+          mock("a", n=1)
+          mock.assert_called_once_with("a", n=1)
+          try:
+              mock.assert_called_once_with("b")
+          except AssertionError:
+              pass
+          else:
+              raise AssertionError("Должна быть ошибка: аргументы другие")
+      - name: "assert_not_called"
+        code: |
+          mock = SimpleMock()
+          mock.assert_not_called()
+          mock()
+          try:
+              mock.assert_not_called()
+          except AssertionError:
+              pass
+          else:
+              raise AssertionError("Должна быть ошибка: вызов был")
+
+  - id: t4
+    title: "Тесты клиента погоды с patch"
+    mode: local
+    difficulty: 2
+    statement: |
+      Скачайте архив. Модуль `weather.py` (рабочий, не меняйте его) обращается к погодному API через `httpx.get`; ключ берётся из переменной окружения `WEATHER_API_KEY`:
+
+      - `current(city)` — запрос `GET {BASE_URL}/current` с `params={"q": город_без_пробелов_по_краям}`, заголовком `Authorization: Bearer <ключ>` и `timeout=5`; возвращает `{"city", "temp", "description"}` (температура округлена до 0.1). Пустой город → `ValueError`; нет ключа → `WeatherError` (и запрос не отправляется); таймаут → `WeatherError`; 404 → `WeatherError`; другие ошибки → `httpx.HTTPStatusError`;
+      - `describe(city)` — строка вида `"Казань: +21.4°C, ясно"`.
+
+      Адрес `BASE_URL` намеренно несуществующий (`.invalid`): **настоящий запрос всегда падает**, поэтому тесты обязаны подменять `weather.httpx.get` через `unittest.mock.patch`, а ключ — задавать через `monkeypatch`.
+
+      Напишите тесты в `test_weather.py`. `test_quality.py` проверит, что они проходят на исходном модуле и падают на семи испорченных версиях.
+
+      ```bash
+      pip install httpx pytest
+      pytest -q
+      ```
+    files:
+      weather.py: |
+        """Клиент погодного API."""
+        import os
+
+        import httpx
+
+        BASE_URL = "https://weather.invalid/v1"
+
+
+        class WeatherError(Exception):
+            """Погоду получить не удалось."""
+
+
+        def get_api_key():
+            """Ключ API из окружения."""
+            key = os.environ.get("WEATHER_API_KEY", "").strip()
+            if not key:
+                raise WeatherError("не задан WEATHER_API_KEY")
+            return key
+
+
+        def current(city):
+            """Текущая погода: {"city", "temp", "description"}."""
+            if not city.strip():
+                raise ValueError("пустое название города")
+            key = get_api_key()
+            try:
+                response = httpx.get(
+                    f"{BASE_URL}/current",
+                    params={"q": city.strip()},
+                    headers={"Authorization": f"Bearer {key}"},
+                    timeout=5,
+                )
+            except httpx.TimeoutException as error:
+                raise WeatherError("сервис погоды не ответил вовремя") from error
+            if response.status_code == 404:
+                raise WeatherError(f"город не найден: {city}")
+            response.raise_for_status()
+            data = response.json()
+            return {
+                "city": data["name"],
+                "temp": round(data["main"]["temp"], 1),
+                "description": data["weather"][0]["description"],
+            }
+
+
+        def describe(city):
+            """Строка для пользователя."""
+            weather = current(city)
+            return f"{weather['city']}: {weather['temp']:+.1f}°C, {weather['description']}"
+      test_weather.py: |
+        import pytest
+
+        import weather
+
+
+        def test_empty_city():
+            with pytest.raises(ValueError):
+                weather.current("   ")
+      test_quality.py: |
+        """Проверка качества ваших тестов (мутационное тестирование). Не меняйте этот файл."""
+        import os
+        import shutil
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        import pytest
+
+        HERE = Path(__file__).parent
+        MODULE = "weather.py"
+        STUDENT_TESTS = "test_weather.py"
+        MUTANTS = {
+            "ключ не передаётся": ('headers={"Authorization": f"Bearer {key}"},', "headers={},"),
+            "город не обрезается": ('params={"q": city.strip()},', 'params={"q": city},'),
+            "таймаут не превращается в WeatherError": ("except httpx.TimeoutException as error:", "except ZeroDivisionError as error:"),
+            "404 не обрабатывается": ("if response.status_code == 404:", "if response.status_code == 4040:"),
+            "температура не округляется до 0.1": ('round(data["main"]["temp"], 1)', 'round(data["main"]["temp"])'),
+            "пустой ключ принимается": ("    if not key:\n", "    if False:\n"),
+            "нет знака температуры": ("{weather['temp']:+.1f}", "{weather['temp']:.1f}"),
+        }
+
+
+        def run_student_tests(folder, source):
+            (folder / MODULE).write_text(source, encoding="utf-8")
+            shutil.copy(HERE / STUDENT_TESTS, folder / STUDENT_TESTS)
+            env = {key: value for key, value in os.environ.items() if key != "WEATHER_API_KEY"}
+            completed = subprocess.run(
+                [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", STUDENT_TESTS],
+                cwd=folder, capture_output=True, text=True, env=env,
+            )
+            return completed.returncode
+
+
+        def original_source():
+            return (HERE / MODULE).read_text(encoding="utf-8")
+
+
+        def test_uses_patch():
+            text = (HERE / STUDENT_TESTS).read_text(encoding="utf-8")
+            assert "patch" in text, "Подменяйте httpx.get через unittest.mock.patch"
+
+
+        def test_tests_pass_on_original(tmp_path):
+            assert run_student_tests(tmp_path, original_source()) == 0, "Ваши тесты падают на исправном модуле (или ходят в сеть)"
+
+
+        @pytest.mark.parametrize("name", list(MUTANTS))
+        def test_mutant_is_caught(tmp_path, name):
+            old, new = MUTANTS[name]
+            source = original_source()
+            assert old in source, "Не меняйте weather.py"
+            assert run_student_tests(tmp_path, source.replace(old, new, 1)) != 0, f"Тесты не заметили ошибку: {name}"
+    run: "pytest -q"
+    hints:
+      - "Ответ сервера удобно собирать настоящим объектом: `httpx.Response(200, json={...}, request=httpx.Request(\"GET\", \"https://weather.invalid/v1/current\"))` — у него работает и `json()`, и `raise_for_status()`. Подмена: `with patch(\"weather.httpx.get\", return_value=response) as fake_get:`."
+      - "Проверяйте аргументы запроса: `fake_get.call_args.kwargs[\"params\"]` и `[\"headers\"]`. Таймаут — `side_effect=httpx.ReadTimeout(\"timeout\")`; нет ключа — `monkeypatch.delenv(\"WEATHER_API_KEY\", raising=False)` и `fake_get.assert_not_called()`."
+    solution_files:
+      test_weather.py: |
+        from unittest.mock import patch
+
+        import httpx
+        import pytest
+
+        import weather
+
+        PAYLOAD = {"name": "Казань", "main": {"temp": 21.44}, "weather": [{"description": "ясно"}]}
+
+
+        def make_response(status, payload=None):
+            request = httpx.Request("GET", f"{weather.BASE_URL}/current")
+            return httpx.Response(status, json=payload, request=request)
+
+
+        @pytest.fixture
+        def api_key(monkeypatch):
+            monkeypatch.setenv("WEATHER_API_KEY", "test-key")
+
+
+        def test_empty_city():
+            with pytest.raises(ValueError):
+                weather.current("   ")
+
+
+        def test_current_parses_response_and_sends_request(api_key):
+            with patch("weather.httpx.get", return_value=make_response(200, PAYLOAD)) as fake_get:
+                assert weather.current("  Казань ") == {"city": "Казань", "temp": 21.4, "description": "ясно"}
+            fake_get.assert_called_once()
+            kwargs = fake_get.call_args.kwargs
+            assert kwargs["params"] == {"q": "Казань"}
+            assert kwargs["headers"] == {"Authorization": "Bearer test-key"}
+
+
+        def test_missing_key_does_not_call_api(monkeypatch):
+            monkeypatch.delenv("WEATHER_API_KEY", raising=False)
+            with patch("weather.httpx.get") as fake_get:
+                with pytest.raises(weather.WeatherError):
+                    weather.current("Казань")
+            fake_get.assert_not_called()
+
+
+        def test_timeout_becomes_weather_error(api_key):
+            with patch("weather.httpx.get", side_effect=httpx.ReadTimeout("timeout")):
+                with pytest.raises(weather.WeatherError):
+                    weather.current("Казань")
+
+
+        def test_city_not_found(api_key):
+            with patch("weather.httpx.get", return_value=make_response(404, {"error": "not found"})):
+                with pytest.raises(weather.WeatherError):
+                    weather.current("Нигдеград")
+
+
+        def test_server_error(api_key):
+            with patch("weather.httpx.get", return_value=make_response(500, {})):
+                with pytest.raises(httpx.HTTPStatusError):
+                    weather.current("Казань")
+
+
+        @pytest.mark.parametrize("temp, expected", [(21.44, "Казань: +21.4°C, ясно"), (-3.04, "Казань: -3.0°C, ясно")])
+        def test_describe(api_key, temp, expected):
+            payload = {**PAYLOAD, "main": {"temp": temp}}
+            with patch("weather.httpx.get", return_value=make_response(200, payload)):
+                assert weather.describe("Казань") == expected
+    solution_explanation: "patch подменяет httpx.get именно в модуле weather, а ключ задаётся фикстурой с monkeypatch, поэтому тесты не зависят ни от сети, ни от окружения разработчика. Настоящий httpx.Response делает подделку реалистичной, а проверки call_args ловят ошибки в самом запросе: заголовок, параметры."

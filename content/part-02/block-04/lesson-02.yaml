@@ -1,0 +1,395 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def make_adder(n):
+          def add(x):
+              return x + n
+          return add
+
+
+      add5 = make_adder(5)
+      add10 = make_adder(10)
+      print(add5(1), add10(1), add5(add10(0)))
+    options:
+      - text: "`6 11 15`"
+        correct: true
+        why: "Каждая функция помнит своё n: add10(0) = 10, add5(10) = 15."
+      - text: "`11 11 20`"
+        why: "У каждого вызова make_adder своя переменная n."
+      - text: "TypeError"
+        why: "make_adder возвращает функцию, её можно вызывать."
+    explanation: "Замыкание сохраняет переменные объемлющей функции после её завершения."
+
+  - id: q2
+    type: find_bug
+    prompt: "Вызов `total(5)` падает с UnboundLocalError. Почему?"
+    code: |
+      def make_accumulator():
+          s = 0
+
+          def total(x):
+              s = s + x
+              return s
+
+          return total
+    options:
+      - text: "Присваивание делает s локальной для total; нужно объявить nonlocal s"
+        correct: true
+        why: "Без nonlocal Python считает s локальной и не находит её значение."
+      - text: "Нельзя возвращать функцию без скобок"
+        why: "return total возвращает объект функции — так и нужно."
+      - text: "Переменная s должна быть глобальной"
+        why: "Глобальные переменные не нужны — достаточно nonlocal."
+    explanation: "Для присваивания захваченной переменной нужен nonlocal."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      funcs = [lambda: i for i in range(3)]
+      print([f() for f in funcs])
+    options:
+      - text: "`[2, 2, 2]`"
+        correct: true
+        why: "Все lambda захватили одну переменную i, к моменту вызова она равна 2."
+      - text: "`[0, 1, 2]`"
+        why: "Замыкание хранит переменную, а не значение на момент создания."
+      - text: "`[3, 3, 3]`"
+        why: "Последнее значение i в range(3) — 2."
+    explanation: "Позднее связывание: исправляется параметром по умолчанию lambda i=i: i или фабрикой."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def make_store():
+          items = []
+
+          def add(x):
+              items.append(x)
+
+          def size():
+              return len(items)
+
+          return add, size
+
+
+      add, size = make_store()
+      add("a")
+      add("b")
+      add2, size2 = make_store()
+      print(size(), size2())
+    options:
+      - text: "`2 0`"
+        correct: true
+        why: "add и size делят один список; второй вызов make_store создал новый."
+      - text: "`2 2`"
+        why: "Каждый вызов фабрики создаёт свой список items."
+      - text: "UnboundLocalError"
+        why: "append не переприсваивает items — nonlocal не нужен."
+    explanation: "Функции из одного вызова фабрики разделяют состояние; разные вызовы независимы."
+
+  - id: q5
+    type: single
+    prompt: "Что такое замыкание?"
+    options:
+      - text: "Функция вместе с захваченными переменными из объемлющей области видимости"
+        correct: true
+        why: "Переменные живут, пока жива функция."
+      - text: "Функция, которая закрывает файл после работы"
+        why: "Это контекстный менеджер (урок 6)."
+      - text: "Функция без параметров"
+        why: "Параметры не важны."
+      - text: "Рекурсивная функция"
+        why: "Рекурсия не связана с замыканиями."
+    explanation: "Замыкание = код функции + сохранённое окружение."
+
+  - id: q6
+    type: multiple
+    prompt: "В каких случаях во вложенной функции нужен `nonlocal x`? Выберите все."
+    options:
+      - text: "`x += 1`, где x — число из внешней функции"
+        correct: true
+        why: "Это присваивание."
+      - text: "`x = []` — заменить внешний список новым"
+        correct: true
+        why: "Присваивание имени x."
+      - text: "`x.append(1)`, где x — список из внешней функции"
+        why: "Метод меняет объект, а не переприсваивает имя."
+      - text: "`print(x)` — только чтение"
+        why: "Чтение работает без nonlocal."
+    explanation: "nonlocal — только для присваивания имени из объемлющей функции."
+
+tasks:
+  - id: t1
+    title: "Фабрика форматтеров"
+    difficulty: 1
+    statement: |
+      Напишите фабрику `make_formatter(prefix, suffix="", upper=False)`, которая возвращает функцию `format_text(text)`: текст без пробелов по краям, в верхнем регистре при `upper=True`, обрамлённый `prefix` и `suffix`.
+    examples:
+      - input: "make_formatter(\"[ERROR] \", upper=True)(\" disk full \")"
+        output: "'[ERROR] DISK FULL'"
+    starter: |
+      def make_formatter(prefix, suffix="", upper=False):
+          return prefix + suffix
+    hints:
+      - "Внутри объявите `def format_text(text):` и верните её без скобок."
+      - "В теле: `text = text.strip()`, `if upper: text = text.upper()`, `return f\"{prefix}{text}{suffix}\"`."
+    solution: |
+      def make_formatter(prefix, suffix="", upper=False):
+          """Создать функцию форматирования строк."""
+          def format_text(text):
+              text = text.strip()
+              if upper:
+                  text = text.upper()
+              return f"{prefix}{text}{suffix}"
+          return format_text
+    solution_explanation: "prefix, suffix и upper захвачены замыканием: каждая созданная функция помнит свои настройки."
+    tests:
+      - name: "Пример"
+        call: "make_formatter(\"[ERROR] \", upper=True)(\" disk full \")"
+        expected: "'[ERROR] DISK FULL'"
+      - name: "suffix"
+        call: "make_formatter(\"<b>\", \"</b>\")(\"важно\")"
+        expected: "'<b>важно</b>'"
+      - name: "Независимые форматтеры"
+        code: |
+          info = make_formatter("[i] ")
+          warn = make_formatter("[!] ", upper=True)
+          assert info("ok") == "[i] ok" and warn("ok") == "[!] OK"
+      - name: "Возвращается функция"
+        code: |
+          f = make_formatter("")
+          assert callable(f) and f("  x  ") == "x"
+      - name: "Это замыкание"
+        code: |
+          f = make_formatter(">> ", "!")
+          assert f.__closure__ is not None, "Функция должна захватывать параметры фабрики"
+          assert f("hi") == ">> hi!"
+
+  - id: t2
+    title: "Счётчик с шагом и сбросом"
+    difficulty: 2
+    statement: |
+      Напишите `make_counter(start=0, step=1)`, возвращающую кортеж из трёх функций, разделяющих одно состояние:
+
+      - `increment()` — увеличивает значение на `step` и возвращает новое;
+      - `reset()` — возвращает значение к `start`;
+      - `current()` — текущее значение.
+
+      Используйте замыкание и `nonlocal` (без классов и глобальных переменных).
+    examples:
+      - input: "inc, reset, cur = make_counter(10, 5); inc(); inc(); cur()"
+        output: "20"
+    starter: |
+      def make_counter(start=0, step=1):
+          value = start
+
+          def increment():
+              value += step
+              return value
+
+          return increment
+    hints:
+      - "Во всех функциях, которые присваивают `value`, объявите `nonlocal value`."
+      - "Верните `increment, reset, current` — без скобок."
+    solution: |
+      def make_counter(start=0, step=1):
+          """Счётчик: функции increment, reset и current с общим состоянием."""
+          value = start
+
+          def increment():
+              nonlocal value
+              value += step
+              return value
+
+          def reset():
+              nonlocal value
+              value = start
+
+          def current():
+              return value
+
+          return increment, reset, current
+    solution_explanation: "Три функции замыкают одну переменную value. nonlocal нужен там, где value присваивается (increment, reset), а current только читает."
+    constraints:
+      require: ["nonlocal"]
+      forbid: ["class ", "global "]
+      message: "Используйте замыкание и nonlocal"
+    tests:
+      - name: "Пример"
+        code: |
+          inc, reset, cur = make_counter(10, 5)
+          inc()
+          inc()
+          assert cur() == 20
+      - name: "reset"
+        code: |
+          inc, reset, cur = make_counter(3)
+          inc()
+          reset()
+          assert cur() == 3 and inc() == 4
+      - name: "Независимые счётчики"
+        code: |
+          a_inc, _, a_cur = make_counter()
+          b_inc, _, b_cur = make_counter()
+          a_inc()
+          a_inc()
+          assert (a_cur(), b_cur()) == (2, 0)
+      - name: "Возвращаемое значение increment"
+        code: |
+          inc, _, _ = make_counter(step=-2)
+          assert inc() == -2 and inc() == -4
+      - name: "Начальное значение"
+        code: |
+          _, _, cur = make_counter(7)
+          assert cur() == 7
+
+  - id: t3
+    title: "Ограничитель вызовов"
+    difficulty: 2
+    statement: |
+      Напишите `make_limited(func, max_calls)`, возвращающую пару `(limited, remaining)`:
+
+      - `limited(*args, **kwargs)` вызывает `func` с теми же аргументами и возвращает её результат, но не больше `max_calls` раз; дальше — `RuntimeError("лимит вызовов исчерпан")`, а `func` не вызывается;
+      - `remaining()` — сколько вызовов осталось.
+
+      Если `func` бросила исключение, вызов всё равно засчитывается.
+    examples:
+      - input: "f, left = make_limited(len, 2); f(\"abc\"), left()"
+        output: "(3, 1)"
+    starter: |
+      def make_limited(func, max_calls):
+          return func, lambda: max_calls
+    hints:
+      - "Храните `used = 0`; в limited: проверка `if used >= max_calls: raise ...`, затем `nonlocal used` и `used += 1` до вызова func."
+      - "`*args, **kwargs` в limited передаются дальше: `return func(*args, **kwargs)`."
+    solution: |
+      def make_limited(func, max_calls):
+          """Обёртка, разрешающая не больше max_calls вызовов."""
+          used = 0
+
+          def limited(*args, **kwargs):
+              nonlocal used
+              if used >= max_calls:
+                  raise RuntimeError("лимит вызовов исчерпан")
+              used += 1
+              return func(*args, **kwargs)
+
+          def remaining():
+              return max_calls - used
+
+          return limited, remaining
+    solution_explanation: "limited — функция-обёртка: принимает любые аргументы и передаёт их исходной функции. Именно так устроены декораторы — тема следующего урока."
+    tests:
+      - name: "Пример"
+        code: |
+          f, left = make_limited(len, 2)
+          assert (f("abc"), left()) == (3, 1)
+      - name: "Лимит"
+        code: |
+          calls = []
+          f, left = make_limited(calls.append, 1)
+          f("x")
+          try:
+              f("y")
+          except RuntimeError as error:
+              assert str(error) == "лимит вызовов исчерпан"
+          else:
+              raise AssertionError("Ожидался RuntimeError")
+          assert calls == ["x"] and left() == 0
+      - name: "Именованные аргументы"
+        code: |
+          f, _ = make_limited(lambda a, b=0: a - b, 3)
+          assert f(10, b=3) == 7
+      - name: "Ошибка засчитывается"
+        code: |
+          f, left = make_limited(int, 2)
+          try:
+              f("не число")
+          except ValueError:
+              pass
+          assert left() == 1
+      - name: "Независимые ограничители"
+        code: |
+          f1, left1 = make_limited(abs, 1)
+          f2, left2 = make_limited(abs, 5)
+          f1(-1)
+          assert (left1(), left2()) == (0, 5) and f2(-3) == 3
+
+  - id: t4
+    title: "Фабрики для обучения"
+    difficulty: 3
+    statement: |
+      Напишите три фабрики:
+
+      - `make_step_lr(base_lr, step_size, gamma)` → функция `lr(epoch)`: learning rate уменьшается в `gamma` раз каждые `step_size` эпох: `base_lr * gamma ** (epoch // step_size)` (округление до 10 знаков);
+      - `make_ema(alpha)` → функция `update(value)`: экспоненциальное скользящее среднее. Первый вызов возвращает само значение, далее `ema = alpha * value + (1 - alpha) * ema` (округление до 6 знаков);
+      - `constant_schedules(rates)` → список функций `lr(epoch)`, i-я всегда возвращает `rates[i]`. Не попадитесь в ловушку позднего связывания!
+    examples:
+      - input: "[make_step_lr(0.1, 10, 0.5)(e) for e in (0, 9, 10, 25)]"
+        output: "[0.1, 0.1, 0.05, 0.025]"
+    starter: |
+      def make_step_lr(base_lr, step_size, gamma):
+          return base_lr
+
+
+      def constant_schedules(rates):
+          return [lambda epoch: rate for rate in rates]
+    hints:
+      - "EMA: храните `ema = None`; в update объявите `nonlocal ema`; если `ema is None` — присвойте значение, иначе формула."
+      - "constant_schedules: вспомогательная фабрика `def constant(rate): return lambda epoch: rate` и список `[constant(rate) for rate in rates]`."
+    solution: |
+      def make_step_lr(base_lr, step_size, gamma):
+          """Ступенчатое уменьшение learning rate."""
+          def lr(epoch):
+              return round(base_lr * gamma ** (epoch // step_size), 10)
+          return lr
+
+
+      def make_ema(alpha):
+          """Экспоненциальное скользящее среднее."""
+          ema = None
+
+          def update(value):
+              nonlocal ema
+              if ema is None:
+                  ema = value
+              else:
+                  ema = alpha * value + (1 - alpha) * ema
+              return round(ema, 6)
+
+          return update
+
+
+      def _constant(rate):
+          return lambda epoch: rate
+
+
+      def constant_schedules(rates):
+          """Список постоянных расписаний — по одному на каждое значение."""
+          return [_constant(rate) for rate in rates]
+    solution_explanation: "make_step_lr и make_ema — фабрики с замыканием: первая только читает параметры, вторая хранит изменяемое состояние через nonlocal. В constant_schedules вспомогательная фабрика создаёт новую область видимости для каждого значения — иначе все функции вернули бы последний rate."
+    tests:
+      - name: "Ступенчатый LR"
+        call: "[make_step_lr(0.1, 10, 0.5)(e) for e in (0, 9, 10, 25)]"
+        expected: "[0.1, 0.1, 0.05, 0.025]"
+      - name: "EMA"
+        code: |
+          update = make_ema(0.5)
+          assert [update(v) for v in (10, 20, 20, 0)] == [10, 15.0, 17.5, 8.75]
+      - name: "Независимые EMA"
+        code: |
+          a = make_ema(0.1)
+          b = make_ema(0.9)
+          a(100)
+          assert b(5) == 5, "Каждая EMA хранит своё состояние"
+      - name: "Позднее связывание"
+        code: |
+          schedules = constant_schedules([0.1, 0.01, 0.001])
+          assert [s(0) for s in schedules] == [0.1, 0.01, 0.001], [s(0) for s in schedules]
+      - name: "Пустой список"
+        call: "constant_schedules([])"
+        expected: "[]"

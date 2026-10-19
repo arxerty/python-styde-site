@@ -1,0 +1,531 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Box:
+          def __enter__(self):
+              print("вход")
+              return "данные"
+
+          def __exit__(self, exc_type, exc_value, tb):
+              print("выход", exc_type is not None)
+
+
+      try:
+          with Box() as value:
+              print(value)
+              raise ValueError
+      except ValueError:
+          print("снаружи")
+    options:
+      - text: |
+          ```
+          вход
+          данные
+          выход True
+          снаружи
+          ```
+        correct: true
+        why: "__exit__ вызывается при исключении, затем исключение выходит наружу (__exit__ вернул None)."
+      - text: |
+          ```
+          вход
+          данные
+          снаружи
+          ```
+        why: "__exit__ вызывается при любом выходе из блока."
+      - text: |
+          ```
+          вход
+          данные
+          выход True
+          ```
+        why: "None из __exit__ не подавляет исключение — оно перехватывается снаружи."
+    explanation: "as получает результат __enter__; __exit__ выполняется всегда."
+
+  - id: q2
+    type: find_bug
+    prompt: "Если в блоке `with locked(resource):` произойдёт исключение, ресурс останется заблокированным. Почему?"
+    code: |
+      from contextlib import contextmanager
+
+
+      @contextmanager
+      def locked(resource):
+          resource.locked = True
+          yield resource
+          resource.locked = False
+    options:
+      - text: "Код после yield не выполняется при исключении — нужен try/finally вокруг yield"
+        correct: true
+        why: "Исключение «вбрасывается» в генератор в точке yield."
+      - text: "В @contextmanager нельзя менять атрибуты"
+        why: "Можно; проблема в отсутствии finally."
+      - text: "Нужно два yield — для входа и для выхода"
+        why: "В @contextmanager ровно один yield."
+    explanation: "try: yield … finally: освобождение — обязательный шаблон."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Swallow:
+          def __enter__(self):
+              return self
+
+          def __exit__(self, exc_type, exc_value, tb):
+              return True
+
+
+      with Swallow():
+          print("A")
+          1 / 0
+          print("B")
+      print("C")
+    options:
+      - text: |
+          ```
+          A
+          C
+          ```
+        correct: true
+        why: "Исключение прерывает блок, а True из __exit__ подавляет его."
+      - text: |
+          ```
+          A
+          B
+          C
+          ```
+        why: "После исключения остаток блока не выполняется."
+      - text: "`A` и ZeroDivisionError"
+        why: "__exit__ вернул True — исключение подавлено."
+    explanation: "Истинный результат __exit__ подавляет исключение."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from contextlib import contextmanager
+
+
+      @contextmanager
+      def step(name):
+          print("начало", name)
+          try:
+              yield
+          finally:
+              print("конец", name)
+
+
+      with step("A"), step("B"):
+          print("работа")
+    options:
+      - text: |
+          ```
+          начало A
+          начало B
+          работа
+          конец B
+          конец A
+          ```
+        correct: true
+        why: "Вход слева направо, выход в обратном порядке."
+      - text: |
+          ```
+          начало A
+          начало B
+          работа
+          конец A
+          конец B
+          ```
+        why: "Менеджеры закрываются в обратном порядке, как вложенные блоки."
+      - text: |
+          ```
+          начало A
+          конец A
+          начало B
+          работа
+          конец B
+          ```
+        why: "Оба менеджера активны во время тела блока."
+    explanation: "with a, b: — то же, что with a: with b:."
+
+  - id: q5
+    type: single
+    prompt: "Что связывается с переменной `f` в `with open(\"x.txt\") as f:`?"
+    options:
+      - text: "Результат метода `__enter__` объекта, возвращённого `open(...)`"
+        correct: true
+        why: "У файла __enter__ возвращает сам файл."
+      - text: "Всегда сам объект контекстного менеджера"
+        why: "Только если __enter__ возвращает self."
+      - text: "Результат `__exit__`"
+        why: "__exit__ вызывается при выходе."
+      - text: "Содержимое файла"
+        why: "Содержимое читается методом read()."
+    explanation: "as получает значение, которое вернул __enter__."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно про контекстные менеджеры? Выберите все."
+    options:
+      - text: "__exit__ вызывается и при return изнутри блока with"
+        correct: true
+        why: "При любом выходе из блока."
+      - text: "contextlib.suppress(KeyError) подавляет только KeyError и его потомков"
+        correct: true
+        why: "Остальные исключения проходят."
+      - text: "В функции с @contextmanager должен быть ровно один yield"
+        correct: true
+        why: "Иначе RuntimeError."
+      - text: "__exit__ не получает информации об исключении"
+        why: "Получает тип, значение и трассировку."
+    explanation: "with гарантирует уборку при любом исходе."
+
+tasks:
+  - id: t1
+    title: "Временный элемент словаря"
+    difficulty: 1
+    statement: |
+      Напишите с помощью `@contextmanager` менеджер `temporary_item(d, key, value)`: на время блока `d[key] = value`; после выхода (в том числе при исключении) прежнее значение восстанавливается, а если ключа раньше не было — он удаляется. Менеджер отдаёт в `as` сам словарь.
+    examples:
+      - input: "cfg = {\"lr\": 0.1}\nwith temporary_item(cfg, \"lr\", 0.0): inside = cfg[\"lr\"]\n(inside, cfg)"
+        output: "(0.0, {'lr': 0.1})"
+    starter: |
+      from contextlib import contextmanager
+
+
+      @contextmanager
+      def temporary_item(d, key, value):
+          old = d[key]
+          d[key] = value
+          yield d
+          d[key] = old
+    hints:
+      - "Запомните, был ли ключ: `existed = key in d` и `old = d.get(key)`."
+      - "`try: yield d` / `finally:` — если existed, верните old, иначе `del d[key]`."
+    solution: |
+      from contextlib import contextmanager
+
+
+      @contextmanager
+      def temporary_item(d, key, value):
+          """Временно подменить d[key]."""
+          existed = key in d
+          old = d.get(key)
+          d[key] = value
+          try:
+              yield d
+          finally:
+              if existed:
+                  d[key] = old
+              else:
+                  del d[key]
+    solution_explanation: "Состояние «до» запоминается при входе, а восстанавливается в finally — значит, и при исключении. Отдельно обрабатывается случай, когда ключа не было: его нужно удалить, а не записать None."
+    tests:
+      - name: "Пример"
+        code: |
+          cfg = {"lr": 0.1}
+          with temporary_item(cfg, "lr", 0.0):
+              inside = cfg["lr"]
+          assert (inside, cfg) == (0.0, {"lr": 0.1})
+      - name: "Ключа не было"
+        code: |
+          d = {}
+          with temporary_item(d, "debug", True) as same:
+              assert same is d and d == {"debug": True}
+          assert d == {}
+      - name: "Восстановление при исключении"
+        code: |
+          d = {"mode": "train"}
+          try:
+              with temporary_item(d, "mode", "eval"):
+                  raise RuntimeError("сбой")
+          except RuntimeError:
+              pass
+          assert d == {"mode": "train"}
+      - name: "Ключ со значением None"
+        code: |
+          d = {"x": None}
+          with temporary_item(d, "x", 1):
+              pass
+          assert d == {"x": None}, "Ключ существовал — его нужно восстановить, а не удалить"
+      - name: "Вложенные"
+        code: |
+          d = {"a": 1}
+          with temporary_item(d, "a", 2):
+              with temporary_item(d, "a", 3):
+                  assert d["a"] == 3
+              assert d["a"] == 2
+          assert d["a"] == 1
+
+  - id: t2
+    title: "Таймер-класс"
+    difficulty: 2
+    statement: |
+      Создайте класс-контекстный менеджер `Timer(clock=time.perf_counter)`:
+
+      - `__enter__` запоминает время старта и возвращает сам таймер;
+      - `__exit__` записывает длительность в `last` и прибавляет её к `total`; исключения **не** подавляются;
+      - атрибут `count` — сколько раз таймер использовался;
+      - один объект можно использовать в нескольких блоках `with` подряд.
+    examples:
+      - input: "ticks = iter([0, 2, 10, 13]); t = Timer(clock=lambda: next(ticks))\nwith t: pass\nwith t: pass\n(t.last, t.total, t.count)"
+        output: "(3, 5, 2)"
+    starter: |
+      import time
+
+
+      class Timer:
+          def __init__(self, clock=time.perf_counter):
+              self.clock = clock
+
+          def __enter__(self):
+              self.start = self.clock()
+
+          def __exit__(self, exc_type, exc_value, tb):
+              self.last = self.clock() - self.start
+              return True
+    hints:
+      - "В `__init__`: `self.last = None`, `self.total = 0`, `self.count = 0`; `__enter__` должен `return self`."
+      - "`__exit__` возвращает `False`, чтобы не подавлять исключения."
+    solution: |
+      import time
+
+
+      class Timer:
+          """Многоразовый таймер для блоков with."""
+
+          def __init__(self, clock=time.perf_counter):
+              self.clock = clock
+              self.last = None
+              self.total = 0
+              self.count = 0
+
+          def __enter__(self):
+              self._start = self.clock()
+              return self
+
+          def __exit__(self, exc_type, exc_value, tb):
+              self.last = self.clock() - self._start
+              self.total += self.last
+              self.count += 1
+              return False
+    solution_explanation: "Таймер хранит накопленную статистику между блоками. __exit__ возвращает False: замер времени не должен менять поведение программы и скрывать ошибки."
+    tests:
+      - name: "Пример"
+        code: |
+          ticks = iter([0, 2, 10, 13])
+          t = Timer(clock=lambda: next(ticks))
+          with t:
+              pass
+          with t:
+              pass
+          assert (t.last, t.total, t.count) == (3, 5, 2)
+      - name: "as возвращает таймер"
+        code: |
+          ticks = iter([1, 4])
+          with Timer(clock=lambda: next(ticks)) as t:
+              pass
+          assert isinstance(t, Timer) and t.last == 3
+      - name: "Исключение не подавляется"
+        code: |
+          ticks = iter([0, 7])
+          t = Timer(clock=lambda: next(ticks))
+          try:
+              with t:
+                  raise KeyError("x")
+          except KeyError:
+              pass
+          else:
+              raise AssertionError("Исключение должно выйти из блока")
+          assert t.last == 7 and t.count == 1
+      - name: "Начальное состояние"
+        code: |
+          t = Timer()
+          assert t.last is None and t.total == 0 and t.count == 0
+      - name: "Настоящие часы"
+        code: |
+          with Timer() as t:
+              sum(range(10000))
+          assert t.last >= 0
+
+  - id: t3
+    title: "Подавление с журналом"
+    difficulty: 2
+    statement: |
+      Создайте класс `Suppress(*types)`: в блоке `with` подавляет исключения указанных типов (и их потомков), записывая их в список `errors`; остальные исключения пропускает. Один объект можно использовать многократно — ошибки копятся. Свойство `ok` — `True`, если ошибок не было.
+    examples:
+      - input: "s = Suppress(KeyError)\nwith s: {}[\"x\"]\n(s.ok, len(s.errors))"
+        output: "(False, 1)"
+    starter: |
+      class Suppress:
+          def __init__(self, *types):
+              self.types = types
+
+          def __enter__(self):
+              return self
+
+          def __exit__(self, exc_type, exc_value, tb):
+              return True
+    hints:
+      - "`if exc_type is not None and issubclass(exc_type, self.types):` — запишите `exc_value` и верните True."
+      - "Во всех остальных случаях `return False`."
+    solution: |
+      class Suppress:
+          """Подавление указанных исключений с журналом."""
+
+          def __init__(self, *types):
+              self.types = types
+              self.errors = []
+
+          def __enter__(self):
+              return self
+
+          def __exit__(self, exc_type, exc_value, tb):
+              if exc_type is not None and issubclass(exc_type, self.types):
+                  self.errors.append(exc_value)
+                  return True
+              return False
+
+          @property
+          def ok(self):
+              return not self.errors
+    solution_explanation: "Подавляются только перечисленные типы: issubclass учитывает иерархию, поэтому Suppress(LookupError) поймает и KeyError, и IndexError. Журнал ошибок позволяет обработать «пакет» операций и потом посмотреть, что не удалось."
+    tests:
+      - name: "Пример"
+        code: |
+          s = Suppress(KeyError)
+          with s:
+              {}["x"]
+          assert (s.ok, len(s.errors)) == (False, 1)
+          assert isinstance(s.errors[0], KeyError)
+      - name: "Другие исключения проходят"
+        code: |
+          s = Suppress(KeyError)
+          try:
+              with s:
+                  int("abc")
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("ValueError не должен подавляться")
+          assert s.ok
+      - name: "Потомки и несколько типов"
+        code: |
+          s = Suppress(LookupError, ZeroDivisionError)
+          for action in (lambda: [][1], lambda: {}["k"], lambda: 1 / 0):
+              with s:
+                  action()
+          assert len(s.errors) == 3
+      - name: "Без ошибок"
+        code: |
+          with Suppress(Exception) as s:
+              x = 1 + 1
+          assert s.ok and s.errors == []
+      - name: "Блок прерывается"
+        code: |
+          steps = []
+          with Suppress(RuntimeError):
+              steps.append(1)
+              raise RuntimeError
+              steps.append(2)
+          assert steps == [1]
+
+  - id: t4
+    title: "Транзакция"
+    difficulty: 3
+    statement: |
+      Напишите с помощью `@contextmanager` менеджер `transaction(store)`, где `store` — словарь балансов:
+
+      - в блок отдаётся **глубокая копия** `store` (`copy.deepcopy`) — все изменения делаются в ней;
+      - если блок завершился без исключений, изменения применяются к `store` (содержимое заменяется копией);
+      - при исключении `store` не меняется, а исключение пробрасывается.
+
+      Функция `transfer(store, src, dst, amount)` переводит `amount` со счёта `src` на `dst` внутри транзакции; если на `src` не хватает денег или счёта нет — `ValueError` (и балансы не меняются).
+    examples:
+      - input: "bank = {\"ada\": 100, \"alan\": 0}; transfer(bank, \"ada\", \"alan\", 30); bank"
+        output: "{'ada': 70, 'alan': 30}"
+    starter: |
+      from contextlib import contextmanager
+
+
+      @contextmanager
+      def transaction(store):
+          yield store
+
+
+      def transfer(store, src, dst, amount):
+          store[src] -= amount
+          store[dst] += amount
+    hints:
+      - "`working = copy.deepcopy(store)`; `yield working`; после yield (выполнится только при успехе): `store.clear()` и `store.update(working)`."
+      - "В transfer: `with transaction(store) as tx:` — сначала списание и проверка, потом зачисление. Отсутствующий счёт: проверка `if src not in tx or dst not in tx: raise ValueError(...)`."
+    solution: |
+      import copy
+      from contextlib import contextmanager
+
+
+      @contextmanager
+      def transaction(store):
+          """Изменения применяются к store только при успешном завершении блока."""
+          working = copy.deepcopy(store)
+          yield working
+          store.clear()
+          store.update(working)
+
+
+      def transfer(store, src, dst, amount):
+          """Перевести amount со счёта src на dst атомарно."""
+          with transaction(store) as tx:
+              if src not in tx or dst not in tx:
+                  raise ValueError("счёт не найден")
+              tx[src] -= amount
+              tx[dst] += amount
+              if tx[src] < 0:
+                  raise ValueError(f"недостаточно средств на счёте {src}")
+    solution_explanation: "Здесь отсутствие finally — осознанное решение: код после yield должен выполниться только при успехе. При исключении генератор не дойдёт до фиксации, и store останется прежним. Это идея транзакций в базах данных: «всё или ничего». Заметьте, что в transfer баланс уходит в минус до проверки — и это безопасно, ведь изменения пока только в копии."
+    tests:
+      - name: "Пример"
+        code: |
+          bank = {"ada": 100, "alan": 0}
+          transfer(bank, "ada", "alan", 30)
+          assert bank == {"ada": 70, "alan": 30}
+      - name: "Откат при нехватке средств"
+        code: |
+          bank = {"ada": 10, "alan": 0}
+          try:
+              transfer(bank, "ada", "alan", 50)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+          assert bank == {"ada": 10, "alan": 0}
+      - name: "Неизвестный счёт"
+        code: |
+          bank = {"ada": 10}
+          try:
+              transfer(bank, "ada", "bob", 1)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+          assert bank == {"ada": 10}
+      - name: "Глубокая копия"
+        code: |
+          store = {"history": [1]}
+          try:
+              with transaction(store) as tx:
+                  tx["history"].append(2)
+                  raise RuntimeError
+          except RuntimeError:
+              pass
+          assert store == {"history": [1]}, "Вложенные объекты тоже не должны меняться при откате"
+      - name: "Тот же объект store"
+        code: |
+          store = {"a": 1}
+          same = store
+          with transaction(store) as tx:
+              tx["b"] = 2
+          assert same is store and store == {"a": 1, "b": 2}

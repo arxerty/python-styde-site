@@ -1,0 +1,259 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      words = ["кит", "слон", "ёж"]
+      print(sorted(words, key=lambda w: len(w)), max(words, key=len))
+    options:
+      - text: "`['ёж', 'кит', 'слон'] слон`"
+        correct: true
+        why: "Сортировка по длине: 2, 3, 4; самое длинное — «слон»."
+      - text: "`['кит', 'слон', 'ёж'] слон`"
+        why: "key задаёт сравнение по длине, а не исходный порядок."
+      - text: "`['ёж', 'кит', 'слон'] ёж`"
+        why: "max с key=len ищет самое длинное."
+    explanation: "key=lambda w: len(w) и key=len — одно и то же."
+
+  - id: q2
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      nums = ["4", "10", "2"]
+      print(sorted(nums), sorted(nums, key=int))
+    options:
+      - text: "`['10', '2', '4'] ['2', '4', '10']`"
+        correct: true
+        why: "Без ключа строки сравниваются посимвольно; key=int сравнивает как числа, но возвращает исходные строки."
+      - text: "`['2', '4', '10'] [2, 4, 10]`"
+        why: "key не меняет элементы — только порядок сравнения."
+      - text: "`['10', '2', '4'] [2, 4, 10]`"
+        why: "Элементы остаются строками."
+    explanation: "Ключ сортировки влияет на сравнение, но не на сами элементы."
+
+  - id: q3
+    type: find_bug
+    prompt: "Почему код падает?"
+    code: |
+      data = ["b", "aa", "ccc"]
+      print(sorted(data, key=len()))
+    options:
+      - text: "`len()` вызывается сразу и без аргумента; нужно передать саму функцию: `key=len`"
+        correct: true
+        why: "TypeError: len() takes exactly one argument (0 given)."
+      - text: "sorted не принимает key"
+        why: "Принимает."
+      - text: "Строки нельзя сортировать по длине"
+        why: "Можно — key=len."
+    explanation: "Функцию передают без скобок — её вызовет sorted."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      values = [3, 0, -1, 5]
+      print(list(map(lambda x: x * 2, filter(lambda x: x > 0, values))))
+    options:
+      - text: "`[6, 10]`"
+        correct: true
+        why: "filter оставляет 3 и 5, map удваивает их."
+      - text: "`[6, 0, -2, 10]`"
+        why: "Сначала filter отбрасывает 0 и −1."
+      - text: "`[3, 5]`"
+        why: "map применяет удвоение к отфильтрованным."
+    explanation: "Эквивалентный comprehension: `[x * 2 for x in values if x > 0]`."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие утверждения верны? Выберите все."
+    options:
+      - text: "Тело lambda — одно выражение, его значение возвращается автоматически"
+        correct: true
+        why: "Без return и без инструкций."
+      - text: "map и filter ленивые: нужно list(), чтобы увидеть все элементы"
+        correct: true
+        why: "Они выдают элементы по мере перебора."
+      - text: "Функцию можно положить в словарь и вызвать по ключу"
+        correct: true
+        why: "Функции — объекты."
+      - text: "PEP 8 рекомендует писать `f = lambda x: x + 1` вместо def"
+        why: "Наоборот: если нужно имя — используйте def."
+    explanation: "Функции — объекты первого класса; lambda — для коротких аргументов."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      people = [("Ада", 36), ("Алан", 41), ("Билл", 36)]
+      print([name for name, age in sorted(people, key=lambda p: (-p[1], p[0]))])
+    answer: "['Алан', 'Ада', 'Билл']"
+    explanation: "Сначала по убыванию возраста (−age), при равенстве — по имени по алфавиту."
+
+tasks:
+  - id: t1
+    title: "Сортировка студентов"
+    difficulty: 1
+    statement: |
+      Напишите функцию `rank_students(students)`, принимающую список словарей `{"name": ..., "score": ...}` и возвращающую **список имён**, отсортированных по убыванию балла, а при равном балле — по имени по алфавиту.
+    examples:
+      - input: "rank_students([{\"name\": \"Алан\", \"score\": 88}, {\"name\": \"Ада\", \"score\": 95}])"
+        output: "['Ада', 'Алан']"
+    starter: |
+      def rank_students(students):
+          return sorted(students)
+    hints:
+      - "Ключ-кортеж: `key=lambda s: (-s[\"score\"], s[\"name\"])`."
+      - "Из отсортированных словарей соберите имена: `[s[\"name\"] for s in ...]`."
+    solution: |
+      def rank_students(students):
+          ranked = sorted(students, key=lambda s: (-s["score"], s["name"]))
+          return [s["name"] for s in ranked]
+    solution_explanation: "Кортеж в ключе задаёт два признака; минус перед числом меняет направление только для балла."
+    tests:
+      - name: "Пример"
+        call: "rank_students([{\"name\": \"Алан\", \"score\": 88}, {\"name\": \"Ада\", \"score\": 95}])"
+        expected: "['Ада', 'Алан']"
+      - name: "Равные баллы — по алфавиту"
+        call: "rank_students([{\"name\": \"Грейс\", \"score\": 90}, {\"name\": \"Билл\", \"score\": 90}])"
+        expected: "['Билл', 'Грейс']"
+      - name: "Пустой список"
+        call: "rank_students([])"
+        expected: "[]"
+      - name: "Три студента"
+        call: "rank_students([{\"name\": \"В\", \"score\": 1}, {\"name\": \"Б\", \"score\": 2}, {\"name\": \"А\", \"score\": 1}])"
+        expected: "['Б', 'А', 'В']"
+      - name: "Исходный список не меняется"
+        code: |
+          data = [{"name": "Б", "score": 1}, {"name": "А", "score": 2}]
+          rank_students(data)
+          assert data[0]["name"] == "Б", "Используйте sorted, а не sort"
+
+  - id: t2
+    title: "Разбор чисел через map"
+    difficulty: 1
+    statement: |
+      Напишите функцию `parse_numbers(line)`, которая получает строку чисел через запятую (с возможными пробелами) и возвращает список `float`. Пустые элементы пропускаются.
+    examples:
+      - input: "parse_numbers(\"1.5, 2,, 3\")"
+        output: "[1.5, 2.0, 3.0]"
+    starter: |
+      def parse_numbers(line):
+          return line.split(",")
+    hints:
+      - "Уберите пробелы у кусков: `map(str.strip, line.split(\",\"))`, затем отбросьте пустые через `filter(None, ...)`."
+      - "Финальное преобразование: `list(map(float, ...))`."
+    solution: |
+      def parse_numbers(line):
+          parts = map(str.strip, line.split(","))
+          return list(map(float, filter(None, parts)))
+    solution_explanation: "Цепочка map → filter → map с готовыми функциями (str.strip, float) читается как конвейер; filter(None, ...) отбрасывает пустые строки."
+    tests:
+      - name: "Пример"
+        call: "parse_numbers(\"1.5, 2,, 3\")"
+        expected: "[1.5, 2.0, 3.0]"
+      - name: "Пустая строка"
+        call: "parse_numbers(\"\")"
+        expected: "[]"
+      - name: "Отрицательные"
+        call: "parse_numbers(\"-1, -2.5\")"
+        expected: "[-1.0, -2.5]"
+      - name: "Пробелы и пустые"
+        call: "parse_numbers(\" , 7 ,  \")"
+        expected: "[7.0]"
+      - name: "Тип элементов"
+        code: |
+          assert all(isinstance(x, float) for x in parse_numbers("1,2"))
+
+  - id: t3
+    title: "Калькулятор на словаре функций"
+    difficulty: 2
+    statement: |
+      Напишите функцию `calculate(a, op, b)` без цепочки `if/elif`: используйте словарь «операция → функция» для `+`, `-`, `*`, `/`, `**`. Деление на ноль возвращает `None`, неизвестная операция — тоже `None`.
+    examples:
+      - input: "calculate(2, \"**\", 10)"
+        output: "1024"
+    starter: |
+      def calculate(a, op, b):
+          if op == "+":
+              return a + b
+    hints:
+      - "`OPERATIONS = {\"+\": lambda x, y: x + y, ...}` — вынесите словарь на уровень модуля."
+      - "`func = OPERATIONS.get(op)`; если None — вернуть None. Деление на ноль удобно учесть прямо в lambda: `lambda x, y: x / y if y != 0 else None`."
+    solution: |
+      OPERATIONS = {
+          "+": lambda x, y: x + y,
+          "-": lambda x, y: x - y,
+          "*": lambda x, y: x * y,
+          "/": lambda x, y: x / y if y != 0 else None,
+          "**": lambda x, y: x ** y,
+      }
+
+
+      def calculate(a, op, b):
+          func = OPERATIONS.get(op)
+          if func is None:
+              return None
+          return func(a, b)
+    solution_explanation: "Словарь функций заменяет цепочку условий: чтобы добавить операцию, достаточно новой строки в словаре. Так же агент выбирает инструмент по имени."
+    constraints:
+      forbid: ["elif"]
+    tests:
+      - name: "Степень"
+        call: "calculate(2, \"**\", 10)"
+        expected: "1024"
+      - name: "Деление"
+        call: "calculate(7, \"/\", 2)"
+        expected: "3.5"
+      - name: "Деление на ноль"
+        call: "calculate(1, \"/\", 0)"
+        expected: "None"
+      - name: "Неизвестная операция"
+        call: "calculate(1, \"%\", 2)"
+        expected: "None"
+      - name: "Вычитание"
+        call: "calculate(5, \"-\", 8)"
+        expected: "-3"
+
+  - id: t4
+    title: "Лучший ответ модели"
+    difficulty: 3
+    statement: |
+      Напишите `best_answers(candidates, k=1)`. `candidates` — список словарей `{"text": str, "confidence": float}`. Функция:
+
+      1. отбрасывает кандидатов с пустым текстом (после strip);
+      2. сортирует по убыванию `confidence`, при равенстве — по возрастанию длины текста (после strip), при полном равенстве — сохраняет исходный порядок;
+      3. возвращает список **текстов** (после strip) первых `k`.
+    examples:
+      - input: "best_answers([{\"text\": \"Париж\", \"confidence\": 0.9}, {\"text\": \" \", \"confidence\": 1.0}, {\"text\": \"Лион\", \"confidence\": 0.3}], k=2)"
+        output: "['Париж', 'Лион']"
+    starter: |
+      def best_answers(candidates, k=1):
+          return [c["text"] for c in candidates[:k]]
+    hints:
+      - "Фильтр: `[c for c in candidates if c[\"text\"].strip()]`."
+      - "Ключ: `lambda c: (-c[\"confidence\"], len(c[\"text\"].strip()))`; sorted стабилен, поэтому полное равенство сохранит порядок."
+    solution: |
+      def best_answers(candidates, k=1):
+          valid = [c for c in candidates if c["text"].strip()]
+          ranked = sorted(valid, key=lambda c: (-c["confidence"], len(c["text"].strip())))
+          return [c["text"].strip() for c in ranked[:k]]
+    solution_explanation: "Фильтр, сортировка с составным ключом и срез top-k — типичная пост-обработка нескольких вариантов ответа LLM (best-of-n)."
+    tests:
+      - name: "Пример"
+        call: "best_answers([{\"text\": \"Париж\", \"confidence\": 0.9}, {\"text\": \" \", \"confidence\": 1.0}, {\"text\": \"Лион\", \"confidence\": 0.3}], k=2)"
+        expected: "['Париж', 'Лион']"
+      - name: "Равная уверенность — короче выше"
+        call: "best_answers([{\"text\": \"Столица — Париж\", \"confidence\": 0.8}, {\"text\": \"Париж\", \"confidence\": 0.8}])"
+        expected: "['Париж']"
+      - name: "Все пустые"
+        call: "best_answers([{\"text\": \"\", \"confidence\": 0.5}])"
+        expected: "[]"
+      - name: "k больше количества"
+        call: "best_answers([{\"text\": \"a\", \"confidence\": 0.1}], k=5)"
+        expected: "['a']"
+      - name: "Полное равенство — исходный порядок"
+        call: "best_answers([{\"text\": \"ab\", \"confidence\": 0.5}, {\"text\": \"cd\", \"confidence\": 0.5}], k=2)"
+        expected: "['ab', 'cd']"
+      - name: "Текст очищается от пробелов"
+        call: "best_answers([{\"text\": \"  да  \", \"confidence\": 0.7}])"
+        expected: "['да']"

@@ -1,0 +1,230 @@
+# Демо-урок: все типы вопросов и задач.
+questions:
+  - id: q1
+    type: single
+    prompt: "Что делает функция `print()`?"
+    options:
+      - text: "Выводит значение на экран"
+        correct: true
+        why: "Именно так: `print()` выводит переданные значения в стандартный вывод."
+      - text: "Отправляет документ на принтер"
+        why: "Название историческое — к принтеру функция отношения не имеет."
+      - text: "Сохраняет значение в файл"
+        why: "Для записи в файл используют `open()` и `write()`."
+    explanation: "`print()` — основной способ увидеть результат работы программы."
+
+  - id: q2
+    type: multiple
+    prompt: "Какие из этих значений — числа? Выберите все верные варианты."
+    options:
+      - text: "`42`"
+        correct: true
+        why: "Целое число (`int`)."
+      - text: "`3.14`"
+        correct: true
+        why: "Дробное число (`float`)."
+      - text: "`\"42\"`"
+        why: "В кавычках — это строка, хоть и из цифр."
+    explanation: "Кавычки превращают любой текст в строку, даже если внутри цифры."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет этот код?"
+    code: |
+      x = 3
+      print(x * 2)
+    options:
+      - text: "`6`"
+        correct: true
+        why: "3 * 2 = 6."
+      - text: "`x * 2`"
+        why: "Без кавычек Python вычисляет выражение, а не печатает его текст."
+      - text: "`33`"
+        why: "Так было бы со строкой `'3' * 2`, а здесь число."
+    explanation: "Python сначала вычисляет выражение `x * 2`, затем печатает результат."
+
+  - id: q4
+    type: find_bug
+    prompt: "В какой строке ошибка?"
+    code: |
+      greeting = "Привет"
+      print(greting)
+    options:
+      - text: "В строке 2: опечатка в имени переменной"
+        correct: true
+        why: "Переменная называется `greeting`, а в `print` написано `greting` — будет `NameError`."
+      - text: "В строке 1: строку нельзя присвоить переменной"
+        why: "Присваивать строки переменным можно."
+      - text: "Ошибки нет"
+        why: "Опечатка в имени приведёт к `NameError`."
+    explanation: "Python не угадывает имена: каждая буква важна, регистр тоже."
+
+  - id: q5
+    type: output
+    prompt: "Введите ответ сами: что выведет код?"
+    code: |
+      print(len("AI"))
+    answer: "2"
+    explanation: "`len()` возвращает длину строки: в «AI» два символа."
+
+tasks:
+  - id: t1
+    title: "Функция приветствия"
+    difficulty: 1
+    statement: |
+      Напишите функцию `greet(name)`, которая **возвращает** строку `Привет, <name>!`.
+
+      Тип проверки: вызов функции и сравнение результата (`call` + `expected`).
+    examples:
+      - input: 'greet("Ада")'
+        output: "'Привет, Ада!'"
+    starter: |
+      def greet(name):
+          # верните строку приветствия
+          pass
+    hints:
+      - "Используйте f-строку: `f\"Привет, {name}!\"`."
+      - "Функция должна вернуть значение через `return`, а не напечатать его."
+    solution: |
+      def greet(name):
+          return f"Привет, {name}!"
+    solution_explanation: "f-строка подставляет значение переменной в текст, `return` отдаёт результат вызывающему коду."
+    tests:
+      - name: "Обычное имя"
+        call: 'greet("Ада")'
+        expected: "'Привет, Ада!'"
+      - name: "Латиница"
+        call: 'greet("Guido")'
+        expected: "'Привет, Guido!'"
+      - name: "Пустое имя"
+        call: 'greet("")'
+        expected: "'Привет, !'"
+      - name: "Имя с пробелом"
+        call: 'greet("Анна Мария")'
+        expected: "'Привет, Анна Мария!'"
+      - name: "Возвращает строку"
+        code: |
+          assert isinstance(greet("X"), str), "Функция должна возвращать строку, а не None"
+
+  - id: t2
+    title: "Сумма двух чисел с клавиатуры"
+    difficulty: 1
+    statement: |
+      Программа читает два целых числа (каждое на своей строке) и печатает их сумму.
+
+      Тип проверки: ввод `stdin` и сравнение вывода `stdout`.
+    examples:
+      - input: "2\n3"
+        output: "5"
+    starter: |
+      a = int(input())
+      # прочитайте второе число и выведите сумму
+    hints:
+      - "Второе число читается так же, как первое."
+      - "Не забудьте преобразовать ввод в `int`, иначе строки склеятся."
+    solution: |
+      a = int(input())
+      b = int(input())
+      print(a + b)
+    solution_explanation: "`input()` возвращает строку, поэтому оборачиваем в `int()` перед сложением."
+    tests:
+      - name: "Положительные"
+        stdin: "2\n3\n"
+        stdout: "5"
+      - name: "С нулём"
+        stdin: "0\n7\n"
+        stdout: "7"
+      - name: "Отрицательные"
+        stdin: "-4\n-6\n"
+        stdout: "-10"
+      - name: "Большие числа"
+        stdin: "1000000\n2000000\n"
+        stdout: "3000000"
+      - name: "Разные знаки"
+        stdin: "10\n-3\n"
+        stdout: "7"
+
+  - id: t3
+    title: "Сумма без sum()"
+    difficulty: 2
+    statement: |
+      Напишите функцию `total(numbers)`, которая возвращает сумму списка **без** использования встроенной `sum()`.
+
+      Тип проверки: ограничения `constraints` + тесты с `assert`.
+    starter: |
+      def total(numbers):
+          result = 0
+          return result
+    hints:
+      - "Пройдите по списку циклом `for` и прибавляйте каждый элемент к `result`."
+      - "Для пустого списка ответ — 0."
+    solution: |
+      def total(numbers):
+          result = 0
+          for number in numbers:
+              result += number
+          return result
+    solution_explanation: "Классический накопитель: начинаем с нуля и прибавляем элементы по одному."
+    constraints:
+      forbid: ["sum("]
+      message: "Цель задачи — потренировать цикл."
+    tests:
+      - name: "Несколько чисел"
+        call: "total([1, 2, 3])"
+        expected: "6"
+      - name: "Пустой список"
+        call: "total([])"
+        expected: "0"
+      - name: "Отрицательные"
+        call: "total([-1, -2, 5])"
+        expected: "2"
+      - name: "Дробные"
+        call: "total([0.1, 0.2])"
+        expected: "0.3"
+      - name: "Не меняет список"
+        code: |
+          data = [1, 2]
+          total(data)
+          assert data == [1, 2], "Функция не должна изменять входной список"
+
+  - id: t4
+    title: "Подсчёт строк в файле"
+    difficulty: 2
+    statement: |
+      В рабочей папке лежит файл `notes.txt`. Напишите функцию `count_lines(path)`, которая возвращает количество строк в файле.
+
+      Тип проверки: виртуальные файлы `files` создаются перед запуском.
+    starter: |
+      def count_lines(path):
+          pass
+    files:
+      notes.txt: "первая\nвторая\nтретья\n"
+      empty.txt: ""
+    hints:
+      - "Откройте файл через `with open(path, encoding=\"utf-8\") as f:`."
+      - "`f.readlines()` вернёт список строк — осталось взять его длину."
+    solution: |
+      def count_lines(path):
+          with open(path, encoding="utf-8") as file:
+              return len(file.readlines())
+    solution_explanation: "`readlines()` читает файл в список строк; длина списка — число строк."
+    tests:
+      - name: "Три строки"
+        call: 'count_lines("notes.txt")'
+        expected: "3"
+      - name: "Пустой файл"
+        call: 'count_lines("empty.txt")'
+        expected: "0"
+      - name: "Файл без перевода строки в конце"
+        code: |
+          with open("one.txt", "w", encoding="utf-8") as f:
+              f.write("одна")
+          assert count_lines("one.txt") == 1
+      - name: "Много строк"
+        code: |
+          with open("many.txt", "w", encoding="utf-8") as f:
+              f.write("x\n" * 100)
+          assert count_lines("many.txt") == 100
+      - name: "Возвращает int"
+        code: |
+          assert type(count_lines("notes.txt")) is int

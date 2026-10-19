@@ -1,0 +1,428 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from collections import Counter
+
+      c = Counter("abracadabra")
+      print(c["a"], c["z"], c.most_common(1))
+    options:
+      - text: "`5 0 [('a', 5)]`"
+        correct: true
+        why: "Counter возвращает 0 для отсутствующих ключей."
+      - text: "KeyError: 'z'"
+        why: "У Counter отсутствующий ключ — 0, без исключения."
+      - text: "`5 None [('a', 5)]`"
+        why: "Значение по умолчанию — 0."
+    explanation: "Counter — словарь-счётчик с нулём по умолчанию."
+
+  - id: q2
+    type: find_bug
+    prompt: "После серии проверок в индексе появились тысячи пустых записей. Почему?"
+    code: |
+      from collections import defaultdict
+
+      index = defaultdict(set)
+      index["кот"].add("d1")
+
+
+      def has_word(word):
+          return bool(index[word])
+    options:
+      - text: "Обращение index[word] к отсутствующему ключу создаёт его с пустым множеством; для проверки нужно `word in index`"
+        correct: true
+        why: "defaultdict создаёт значение при любом обращении через []."
+      - text: "bool() нельзя применять к множеству"
+        why: "Можно: пустое множество ложно."
+      - text: "defaultdict нельзя создавать с set"
+        why: "Можно с любой фабрикой."
+    explanation: "Чтение через [] у defaultdict — это тоже запись нового ключа."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from collections import deque
+
+      d = deque(maxlen=3)
+      for x in range(6):
+          d.append(x)
+      d.appendleft(-1)
+      print(list(d))
+    options:
+      - text: "`[-1, 3, 4]`"
+        correct: true
+        why: "После цикла [3, 4, 5]; appendleft вытесняет элемент с правого конца."
+      - text: "`[-1, 4, 5]`"
+        why: "При appendleft переполненная очередь теряет элемент справа."
+      - text: "`[-1, 3, 4, 5]`"
+        why: "maxlen = 3 — длина не превышает трёх."
+    explanation: "deque с maxlen вытесняет элементы с противоположного конца."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      import heapq
+
+      heap = []
+      for score in [0.4, 0.9, 0.7]:
+          heapq.heappush(heap, -score)
+      print(-heapq.heappop(heap), len(heap))
+    options:
+      - text: "`0.9 2`"
+        correct: true
+        why: "Отрицательные значения превращают минимальную кучу в максимальную."
+      - text: "`0.4 2`"
+        why: "Минимальный элемент кучи — −0.9."
+      - text: "`-0.9 2`"
+        why: "Перед выводом знак снова меняется."
+    explanation: "heapq — минимальная куча; для максимума используют обратный знак."
+
+  - id: q5
+    type: single
+    prompt: "Почему `heapq.nlargest(10, scores)` для миллиона значений выгоднее, чем `sorted(scores)[-10:]`?"
+    options:
+      - text: "nlargest держит кучу из 10 элементов — O(n log k), а сортировка — O(n log n)"
+        correct: true
+        why: "log 10 гораздо меньше log 10⁶."
+      - text: "sorted не работает для больших списков"
+        why: "Работает, но делает лишнюю работу."
+      - text: "nlargest не читает все элементы"
+        why: "Читает все — но поддерживает маленькую кучу."
+      - text: "Разницы нет"
+        why: "Разница в сложности."
+    explanation: "Для top-k не нужно сортировать всё."
+
+  - id: q6
+    type: multiple
+    prompt: "Что верно про namedtuple? Выберите все."
+    options:
+      - text: "К полям можно обращаться и по имени, и по индексу"
+        correct: true
+        why: "hit.score и hit[1]."
+      - text: "Объекты неизменяемы; изменённая копия — `_replace`"
+        correct: true
+        why: "Это кортеж."
+      - text: "Можно распаковать: `a, b = point`"
+        correct: true
+        why: "Распаковка как у кортежа."
+      - text: "Поля можно добавлять после создания объекта"
+        why: "Набор полей фиксирован."
+    explanation: "namedtuple — лёгкая неизменяемая запись."
+
+tasks:
+  - id: t1
+    title: "Словарь корпуса"
+    difficulty: 1
+    statement: |
+      С помощью `Counter`:
+
+      - `build_vocab(texts, min_count=1)` — словарь (список) слов корпуса в нижнем регистре, встретившихся не меньше `min_count` раз, отсортированный по убыванию частоты, при равенстве — по алфавиту;
+      - `char_bigrams(text)` — `Counter` пар соседних символов (без учёта регистра).
+    examples:
+      - input: "build_vocab([\"Кот спит\", \"кот ест\", \"пёс спит\"], min_count=2)"
+        output: "['кот', 'спит']"
+    starter: |
+      def build_vocab(texts, min_count=1):
+          words = []
+          for text in texts:
+              for word in text.split():
+                  if word not in words:
+                      words.append(word)
+          return words
+    hints:
+      - "`counts = Counter(word for text in texts for word in text.lower().split())`."
+      - "`sorted((w for w, c in counts.items() if c >= min_count), key=lambda w: (-counts[w], w))`; биграммы — `Counter(text[i:i + 2] for i in range(len(text) - 1))`."
+    solution: |
+      from collections import Counter
+
+
+      def build_vocab(texts, min_count=1):
+          """Слова корпуса по убыванию частоты."""
+          counts = Counter(word for text in texts for word in text.lower().split())
+          frequent = (word for word, count in counts.items() if count >= min_count)
+          return sorted(frequent, key=lambda word: (-counts[word], word))
+
+
+      def char_bigrams(text):
+          """Частоты пар соседних символов."""
+          text = text.lower()
+          return Counter(text[i:i + 2] for i in range(len(text) - 1))
+    solution_explanation: "Counter считает частоты за один проход по корпусу; словарь токенизатора строится именно так — по частотам, с порогом min_count для отсечения редких слов."
+    tests:
+      - name: "Пример"
+        call: "build_vocab([\"Кот спит\", \"кот ест\", \"пёс спит\"], min_count=2)"
+        expected: "['кот', 'спит']"
+      - name: "Все слова"
+        call: "build_vocab([\"б а б\", \"в а б\"])"
+        expected: "['б', 'а', 'в']"
+      - name: "Биграммы"
+        call: "char_bigrams(\"Мама\").most_common(2)"
+        expected: "[('ма', 2), ('ам', 1)]"
+      - name: "Counter"
+        code: |
+          from collections import Counter
+          result = char_bigrams("ab")
+          assert isinstance(result, Counter) and result["ab"] == 1 and result["zz"] == 0
+      - name: "Пустые входы"
+        call: "[build_vocab([]), dict(char_bigrams(\"a\"))]"
+        expected: "[[], {}]"
+
+  - id: t2
+    title: "Инвертированный индекс"
+    difficulty: 2
+    statement: |
+      - `build_index(docs)` — `docs`: словарь `{id: текст}`; вернуть `defaultdict(set)` «слово (нижний регистр) → множество id»;
+      - `search_all(index, query)` — отсортированный список id документов, содержащих **все** слова запроса (пустой запрос → `[]`);
+      - `search_any(index, query)` — отсортированный список id, содержащих **хотя бы одно** слово.
+
+      Функции поиска не должны добавлять в индекс новые ключи.
+    examples:
+      - input: "search_all(build_index({\"d1\": \"кот спит\", \"d2\": \"кот ест\", \"d3\": \"пёс спит\"}), \"кот спит\")"
+        output: "['d1']"
+    starter: |
+      def build_index(docs):
+          index = {}
+          for doc_id, text in docs.items():
+              for word in text.split():
+                  index[word] = doc_id
+          return index
+    hints:
+      - "`index = defaultdict(set)`; `index[word.lower()].add(doc_id)`."
+      - "Множества для слов запроса: `[index.get(w, set()) for w in words]` — get не создаёт ключ; пересечение — `set.intersection(*sets)`, объединение — `set().union(*sets)`."
+    solution: |
+      from collections import defaultdict
+
+
+      def build_index(docs):
+          """Инвертированный индекс слово → документы."""
+          index = defaultdict(set)
+          for doc_id, text in docs.items():
+              for word in text.lower().split():
+                  index[word].add(doc_id)
+          return index
+
+
+      def _postings(index, query):
+          return [index.get(word, set()) for word in query.lower().split()]
+
+
+      def search_all(index, query):
+          """Документы со всеми словами запроса."""
+          sets = _postings(index, query)
+          if not sets:
+              return []
+          return sorted(set.intersection(*sets))
+
+
+      def search_any(index, query):
+          """Документы хотя бы с одним словом запроса."""
+          return sorted(set().union(*_postings(index, query)))
+    solution_explanation: "Индекс строится один раз, а поиск сводится к операциям над небольшими множествами — без просмотра всех документов. get вместо [] не засоряет defaultdict пустыми ключами."
+    tests:
+      - name: "Пример"
+        call: "search_all(build_index({\"d1\": \"кот спит\", \"d2\": \"кот ест\", \"d3\": \"пёс спит\"}), \"кот спит\")"
+        expected: "['d1']"
+      - name: "search_any и регистр"
+        call: "search_any(build_index({\"d1\": \"Кот спит\", \"d2\": \"кот ест\", \"d3\": \"пёс спит\"}), \"ПЁС ест\")"
+        expected: "['d2', 'd3']"
+      - name: "Неизвестные слова и пустой запрос"
+        code: |
+          index = build_index({"a": "x y"})
+          assert search_all(index, "x слон") == [] and search_any(index, "слон") == [] and search_all(index, "") == []
+      - name: "Индекс не засоряется"
+        code: |
+          index = build_index({"a": "x"})
+          search_all(index, "слон кит")
+          search_any(index, "жираф")
+          assert set(index) == {"x"}, set(index)
+      - name: "Тип индекса"
+        code: |
+          from collections import defaultdict
+          index = build_index({"a": "x x", "b": "x"})
+          assert isinstance(index, defaultdict) and index["x"] == {"a", "b"}
+
+  - id: t3
+    title: "Память диалогов"
+    difficulty: 2
+    statement: |
+      Класс `ChatMemory(max_messages)` хранит последние сообщения **каждого пользователя** отдельно:
+
+      - `add(user, role, content)` — добавить сообщение `(role, content)` в историю пользователя; хранится не больше `max_messages` последних;
+      - `history(user)` — список сообщений пользователя (для неизвестного — `[]`, без создания записи);
+      - `last_user_message(user)` — содержимое последнего сообщения с ролью `"user"` или `None`;
+      - `users()` — отсортированный список пользователей с историей.
+
+      Используйте `defaultdict` и `deque(maxlen=...)`.
+    examples:
+      - input: "m = ChatMemory(2); m.add(\"ada\", \"user\", \"a\"); m.add(\"ada\", \"assistant\", \"b\"); m.add(\"ada\", \"user\", \"c\"); m.history(\"ada\")"
+        output: "[('assistant', 'b'), ('user', 'c')]"
+    starter: |
+      class ChatMemory:
+          def __init__(self, max_messages):
+              self.messages = {}
+
+          def add(self, user, role, content):
+              self.messages.setdefault(user, []).append((role, content))
+    hints:
+      - "`self._store = defaultdict(lambda: deque(maxlen=max_messages))`."
+      - "В history используйте `if user not in self._store: return []`, иначе `list(self._store[user])`; last_user_message — `reversed(...)` по истории."
+    solution: |
+      from collections import defaultdict, deque
+
+
+      class ChatMemory:
+          """Последние сообщения каждого пользователя."""
+
+          def __init__(self, max_messages):
+              self._store = defaultdict(lambda: deque(maxlen=max_messages))
+
+          def add(self, user, role, content):
+              self._store[user].append((role, content))
+
+          def history(self, user):
+              if user not in self._store:
+                  return []
+              return list(self._store[user])
+
+          def last_user_message(self, user):
+              for role, content in reversed(self.history(user)):
+                  if role == "user":
+                      return content
+              return None
+
+          def users(self):
+              return sorted(self._store)
+    solution_explanation: "defaultdict с фабрикой-lambda создаёт для нового пользователя кольцевой буфер, а deque(maxlen) сам вытесняет старые сообщения. Так устроена простейшая «оконная» память чат-бота."
+    tests:
+      - name: "Пример"
+        code: |
+          m = ChatMemory(2)
+          m.add("ada", "user", "a")
+          m.add("ada", "assistant", "b")
+          m.add("ada", "user", "c")
+          assert m.history("ada") == [("assistant", "b"), ("user", "c")]
+      - name: "Пользователи независимы"
+        code: |
+          m = ChatMemory(3)
+          m.add("ada", "user", "1")
+          m.add("alan", "user", "2")
+          assert m.history("ada") == [("user", "1")] and m.users() == ["ada", "alan"]
+      - name: "last_user_message"
+        code: |
+          m = ChatMemory(5)
+          m.add("g", "user", "вопрос")
+          m.add("g", "assistant", "ответ")
+          assert m.last_user_message("g") == "вопрос" and m.last_user_message("нет") is None
+      - name: "Неизвестный пользователь не создаётся"
+        code: |
+          m = ChatMemory(2)
+          m.history("x")
+          m.last_user_message("y")
+          assert m.users() == []
+      - name: "Лимит по каждому"
+        code: |
+          m = ChatMemory(1)
+          for i in range(5):
+              m.add("u", "user", str(i))
+          assert m.history("u") == [("user", "4")]
+
+  - id: t4
+    title: "Планировщик задач на куче"
+    difficulty: 3
+    statement: |
+      Класс `TaskScheduler` на `heapq`:
+
+      - `add(task, priority)` — меньшее число = более срочная задача; при равных приоритетах — первой выполняется добавленная раньше; задачей может быть любой объект (даже несравнимый, например словарь);
+      - `pop()` — самая срочная задача (пусто → `IndexError`);
+      - `peek()` — без удаления (пусто → `None`);
+      - `top(k)` — список `k` самых срочных задач **без удаления**, в порядке выполнения;
+      - `len(scheduler)`.
+
+      100 000 добавлений и извлечений — быстро.
+    examples:
+      - input: "s = TaskScheduler(); s.add(\"b\", 2); s.add(\"a\", 1); s.add(\"c\", 2); [s.pop(), s.pop(), s.pop()]"
+        output: "['a', 'b', 'c']"
+    starter: |
+      class TaskScheduler:
+          def __init__(self):
+              self.tasks = []
+
+          def add(self, task, priority):
+              self.tasks.append((priority, task))
+              self.tasks.sort()
+
+          def pop(self):
+              return self.tasks.pop(0)[1]
+    hints:
+      - "Храните тройки `(priority, counter, task)`: счётчик разрешает ничьи и не даёт Python сравнивать сами задачи."
+      - "top: `heapq.nsmallest(k, self._heap)` возвращает тройки в порядке возрастания — не трогая кучу."
+    solution: |
+      import heapq
+      from itertools import count
+
+
+      class TaskScheduler:
+          """Очередь задач с приоритетами на куче."""
+
+          def __init__(self):
+              self._heap = []
+              self._counter = count()
+
+          def add(self, task, priority):
+              heapq.heappush(self._heap, (priority, next(self._counter), task))
+
+          def pop(self):
+              if not self._heap:
+                  raise IndexError("задач нет")
+              return heapq.heappop(self._heap)[2]
+
+          def peek(self):
+              return self._heap[0][2] if self._heap else None
+
+          def top(self, k):
+              return [task for _, _, task in heapq.nsmallest(k, self._heap)]
+
+          def __len__(self):
+              return len(self._heap)
+    solution_explanation: "Куча даёт O(log n) на добавление и извлечение вместо сортировки при каждом добавлении. Счётчик во втором элементе кортежа делает порядок при равных приоритетах детерминированным (FIFO) и избавляет от сравнения несравнимых задач."
+    timeout: 5
+    tests:
+      - name: "Пример"
+        code: |
+          s = TaskScheduler()
+          s.add("b", 2)
+          s.add("a", 1)
+          s.add("c", 2)
+          assert [s.pop(), s.pop(), s.pop()] == ["a", "b", "c"]
+      - name: "Несравнимые задачи"
+        code: |
+          s = TaskScheduler()
+          s.add({"id": 1}, 5)
+          s.add({"id": 2}, 5)
+          assert s.pop() == {"id": 1}
+      - name: "peek, top, len"
+        code: |
+          s = TaskScheduler()
+          assert s.peek() is None
+          for task, p in (("x", 3), ("y", 1), ("z", 2)):
+              s.add(task, p)
+          assert s.peek() == "y" and s.top(2) == ["y", "z"] and len(s) == 3
+      - name: "Пусто"
+        code: |
+          try:
+              TaskScheduler().pop()
+          except IndexError:
+              pass
+          else:
+              raise AssertionError("Ожидался IndexError")
+      - name: "Производительность"
+        code: |
+          s = TaskScheduler()
+          for i in range(100_000):
+              s.add(i, (i * 7919) % 1000)
+          for _ in range(100_000):
+              s.pop()
+          assert len(s) == 0

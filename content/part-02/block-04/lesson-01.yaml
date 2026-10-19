@@ -1,0 +1,393 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      def shout(text):
+          return text.upper()
+
+
+      speak = shout
+      print(speak("hi"), speak is shout, speak.__name__)
+    options:
+      - text: "`HI True shout`"
+        correct: true
+        why: "speak — второе имя того же объекта функции, у которого __name__ остался shout."
+      - text: "`HI False speak`"
+        why: "Присваивание не копирует функцию и не меняет её имя."
+      - text: "`<function shout> True shout`"
+        why: "speak(\"hi\") — вызов, он возвращает строку."
+    explanation: "Присваивание функции переменной создаёт ещё одно имя для того же объекта."
+
+  - id: q2
+    type: find_bug
+    prompt: "Почему сортировка падает с TypeError?"
+    code: |
+      words = ["кот", "гиппопотам", "ёж"]
+      result = sorted(words, key=len())
+    options:
+      - text: "len() вызывается сразу без аргумента; нужно передать функцию: key=len"
+        correct: true
+        why: "key ожидает функцию, которую sorted вызовет для каждого элемента."
+      - text: "sorted не принимает параметр key"
+        why: "Принимает."
+      - text: "len не работает со строками"
+        why: "Работает; проблема в лишних скобках."
+    explanation: "Передавая функцию как аргумент, скобки не пишут."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      ops = {"+": lambda a, b: a + b, "*": lambda a, b: a * b}
+      print([ops[op](3, 4) for op in "+*+"])
+    options:
+      - text: "`[7, 12, 7]`"
+        correct: true
+        why: "По символу из словаря берётся функция и вызывается с (3, 4)."
+      - text: "`['3+4', '3*4', '3+4']`"
+        why: "Функции вычисляют результат, а не строку."
+      - text: "KeyError"
+        why: "Все символы строки есть в словаре."
+    explanation: "Словарь функций — таблица диспетчеризации вместо if/elif."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Counter:
+          def __init__(self):
+              self.n = 0
+
+          def __call__(self, x):
+              self.n += 1
+              return x > 0
+
+
+      c = Counter()
+      positives = list(filter(c, [3, -1, 2, 0]))
+      print(positives, c.n, callable(c))
+    options:
+      - text: "`[3, 2] 4 True`"
+        correct: true
+        why: "filter вызывает объект для каждого элемента; __call__ считает вызовы."
+      - text: "`[3, 2] 0 True`"
+        why: "Каждый вызов c(x) увеличивает счётчик."
+      - text: "TypeError: объект нельзя передать в filter"
+        why: "Объект с __call__ вызываемый — подходит как функция."
+    explanation: "Вызываемый объект работает как функция, но может хранить состояние."
+
+  - id: q5
+    type: single
+    prompt: "Что такое функция высшего порядка?"
+    options:
+      - text: "Функция, которая принимает функцию как аргумент или возвращает функцию"
+        correct: true
+        why: "Например, sorted с key или make_multiplier."
+      - text: "Функция, объявленная на верхнем уровне модуля"
+        why: "Место объявления не важно."
+      - text: "Функция с большим числом параметров"
+        why: "Число параметров не связано с понятием."
+      - text: "Рекурсивная функция"
+        why: "Рекурсия — другое понятие."
+    explanation: "map, filter, sorted(key=...), декораторы — функции высшего порядка."
+
+  - id: q6
+    type: multiple
+    prompt: "Что можно делать с функциями в Python? Выберите все."
+    options:
+      - text: "Хранить в списке или словаре"
+        correct: true
+        why: "Функции — объекты первого класса."
+      - text: "Передавать как аргумент другой функции"
+        correct: true
+        why: "Так работают key, map, колбэки."
+      - text: "Возвращать из другой функции"
+        correct: true
+        why: "Основа замыканий и декораторов."
+      - text: "Складывать оператором + как строки"
+        why: "Оператор + для функций не определён."
+    explanation: "Функция — обычный объект с особенностью: её можно вызвать."
+
+tasks:
+  - id: t1
+    title: "Композиция функций"
+    difficulty: 1
+    statement: |
+      - `apply_pipeline(value, steps)` — применяет функции из списка `steps` к значению по очереди и возвращает результат;
+      - `compose(*funcs)` — возвращает **новую функцию** одного аргумента, применяющую `funcs` слева направо. Без функций — тождественная функция (возвращает аргумент как есть).
+    examples:
+      - input: "compose(str.strip, str.lower, len)(\"  ПРИВЕТ  \")"
+        output: "6"
+    starter: |
+      def apply_pipeline(value, steps):
+          return steps[0](value)
+
+
+      def compose(*funcs):
+          return funcs
+    hints:
+      - "apply_pipeline: цикл `for step in steps: value = step(value)`."
+      - "compose: внутри объявите `def composed(value): return apply_pipeline(value, funcs)` и верните `composed` (без скобок)."
+    solution: |
+      def apply_pipeline(value, steps):
+          """Применить функции по очереди."""
+          for step in steps:
+              value = step(value)
+          return value
+
+
+      def compose(*funcs):
+          """Функция, применяющая funcs слева направо."""
+          def composed(value):
+              return apply_pipeline(value, funcs)
+          return composed
+    solution_explanation: "compose — функция высшего порядка: принимает функции и возвращает новую. Внутренняя composed использует funcs из внешней функции — это замыкание, о нём следующий урок."
+    tests:
+      - name: "Пример"
+        call: "compose(str.strip, str.lower, len)(\"  ПРИВЕТ  \")"
+        expected: "6"
+      - name: "apply_pipeline"
+        call: "apply_pipeline(3, [lambda x: x + 1, lambda x: x * 10])"
+        expected: "40"
+      - name: "Порядок слева направо"
+        call: "compose(lambda x: x * 2, lambda x: x + 1)(5)"
+        expected: "11"
+      - name: "Пустые"
+        call: "[apply_pipeline(\"x\", []), compose()(42)]"
+        expected: "['x', 42]"
+      - name: "compose возвращает функцию"
+        code: |
+          f = compose(abs)
+          assert callable(f) and f(-3) == 3
+
+  - id: t2
+    title: "Калькулятор с таблицей операций"
+    difficulty: 2
+    statement: |
+      Напишите `calculate(expression)` для выражений вида `"<число> <оп> <число>"` (числа — `float`, разделитель — пробел). Операции: `+`, `-`, `*`, `/`, `**`. Выбор операции — через **словарь функций**, без цепочки `if/elif`.
+
+      Ошибки: неверный формат или неизвестная операция → `ValueError`; деление на ноль → `ValueError("деление на ноль")`.
+    examples:
+      - input: "calculate(\"2 ** 10\")"
+        output: "1024.0"
+    starter: |
+      def calculate(expression):
+          a, op, b = expression.split()
+          if op == "+":
+              return float(a) + float(b)
+          elif op == "-":
+              return float(a) - float(b)
+    hints:
+      - "`OPERATIONS = {\"+\": lambda a, b: a + b, ...}` на уровне модуля; проверьте `len(parts) == 3` и `op in OPERATIONS`."
+      - "Деление на ноль: перехватите `ZeroDivisionError` и бросьте `ValueError(\"деление на ноль\") from None`."
+    solution: |
+      OPERATIONS = {
+          "+": lambda a, b: a + b,
+          "-": lambda a, b: a - b,
+          "*": lambda a, b: a * b,
+          "/": lambda a, b: a / b,
+          "**": lambda a, b: a ** b,
+      }
+
+
+      def calculate(expression):
+          """Вычислить выражение «число оп число»."""
+          parts = expression.split()
+          if len(parts) != 3:
+              raise ValueError(f"ожидается «число оп число», получено {expression!r}")
+          left, op, right = parts
+          if op not in OPERATIONS:
+              raise ValueError(f"неизвестная операция {op!r}")
+          try:
+              return OPERATIONS[op](float(left), float(right))
+          except ZeroDivisionError:
+              raise ValueError("деление на ноль") from None
+    solution_explanation: "Таблица операций отделяет данные (какие операции есть) от логики (разбор и проверки). Новая операция — одна строка в словаре."
+    constraints:
+      forbid: ["elif"]
+      message: "Выбирайте операцию через словарь, без elif"
+    tests:
+      - name: "Пример"
+        call: "calculate(\"2 ** 10\")"
+        expected: "1024.0"
+      - name: "Все операции"
+        call: "[calculate(e) for e in (\"1 + 2\", \"5 - 7\", \"1.5 * 4\", \"9 / 2\")]"
+        expected: "[3.0, -2.0, 6.0, 4.5]"
+      - name: "Деление на ноль"
+        code: |
+          try:
+              calculate("1 / 0")
+          except ValueError as error:
+              assert str(error) == "деление на ноль"
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Пробелы и отрицательные числа"
+        call: "[calculate(\"  -3 * -2 \"), calculate(\"10 ** -1\")]"
+        expected: "[6.0, 0.1]"
+      - name: "Ошибки формата"
+        code: |
+          for bad in ("1 +", "1 % 2", "a + 1", ""):
+              try:
+                  calculate(bad)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"{bad!r} должен вызывать ValueError")
+
+  - id: t3
+    title: "Свои map и filter"
+    difficulty: 2
+    statement: |
+      Реализуйте функции высшего порядка **без** использования встроенных `map` и `filter`:
+
+      - `my_map(func, items)` — список результатов `func` для каждого элемента;
+      - `my_filter(predicate, items)` — список элементов, для которых предикат истинен;
+      - `count_if(predicate, items)` — сколько элементов удовлетворяет предикату;
+      - `find_first(predicate, items, default=None)` — первый подходящий элемент или `default`.
+    examples:
+      - input: "my_map(len, [\"a\", \"bb\"])"
+        output: "[1, 2]"
+    starter: |
+      def my_map(func, items):
+          return list(map(func, items))
+    hints:
+      - "my_map: `[func(item) for item in items]`; my_filter: `[item for item in items if predicate(item)]`."
+      - "count_if: `sum(1 for item in items if predicate(item))`; find_first: `next((... ), default)`."
+    solution: |
+      def my_map(func, items):
+          """Применить func к каждому элементу."""
+          return [func(item) for item in items]
+
+
+      def my_filter(predicate, items):
+          """Элементы, удовлетворяющие предикату."""
+          return [item for item in items if predicate(item)]
+
+
+      def count_if(predicate, items):
+          """Сколько элементов удовлетворяет предикату."""
+          return sum(1 for item in items if predicate(item))
+
+
+      def find_first(predicate, items, default=None):
+          """Первый подходящий элемент или default."""
+          return next((item for item in items if predicate(item)), default)
+    solution_explanation: "Каждая функция получает поведение (func или predicate) параметром и просто вызывает его. Встроенные map и filter устроены так же, но возвращают ленивые итераторы."
+    tests:
+      - name: "Без встроенных map и filter"
+        code: |
+          import re
+          assert not re.search(r"(?<![\w.])(map|filter)\(", __source__), "Не используйте встроенные map и filter"
+      - name: "my_map"
+        call: "my_map(len, [\"a\", \"bb\"])"
+        expected: "[1, 2]"
+      - name: "my_filter со вызываемым объектом"
+        code: |
+          class Above:
+              def __init__(self, limit):
+                  self.limit = limit
+              def __call__(self, x):
+                  return x > self.limit
+          assert my_filter(Above(2), [1, 5, 3, 0]) == [5, 3]
+      - name: "count_if"
+        call: "count_if(str.isupper, [\"A\", \"b\", \"C\"])"
+        expected: "2"
+      - name: "find_first"
+        call: "[find_first(lambda x: x % 7 == 0, range(1, 100)), find_first(lambda x: x > 5, [1, 2], \"нет\")]"
+        expected: "[7, 'нет']"
+      - name: "Пустые"
+        call: "[my_map(str, []), my_filter(bool, []), count_if(bool, [])]"
+        expected: "[[], [], 0]"
+
+  - id: t4
+    title: "Колбэки обучения"
+    difficulty: 3
+    statement: |
+      Функция `train(losses, callbacks)` имитирует обучение: эпоха `i` (с 1) имеет loss `losses[i-1]`. После каждой эпохи она вызывает все колбэки `callback(epoch, loss)` по порядку; если какой-то вернул `"stop"`, обучение прекращается (остальные колбэки этой эпохи **не** вызываются). Возвращает число пройденных эпох.
+
+      Колбэки (вызываемые объекты):
+
+      - `History()` — сохраняет пары `(epoch, loss)` в атрибуте `records`;
+      - `EarlyStopping(patience)` — возвращает `"stop"`, если loss не улучшался (`<` лучшего) `patience` эпох подряд;
+      - `BestEpoch()` — атрибуты `best_epoch` и `best_loss` (сначала `None`).
+    examples:
+      - input: "train([1.0, 0.8, 0.9, 0.95, 0.5], [EarlyStopping(2)])"
+        output: "4"
+    starter: |
+      def train(losses, callbacks):
+          for epoch, loss in enumerate(losses, start=1):
+              for callback in callbacks:
+                  callback(epoch, loss)
+          return len(losses)
+    hints:
+      - "Каждый колбэк — класс с `__call__(self, epoch, loss)`; EarlyStopping хранит `best = float(\"inf\")` и счётчик плохих эпох."
+      - "В train: `if callback(epoch, loss) == \"stop\": return epoch`."
+    solution: |
+      def train(losses, callbacks):
+          """Имитация обучения с колбэками; возвращает число эпох."""
+          for epoch, loss in enumerate(losses, start=1):
+              for callback in callbacks:
+                  if callback(epoch, loss) == "stop":
+                      return epoch
+          return len(losses)
+
+
+      class History:
+          def __init__(self):
+              self.records = []
+
+          def __call__(self, epoch, loss):
+              self.records.append((epoch, loss))
+
+
+      class EarlyStopping:
+          def __init__(self, patience):
+              self.patience = patience
+              self.best = float("inf")
+              self.bad_epochs = 0
+
+          def __call__(self, epoch, loss):
+              if loss < self.best:
+                  self.best = loss
+                  self.bad_epochs = 0
+                  return None
+              self.bad_epochs += 1
+              if self.bad_epochs >= self.patience:
+                  return "stop"
+              return None
+
+
+      class BestEpoch:
+          def __init__(self):
+              self.best_epoch = None
+              self.best_loss = None
+
+          def __call__(self, epoch, loss):
+              if self.best_loss is None or loss < self.best_loss:
+                  self.best_epoch = epoch
+                  self.best_loss = loss
+    solution_explanation: "Цикл обучения знает только интерфейс колбэка — вызов с (epoch, loss) и возможный ответ \"stop\". Колбэки хранят своё состояние в атрибутах, поэтому это вызываемые объекты, а не функции."
+    tests:
+      - name: "Пример"
+        call: "train([1.0, 0.8, 0.9, 0.95, 0.5], [EarlyStopping(2)])"
+        expected: "4"
+      - name: "History и порядок колбэков"
+        code: |
+          h = History()
+          epochs = train([3, 2, 2.5, 2.6], [h, EarlyStopping(2)])
+          assert epochs == 4 and h.records == [(1, 3), (2, 2), (3, 2.5), (4, 2.6)], h.records
+      - name: "Остальные колбэки не вызываются после stop"
+        code: |
+          h = History()
+          train([1, 2, 3], [EarlyStopping(1), h])
+          assert h.records == [(1, 1)], "После stop колбэки этой эпохи не вызываются"
+      - name: "BestEpoch"
+        code: |
+          b = BestEpoch()
+          assert b.best_epoch is None
+          train([0.9, 0.4, 0.6, 0.4], [b])
+          assert (b.best_epoch, b.best_loss) == (2, 0.4)
+      - name: "Без колбэков и без остановки"
+        call: "[train([1, 2, 3], []), train([], [EarlyStopping(1)])]"
+        expected: "[3, 0]"

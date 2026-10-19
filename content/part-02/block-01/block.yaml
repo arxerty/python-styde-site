@@ -1,0 +1,16 @@
+title: "ООП: основы"
+description: "Классы и объекты, атрибуты и методы, инкапсуляция и @property, наследование, полиморфизм, classmethod и staticmethod."
+mini_project: "Система банковских счетов с разными типами счетов"
+lessons:
+  - id: lesson-01
+    title: "Зачем ООП: класс, объект, __init__ и self"
+  - id: lesson-02
+    title: "Атрибуты класса и экземпляра, методы"
+  - id: lesson-03
+    title: "Инкапсуляция: _, __ и @property"
+  - id: lesson-04
+    title: "Наследование и super()"
+  - id: lesson-05
+    title: "Полиморфизм и утиная типизация"
+  - id: lesson-06
+    title: "@classmethod и @staticmethod"

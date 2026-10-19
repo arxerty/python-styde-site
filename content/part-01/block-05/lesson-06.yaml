@@ -1,0 +1,314 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      data = {"a": [10, {"b": [7, 8, 9]}]}
+      print(data["a"][1]["b"][-1], len(data["a"]))
+    options:
+      - text: "`9 2`"
+        correct: true
+        why: "data[\"a\"] — список из двух элементов; [1] — словарь; [\"b\"] — список; [-1] — 9."
+      - text: "`7 2`"
+        why: "[-1] — последний элемент списка, то есть 9."
+      - text: "`9 3`"
+        why: "В списке data[\"a\"] два элемента: 10 и словарь."
+    explanation: "Цепочку обращений читают слева направо, уровень за уровнем."
+
+  - id: q2
+    type: find_bug
+    prompt: "Почему код падает с `TypeError: list indices must be integers or slices, not str`?"
+    code: |
+      response = {"choices": [{"message": {"content": "Привет"}}]}
+      print(response["choices"]["message"]["content"])
+    options:
+      - text: "`choices` — список; сначала нужен индекс элемента: `response[\"choices\"][0][\"message\"]`"
+        correct: true
+        why: "К списку нельзя обращаться по строковому ключу."
+      - text: "Ключ content не существует"
+        why: "Существует — но до него код не доходит."
+      - text: "Словари нельзя вкладывать в списки"
+        why: "Можно — это обычная JSON-структура."
+    explanation: "Проверяйте тип на каждом уровне: list → индекс, dict → ключ."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      original = {"name": "Ада", "tags": ["python"]}
+      clone = original.copy()
+      clone["name"] = "Алан"
+      clone["tags"].append("ml")
+      print(original["name"], original["tags"])
+    options:
+      - text: "`Ада ['python', 'ml']`"
+        correct: true
+        why: "Поверхностная копия: ключ name перепривязан только в копии, а список tags — общий."
+      - text: "`Ада ['python']`"
+        why: "copy() не копирует вложенный список — обе структуры ссылаются на один."
+      - text: "`Алан ['python', 'ml']`"
+        why: "Присваивание clone[\"name\"] меняет только копию."
+    explanation: "Для независимой копии вложенных данных нужен copy.deepcopy."
+
+  - id: q4
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      grid = [[0] * 2] * 3
+      grid[1][0] = 5
+      print(grid)
+    options:
+      - text: "`[[5, 0], [5, 0], [5, 0]]`"
+        correct: true
+        why: "Все три «строки» — ссылки на один и тот же список."
+      - text: "`[[0, 0], [5, 0], [0, 0]]`"
+        why: "Так было бы, если бы строки создавались отдельно."
+      - text: "Ошибку IndexError"
+        why: "Индексы в пределах размеров."
+    explanation: "Умножение списка копирует ссылки, а не вложенные объекты."
+
+  - id: q5
+    type: multiple
+    prompt: "Какие соответствия между JSON и Python верны? Выберите все."
+    options:
+      - text: "JSON-объект `{...}` ↔ словарь `dict`"
+        correct: true
+        why: "json.loads превращает объект в словарь."
+      - text: "JSON-массив `[...]` ↔ список `list`"
+        correct: true
+        why: "Массив становится списком."
+      - text: "`null` ↔ `None`"
+        correct: true
+        why: "Отсутствие значения."
+      - text: "`true` ↔ строка `\"true\"`"
+        why: "true превращается в логическое True."
+      - text: "В JSON можно использовать одинарные кавычки для строк"
+        why: "Строки JSON — только в двойных кавычках."
+    explanation: "Не собирайте JSON вручную — используйте json.dumps."
+
+  - id: q6
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      users = [{"name": "A", "age": 30}, {"name": "B", "age": 25}]
+      users.append({"name": "C", "age": 45})
+      oldest = users[0]
+      for user in users:
+          if user["age"] > oldest["age"]:
+              oldest = user
+      print(oldest["name"], len(users))
+    answer: "C 3"
+    explanation: "Поиск максимума по полю записи: самый старший — C (45); после append записей три."
+
+tasks:
+  - id: t1
+    title: "Лучший студент"
+    difficulty: 2
+    statement: |
+      Программа читает `n`, затем `n` строк `<имя> <оценка> <оценка> ...` (хотя бы одна оценка). Сохраните студентов как список словарей с ключами `name` и `scores`. Выведите:
+
+      ```text
+      Лучший: <имя> (<средний балл с 2 знаками>)
+      Средний по группе: <среднее всех оценок всех студентов с 2 знаками>
+      ```
+
+      При равном среднем — первый в списке.
+    examples:
+      - input: "2\nАда 5 5 4\nАлан 4 5 5 5"
+        output: "Лучший: Алан (4.75)\nСредний по группе: 4.71"
+    starter: |
+      n = int(input())
+      students = []
+    hints:
+      - "Чтение: `name, *scores = input().split()`, затем список int и словарь `{\"name\": name, \"scores\": ...}`."
+      - "Для общего среднего копите сумму всех оценок и их количество в двух накопителях."
+    solution: |
+      n = int(input())
+      students = []
+      for _ in range(n):
+          name, *raw_scores = input().split()
+          scores = []
+          for value in raw_scores:
+              scores.append(int(value))
+          students.append({"name": name, "scores": scores})
+      best = None
+      best_average = 0
+      total = 0
+      count = 0
+      for student in students:
+          average = sum(student["scores"]) / len(student["scores"])
+          if best is None or average > best_average:
+              best = student
+              best_average = average
+          total += sum(student["scores"])
+          count += len(student["scores"])
+      print(f"Лучший: {best['name']} ({best_average:.2f})")
+      print(f"Средний по группе: {total / count:.2f}")
+    solution_explanation: "Звёздочная распаковка отделяет имя от оценок; запись хранится словарём. Обратите внимание: средний по группе — это среднее всех оценок, а не среднее средних (они отличаются, когда у студентов разное число оценок)."
+    tests:
+      - name: "Пример"
+        stdin: "2\nАда 5 5 4\nАлан 4 5 5 5\n"
+        stdout: "Лучший: Алан (4.75)\nСредний по группе: 4.71"
+      - name: "Один студент"
+        stdin: "1\nГрейс 3\n"
+        stdout: "Лучший: Грейс (3.00)\nСредний по группе: 3.00"
+      - name: "Равные средние — первый"
+        stdin: "2\nА 4 4\nБ 4\n"
+        stdout: "Лучший: А (4.00)\nСредний по группе: 4.00"
+      - name: "Разное число оценок"
+        stdin: "2\nА 5\nБ 3 3 3\n"
+        stdout: "Лучший: А (5.00)\nСредний по группе: 3.50"
+      - name: "Три студента"
+        stdin: "3\nX 2 3\nY 5 4\nZ 4 4\n"
+        stdout: "Лучший: Y (4.50)\nСредний по группе: 3.67"
+
+  - id: t2
+    title: "Разбор ответа модели"
+    difficulty: 2
+    statement: |
+      Программа читает одну строку — JSON-ответ API языковой модели. Разберите её через `json.loads` (в начале программы — `import json`) и выведите:
+
+      ```text
+      Ответ: <текст из choices[0].message.content>
+      Токенов: <usage.total_tokens>
+      ```
+
+      Если `finish_reason` первого варианта равен `length`, выведите третью строку `Внимание: ответ обрезан`.
+    examples:
+      - input: '{"choices": [{"message": {"role": "assistant", "content": "Привет!"}, "finish_reason": "stop"}], "usage": {"total_tokens": 12}}'
+        output: "Ответ: Привет!\nТокенов: 12"
+    starter: |
+      import json
+
+      response = json.loads(input())
+    hints:
+      - "Первый вариант: `choice = response[\"choices\"][0]`."
+      - "Текст: `choice[\"message\"][\"content\"]`, причина: `choice[\"finish_reason\"]`."
+    solution: |
+      import json
+
+      response = json.loads(input())
+      choice = response["choices"][0]
+      print("Ответ:", choice["message"]["content"])
+      print("Токенов:", response["usage"]["total_tokens"])
+      if choice["finish_reason"] == "length":
+          print("Внимание: ответ обрезан")
+    solution_explanation: "Промежуточная переменная `choice` сокращает длинные цепочки обращений и делает код читаемым. Проверка finish_reason — хорошая практика: обрезанный ответ может быть неполным JSON или незаконченной мыслью."
+    tests:
+      - name: "Обычный ответ"
+        stdin: "{\"choices\": [{\"message\": {\"role\": \"assistant\", \"content\": \"Привет!\"}, \"finish_reason\": \"stop\"}], \"usage\": {\"total_tokens\": 12}}\n"
+        stdout: "Ответ: Привет!\nТокенов: 12"
+      - name: "Обрезанный"
+        stdin: "{\"choices\": [{\"message\": {\"content\": \"Длинный отв\"}, \"finish_reason\": \"length\"}], \"usage\": {\"total_tokens\": 4096}}\n"
+        stdout: "Ответ: Длинный отв\nТокенов: 4096\nВнимание: ответ обрезан"
+      - name: "Несколько вариантов — берём первый"
+        stdin: "{\"choices\": [{\"message\": {\"content\": \"A\"}, \"finish_reason\": \"stop\"}, {\"message\": {\"content\": \"B\"}, \"finish_reason\": \"stop\"}], \"usage\": {\"total_tokens\": 3}}\n"
+        stdout: "Ответ: A\nТокенов: 3"
+      - name: "Многострочный текст"
+        stdin: "{\"choices\": [{\"message\": {\"content\": \"строка1\\nстрока2\"}, \"finish_reason\": \"stop\"}], \"usage\": {\"total_tokens\": 5}}\n"
+        stdout: "Ответ: строка1\nстрока2\nТокенов: 5"
+      - name: "Лишние поля не мешают"
+        stdin: "{\"id\": \"x\", \"model\": \"m\", \"choices\": [{\"index\": 0, \"message\": {\"content\": \"ok\"}, \"finish_reason\": \"stop\"}], \"usage\": {\"prompt_tokens\": 1, \"total_tokens\": 2}}\n"
+        stdout: "Ответ: ok\nТокенов: 2"
+
+  - id: t3
+    title: "Неполные записи"
+    difficulty: 2
+    statement: |
+      Программа читает `n`, затем `n` строк — JSON-объекты пользователей. Поля могут отсутствовать. Для каждого выведите `<имя> — <город>`, где:
+
+      - имя — поле `name`, а если его нет — `без имени`;
+      - город — `address.city`, а если нет раздела `address` или поля `city` — `—`.
+
+      Используйте `get` со значениями по умолчанию, без try/except.
+    examples:
+      - input: "2\n{\"name\": \"Ада\", \"address\": {\"city\": \"Лондон\"}}\n{\"address\": {}}"
+        output: "Ада — Лондон\nбез имени — —"
+    starter: |
+      import json
+
+      n = int(input())
+      for _ in range(n):
+          user = json.loads(input())
+          print(user["name"], "—", user["address"]["city"])
+    hints:
+      - "Имя: `user.get(\"name\", \"без имени\")`."
+      - "Город в два шага: `user.get(\"address\", {}).get(\"city\", \"—\")`."
+    solution: |
+      import json
+
+      n = int(input())
+      for _ in range(n):
+          user = json.loads(input())
+          name = user.get("name", "без имени")
+          city = user.get("address", {}).get("city", "—")
+          print(name, "—", city)
+    solution_explanation: "get с пустым словарём по умолчанию на промежуточном уровне позволяет безопасно спуститься на следующий уровень, даже если раздела нет."
+    tests:
+      - name: "Пример"
+        stdin: "2\n{\"name\": \"Ада\", \"address\": {\"city\": \"Лондон\"}}\n{\"address\": {}}\n"
+        stdout: "Ада — Лондон\nбез имени — —"
+      - name: "Нет адреса"
+        stdin: "1\n{\"name\": \"Алан\"}\n"
+        stdout: "Алан — —"
+      - name: "Пустой объект"
+        stdin: "1\n{}\n"
+        stdout: "без имени — —"
+      - name: "Все поля"
+        stdin: "1\n{\"name\": \"Грейс\", \"address\": {\"city\": \"Нью-Йорк\", \"zip\": \"10001\"}}\n"
+        stdout: "Грейс — Нью-Йорк"
+      - name: "Ноль записей"
+        stdin: "0\n"
+        stdout: ""
+
+  - id: t4
+    title: "Выручка по категориям"
+    difficulty: 3
+    statement: |
+      Программа читает одну строку — JSON-массив заказов. У заказа есть `category` и список `items`, у каждой позиции — `price` и `qty`.
+      Выведите выручку по категориям по убыванию (при равенстве — в порядке первого появления) в формате `<категория>: <выручка>`, затем `Лидер: <категория>`. Если заказов нет — только `Заказов нет`.
+    examples:
+      - input: '[{"category": "книги", "items": [{"price": 500, "qty": 2}]}, {"category": "техника", "items": [{"price": 30000, "qty": 1}]}]'
+        output: "техника: 30000\nкниги: 1000\nЛидер: техника"
+    starter: |
+      import json
+
+      orders = json.loads(input())
+      revenue = {}
+    hints:
+      - "Внешний цикл по заказам, внутренний — по `order[\"items\"]`; сумму заказа прибавляйте к `revenue[category]` через get."
+      - "Сортировка: `sorted(revenue, key=revenue.get, reverse=True)`; лидер — первый элемент."
+    solution: |
+      import json
+
+      orders = json.loads(input())
+      revenue = {}
+      for order in orders:
+          total = 0
+          for item in order["items"]:
+              total += item["price"] * item["qty"]
+          revenue[order["category"]] = revenue.get(order["category"], 0) + total
+      if not revenue:
+          print("Заказов нет")
+      else:
+          ranking = sorted(revenue, key=revenue.get, reverse=True)
+          for category in ranking:
+              print(f"{category}: {revenue[category]}")
+          print("Лидер:", ranking[0])
+    solution_explanation: "Форма кода повторяет форму данных: цикл по заказам и вложенный цикл по позициям. Агрегация по категориям — шаблон подсчёта со словарём."
+    tests:
+      - name: "Пример"
+        stdin: "[{\"category\": \"книги\", \"items\": [{\"price\": 500, \"qty\": 2}]}, {\"category\": \"техника\", \"items\": [{\"price\": 30000, \"qty\": 1}]}]\n"
+        stdout: "техника: 30000\nкниги: 1000\nЛидер: техника"
+      - name: "Пусто"
+        stdin: "[]\n"
+        stdout: "Заказов нет"
+      - name: "Несколько заказов одной категории"
+        stdin: "[{\"category\": \"a\", \"items\": [{\"price\": 1, \"qty\": 1}]}, {\"category\": \"a\", \"items\": [{\"price\": 2, \"qty\": 3}]}]\n"
+        stdout: "a: 7\nЛидер: a"
+      - name: "Равенство — порядок появления"
+        stdin: "[{\"category\": \"x\", \"items\": [{\"price\": 5, \"qty\": 2}]}, {\"category\": \"y\", \"items\": [{\"price\": 10, \"qty\": 1}]}]\n"
+        stdout: "x: 10\ny: 10\nЛидер: x"
+      - name: "Заказ без позиций"
+        stdin: "[{\"category\": \"пусто\", \"items\": []}, {\"category\": \"b\", \"items\": [{\"price\": 3, \"qty\": 1}]}]\n"
+        stdout: "b: 3\nпусто: 0\nЛидер: b"

@@ -1,0 +1,377 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      from itertools import batched
+
+      print(list(batched("abcde", 2)))
+    options:
+      - text: "`[('a', 'b'), ('c', 'd'), ('e',)]`"
+        correct: true
+        why: "batched выдаёт кортежи; последний может быть короче."
+      - text: "`[('a', 'b'), ('c', 'd')]`"
+        why: "batched не отбрасывает неполный последний батч."
+      - text: "`['ab', 'cd', 'e']`"
+        why: "Батчи — кортежи элементов, а не склеенные строки."
+    explanation: "itertools.batched (Python 3.12) нарезает поток на кортежи по n элементов."
+
+  - id: q2
+    type: find_bug
+    prompt: "Генератор батчей для списка зацикливается на первом батче. Почему?"
+    code: |
+      from itertools import islice
+
+
+      def batches(data, size):
+          while True:
+              batch = list(islice(data, size))
+              if not batch:
+                  return
+              yield batch
+    options:
+      - text: "islice от списка каждый раз начинает сначала; нужно один раз создать iterator = iter(data)"
+        correct: true
+        why: "Список не помнит позицию — помнит итератор."
+      - text: "Нельзя использовать while True в генераторе"
+        why: "Можно — выход по return."
+      - text: "islice не работает со списками"
+        why: "Работает, но каждый вызов создаёт новый проход по списку."
+    explanation: "Батчер забирает элементы из одного и того же итератора."
+
+  - id: q3
+    type: output
+    prompt: "Сколько батчей в эпохе? Что выведет код?"
+    code: |
+      def num_batches(n, batch_size, drop_last):
+          full, rest = divmod(n, batch_size)
+          return full if drop_last or rest == 0 else full + 1
+
+
+      print(num_batches(10, 4, False), num_batches(10, 4, True), num_batches(8, 4, False))
+    options:
+      - text: "`3 2 2`"
+        correct: true
+        why: "10 = 2·4 + 2: неполный батч считается, если drop_last=False."
+      - text: "`2 2 2`"
+        why: "Без drop_last хвост из 2 примеров — отдельный батч."
+      - text: "`3 3 2`"
+        why: "drop_last отбрасывает неполный батч."
+    explanation: "Число батчей — округление вверх, а с drop_last — вниз."
+
+  - id: q4
+    type: single
+    prompt: "Почему в загрузчике перемешивают список индексов, а не сам датасет?"
+    options:
+      - text: "Датасет не копируется и не изменяется — подходит любой объект с __len__ и __getitem__"
+        correct: true
+        why: "Индексы — маленький список целых чисел."
+      - text: "Перемешивание индексов даёт более случайный порядок"
+        why: "Случайность одинаковая — разница в копировании и изменении данных."
+      - text: "random.shuffle не работает со словарями"
+        why: "Дело не в типах элементов."
+      - text: "Так требует синтаксис генераторов"
+        why: "Генераторы тут ни при чём."
+    explanation: "Перемешивание индексов — дёшево и не трогает исходные данные."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      examples = [{"t": "a", "y": 0}, {"t": "b", "y": 1}]
+      batch = {key: [e[key] for e in examples] for key in examples[0]}
+      print(batch)
+    options:
+      - text: "`{'t': ['a', 'b'], 'y': [0, 1]}`"
+        correct: true
+        why: "collate превращает список примеров в словарь столбцов."
+      - text: "`[{'t': 'a', 'y': 0}, {'t': 'b', 'y': 1}]`"
+        why: "Структура переворачивается: ключи — столбцы."
+      - text: "`{'t': 'b', 'y': 1}`"
+        why: "Собираются все значения каждого ключа."
+    explanation: "Collate: список словарей → словарь списков."
+
+  - id: q6
+    type: multiple
+    prompt: "Зачем подавать данные в модель батчами? Выберите все."
+    options:
+      - text: "GPU обрабатывает примеры батча параллельно"
+        correct: true
+        why: "Батч загружает видеокарту работой."
+      - text: "Весь датасет не помещается в память GPU, а батч — помещается"
+        correct: true
+        why: "Размер батча регулирует расход памяти."
+      - text: "API эмбеддингов принимают списки текстов — меньше запросов"
+        correct: true
+        why: "Экономия времени и лимитов."
+      - text: "Батчи гарантируют, что модель не переобучится"
+        why: "Батчинг не защищает от переобучения."
+    explanation: "Батчи — компромисс между скоростью, памятью и качеством оценки градиента."
+
+tasks:
+  - id: t1
+    title: "Генератор батчей"
+    difficulty: 1
+    statement: |
+      Напишите генератор `batches(iterable, size, drop_last=False)`, выдающий **списки** по `size` элементов. При `drop_last=True` неполный последний батч не выдаётся. `size < 1` → `ValueError` (при первом запросе). Должен работать с бесконечными генераторами.
+    examples:
+      - input: "list(batches(range(5), 2))"
+        output: "[[0, 1], [2, 3], [4]]"
+    starter: |
+      def batches(iterable, size, drop_last=False):
+          data = list(iterable)
+          return [data[i:i + size] for i in range(0, len(data), size)]
+    hints:
+      - "`iterator = iter(iterable)`, затем `while True: batch = list(islice(iterator, size))`."
+      - "Пустой батч — конец; неполный при drop_last — тоже конец."
+    solution: |
+      from itertools import islice
+
+
+      def batches(iterable, size, drop_last=False):
+          """Нарезать поток на списки по size элементов."""
+          if size < 1:
+              raise ValueError("размер батча должен быть положительным")
+          iterator = iter(iterable)
+          while True:
+              batch = list(islice(iterator, size))
+              if not batch or (drop_last and len(batch) < size):
+                  return
+              yield batch
+    solution_explanation: "Один итератор и повторяющийся islice забирают элементы порциями. Генератор не читает поток дальше, чем нужно для очередного батча, поэтому работает и с бесконечными источниками."
+    tests:
+      - name: "Пример"
+        call: "list(batches(range(5), 2))"
+        expected: "[[0, 1], [2, 3], [4]]"
+      - name: "drop_last"
+        call: "list(batches(\"abcdefg\", 3, drop_last=True))"
+        expected: "[['a', 'b', 'c'], ['d', 'e', 'f']]"
+      - name: "Ровное деление и пустой вход"
+        call: "[list(batches([1, 2, 3, 4], 2, drop_last=True)), list(batches([], 3))]"
+        expected: "[[[1, 2], [3, 4]], []]"
+      - name: "Бесконечный поток"
+        code: |
+          from itertools import count
+          g = batches(count(), 3)
+          assert next(g) == [0, 1, 2] and next(g) == [3, 4, 5]
+      - name: "Неверный размер"
+        code: |
+          try:
+              next(batches([1], 0))
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("Ожидался ValueError")
+
+  - id: t2
+    title: "Collate и padding"
+    difficulty: 2
+    statement: |
+      - `collate(examples)` — список словарей с одинаковыми ключами → словарь списков; пустой список → `{}`;
+      - `pad_sequences(sequences, pad=0, max_len=None)` — возвращает кортеж `(padded, mask)`: последовательности дополняются значением `pad` до длины самой длинной (или до `max_len`, если задан; более длинные обрезаются до `max_len`); маска — 1 для настоящих элементов и 0 для заполнения. Исходные списки не меняются.
+    examples:
+      - input: "pad_sequences([[5, 8, 2], [7]])"
+        output: "([[5, 8, 2], [7, 0, 0]], [[1, 1, 1], [1, 0, 0]])"
+    starter: |
+      def collate(examples):
+          return examples
+
+
+      def pad_sequences(sequences, pad=0, max_len=None):
+          return sequences, []
+    hints:
+      - "Длина: `target = max_len if max_len is not None else max((len(s) for s in sequences), default=0)`."
+      - "Для каждой последовательности: `cut = list(seq[:target])`, затем `cut + [pad] * (target - len(cut))`; маска — `[1] * len(cut) + [0] * (target - len(cut))`."
+    solution: |
+      def collate(examples):
+          """Список примеров → словарь списков по ключам."""
+          if not examples:
+              return {}
+          return {key: [example[key] for example in examples] for key in examples[0]}
+
+
+      def pad_sequences(sequences, pad=0, max_len=None):
+          """Выровнять последовательности по длине и построить маску."""
+          target = max_len if max_len is not None else max((len(seq) for seq in sequences), default=0)
+          padded = []
+          mask = []
+          for seq in sequences:
+              cut = list(seq[:target])
+              fill = target - len(cut)
+              padded.append(cut + [pad] * fill)
+              mask.append([1] * len(cut) + [0] * fill)
+          return padded, mask
+    solution_explanation: "Обрезка и дополнение сведены к одной схеме: сначала срез до target, потом добавка заполнителя. Срез создаёт новый список, поэтому исходные последовательности не меняются. Так токенизаторы готовят input_ids и attention_mask."
+    tests:
+      - name: "Пример"
+        call: "pad_sequences([[5, 8, 2], [7]])"
+        expected: "([[5, 8, 2], [7, 0, 0]], [[1, 1, 1], [1, 0, 0]])"
+      - name: "max_len с обрезкой"
+        call: "pad_sequences([[1, 2, 3, 4], [5]], pad=-1, max_len=3)"
+        expected: "([[1, 2, 3], [5, -1, -1]], [[1, 1, 1], [1, 0, 0]])"
+      - name: "Исходные не меняются"
+        code: |
+          data = [[1], [2, 3]]
+          pad_sequences(data)
+          assert data == [[1], [2, 3]]
+      - name: "collate"
+        call: "collate([{\"text\": \"a\", \"label\": 1}, {\"text\": \"b\", \"label\": 0}])"
+        expected: "{'text': ['a', 'b'], 'label': [1, 0]}"
+      - name: "Пустые входы"
+        call: "[collate([]), pad_sequences([])]"
+        expected: "[{}, ([], [])]"
+
+  - id: t3
+    title: "Свой DataLoader"
+    difficulty: 3
+    statement: |
+      Создайте класс `DataLoader(dataset, batch_size, shuffle=False, seed=0, drop_last=False)`:
+
+      - `dataset` — любой объект с `__len__` и `__getitem__`;
+      - `len(loader)` — число батчей в эпохе;
+      - `__iter__` — **генератор**, выдающий батчи (списки элементов датасета) одной эпохи; при `shuffle=True` перед каждой эпохой перемешиваются **индексы** генератором `random.Random(seed)`, созданным один раз в `__init__` (поэтому эпохи различаются, но воспроизводимы);
+      - датасет не изменяется.
+    examples:
+      - input: "list(DataLoader(\"abcde\", 2))"
+        output: "[['a', 'b'], ['c', 'd'], ['e']]"
+    starter: |
+      import random
+
+
+      class DataLoader:
+          def __init__(self, dataset, batch_size, shuffle=False, seed=0, drop_last=False):
+              self.dataset = dataset
+              self.batch_size = batch_size
+              if shuffle:
+                  random.shuffle(self.dataset)
+
+          def __iter__(self):
+              for i in range(0, len(self.dataset), self.batch_size):
+                  yield self.dataset[i:i + self.batch_size]
+    hints:
+      - "`__len__`: `full, rest = divmod(len(self.dataset), self.batch_size)`; `return full if self.drop_last or rest == 0 else full + 1`."
+      - "В `__iter__`: `indices = list(range(len(self.dataset)))`, при shuffle — `self._rng.shuffle(indices)`; затем шагом batch_size берите срезы индексов и `[self.dataset[i] for i in chunk]`."
+    solution: |
+      import random
+
+
+      class DataLoader:
+          """Упрощённый загрузчик данных: перемешивание и батчи."""
+
+          def __init__(self, dataset, batch_size, shuffle=False, seed=0, drop_last=False):
+              if batch_size < 1:
+                  raise ValueError("batch_size должен быть положительным")
+              self.dataset = dataset
+              self.batch_size = batch_size
+              self.shuffle = shuffle
+              self.drop_last = drop_last
+              self._rng = random.Random(seed)
+
+          def __len__(self):
+              full, rest = divmod(len(self.dataset), self.batch_size)
+              return full if self.drop_last or rest == 0 else full + 1
+
+          def __iter__(self):
+              indices = list(range(len(self.dataset)))
+              if self.shuffle:
+                  self._rng.shuffle(indices)
+              for start in range(0, len(indices), self.batch_size):
+                  chunk = indices[start:start + self.batch_size]
+                  if self.drop_last and len(chunk) < self.batch_size:
+                      return
+                  yield [self.dataset[i] for i in chunk]
+    solution_explanation: "Перемешиваются индексы, поэтому датасет может быть чем угодно — от строки до вашего класса с __getitem__ — и не меняется. Генератор случайных чисел создаётся один раз: каждая эпоха продолжает его последовательность, и порядки различаются, но при том же seed повторяются от запуска к запуску."
+    tests:
+      - name: "Пример"
+        call: "list(DataLoader(\"abcde\", 2))"
+        expected: "[['a', 'b'], ['c', 'd'], ['e']]"
+      - name: "len"
+        call: "[len(DataLoader(range(10), 4)), len(DataLoader(range(10), 4, drop_last=True)), len(DataLoader(range(8), 4))]"
+        expected: "[3, 2, 2]"
+      - name: "drop_last"
+        call: "list(DataLoader([1, 2, 3, 4, 5], 2, drop_last=True))"
+        expected: "[[1, 2], [3, 4]]"
+      - name: "Перемешивание: все элементы и разные эпохи"
+        code: |
+          data = list(range(20))
+          loader = DataLoader(data, 5, shuffle=True, seed=1)
+          epoch1 = [x for batch in loader for x in batch]
+          epoch2 = [x for batch in loader for x in batch]
+          assert sorted(epoch1) == data and sorted(epoch2) == data, "В эпохе должны быть все элементы ровно по разу"
+          assert epoch1 != epoch2, "Порядок в эпохах должен различаться"
+          assert data == list(range(20)), "Датасет не должен меняться"
+      - name: "Воспроизводимость"
+        code: |
+          a = DataLoader(list(range(30)), 7, shuffle=True, seed=42)
+          b = DataLoader(list(range(30)), 7, shuffle=True, seed=42)
+          assert list(a) == list(b) and list(a) == list(b), "Одинаковый seed — одинаковые эпохи"
+      - name: "__iter__ — генератор"
+        code: |
+          import inspect
+          assert inspect.isgeneratorfunction(DataLoader.__iter__)
+
+  - id: t4
+    title: "Батчи по бюджету токенов"
+    difficulty: 3
+    statement: |
+      При инференсе LLM батчи часто собирают не по числу текстов, а по **суммарному числу токенов**. Токены оценим как число слов.
+
+      Генератор `token_batches(texts, max_tokens)`:
+
+      - набирает тексты в батч по порядку, пока сумма токенов не превысит `max_tokens`; текст, который не помещается, открывает новый батч;
+      - текст длиннее `max_tokens` выдаётся отдельным батчем из одного элемента;
+      - пустые тексты (0 слов) пропускаются;
+      - выдаёт списки текстов; работает с потоками (не читает всё заранее).
+    examples:
+      - input: "list(token_batches([\"a b\", \"c\", \"d e f\", \"g\"], 3))"
+        output: "[['a b', 'c'], ['d e f'], ['g']]"
+    starter: |
+      def token_batches(texts, max_tokens):
+          batch = []
+          for text in texts:
+              batch.append(text)
+              if len(batch) == max_tokens:
+                  yield batch
+                  batch = []
+    hints:
+      - "Храните `batch` и `used` (токенов в батче). Если `used + tokens > max_tokens` и батч не пуст — выдайте его и начните новый."
+      - "После добавления текста длиннее лимита батч сразу «переполнен» — следующий текст его закроет; не забудьте выдать последний батч после цикла."
+    solution: |
+      def token_batches(texts, max_tokens):
+          """Группировать тексты в батчи с ограничением суммарных токенов."""
+          batch = []
+          used = 0
+          for text in texts:
+              tokens = len(text.split())
+              if tokens == 0:
+                  continue
+              if batch and used + tokens > max_tokens:
+                  yield batch
+                  batch = []
+                  used = 0
+              batch.append(text)
+              used += tokens
+          if batch:
+              yield batch
+    solution_explanation: "Жадная упаковка: батч закрывается, как только следующий текст в него не помещается. Длинный текст попадает в пустой батч и сразу его «переполняет», поэтому остаётся в одиночестве. Так устроен dynamic batching в серверах инференса — батчи разного размера, но с предсказуемой нагрузкой."
+    tests:
+      - name: "Пример"
+        call: "list(token_batches([\"a b\", \"c\", \"d e f\", \"g\"], 3))"
+        expected: "[['a b', 'c'], ['d e f'], ['g']]"
+      - name: "Длинный текст отдельно"
+        call: "list(token_batches([\"x\", \"one two three four five\", \"y\"], 3))"
+        expected: "[['x'], ['one two three four five'], ['y']]"
+      - name: "Пустые тексты"
+        call: "list(token_batches([\"\", \"  \", \"a\"], 2))"
+        expected: "[['a']]"
+      - name: "Точно по лимиту"
+        call: "list(token_batches([\"a b\", \"c d\", \"e\"], 4))"
+        expected: "[['a b', 'c d'], ['e']]"
+      - name: "Поток"
+        code: |
+          def stream():
+              yield "a b c"
+              yield "d e"
+              raise RuntimeError("дальше читать рано")
+          g = token_batches(stream(), 3)
+          assert next(g) == ["a b c"], "Первый батч должен выдаваться без чтения всего потока"

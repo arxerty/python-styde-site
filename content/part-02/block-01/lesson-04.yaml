@@ -1,0 +1,554 @@
+questions:
+  - id: q1
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Base:
+          greeting = "Привет"
+
+          def hello(self):
+              return f"{self.greeting} от {type(self).__name__}"
+
+
+      class Child(Base):
+          greeting = "Здравствуйте"
+
+
+      print(Child().hello())
+    options:
+      - text: "`Здравствуйте от Child`"
+        correct: true
+        why: "self — объект Child, поэтому self.greeting находится в Child, а type(self) — Child."
+      - text: "`Привет от Base`"
+        why: "Метод написан в Base, но работает с объектом потомка."
+      - text: "`Привет от Child`"
+        why: "self.greeting ищется начиная с объекта — в Child значение переопределено."
+    explanation: "Метод родителя работает с реальным объектом потомка: поиск атрибутов начинается с него."
+
+  - id: q2
+    type: find_bug
+    prompt: "`Manager(\"Ада\", 5).describe()` падает с AttributeError. Почему?"
+    code: |
+      class Employee:
+          def __init__(self, name):
+              self.name = name
+
+          def describe(self):
+              return f"{self.name}"
+
+
+      class Manager(Employee):
+          def __init__(self, name, team_size):
+              self.team_size = team_size
+    options:
+      - text: "В __init__ Manager не вызван super().__init__(name), поэтому атрибута name нет"
+        correct: true
+        why: "Свой __init__ потомка заменяет родительский полностью."
+      - text: "Manager не переопределил describe"
+        why: "describe наследуется — проблема в отсутствующем атрибуте."
+      - text: "Потомок не может принимать больше параметров, чем родитель"
+        why: "Может — главное передать родителю его аргументы."
+    explanation: "Определив __init__ в потомке, вызовите super().__init__(...), чтобы родитель создал свои атрибуты."
+
+  - id: q3
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Report:
+          def render(self):
+              return "отчёт"
+
+
+      class PdfReport(Report):
+          def render(self):
+              return super().render().upper() + ".pdf"
+
+
+      print(PdfReport().render())
+    options:
+      - text: "`ОТЧЁТ.pdf`"
+        correct: true
+        why: "super().render() возвращает «отчёт», потомок дополняет результат."
+      - text: "`отчёт.pdf`"
+        why: "Результат родителя переводится в верхний регистр."
+      - text: "RecursionError"
+        why: "super() вызывает версию родителя, а не тот же метод."
+    explanation: "super().method() — способ дополнить метод родителя, не копируя его код."
+
+  - id: q4
+    type: single
+    prompt: "`class Admin(User)`, `admin = Admin()`. Какая проверка вернёт `False`?"
+    options:
+      - text: "`type(admin) == User`"
+        correct: true
+        why: "Точный тип — Admin; сравнение типов наследование не учитывает."
+      - text: "`isinstance(admin, User)`"
+        why: "isinstance учитывает наследование — True."
+      - text: "`issubclass(Admin, User)`"
+        why: "Admin — потомок User, True."
+      - text: "`isinstance(admin, (int, User))`"
+        why: "Достаточно совпадения с одним из классов кортежа — True."
+    explanation: "Для проверок типа используйте isinstance — он корректно работает с потомками."
+
+  - id: q5
+    type: output
+    prompt: "Что выведет код?"
+    code: |
+      class Pipeline:
+          def run(self, text):
+              return self.process(text.strip())
+
+          def process(self, text):
+              return text
+
+
+      class Shout(Pipeline):
+          def process(self, text):
+              return text.upper() + "!"
+
+
+      print(Shout().run("  привет "))
+    options:
+      - text: "`ПРИВЕТ!`"
+        correct: true
+        why: "run родителя вызывает self.process — находится версия потомка."
+      - text: "`привет`"
+        why: "self — объект Shout, поэтому вызывается Shout.process."
+      - text: "`  ПРИВЕТ !`"
+        why: "strip выполняется в run до вызова process."
+    explanation: "Шаблонный метод: родитель задаёт алгоритм, потомок переопределяет шаг."
+
+  - id: q6
+    type: multiple
+    prompt: "Где наследование уместно (отношение «является»)? Выберите все."
+    options:
+      - text: "`CreditAccount` от `Account`"
+        correct: true
+        why: "Кредитный счёт является счётом."
+      - text: "`ValidationError` от `Exception`"
+        correct: true
+        why: "Своё исключение является исключением."
+      - text: "`Car` от `Engine`"
+        why: "Автомобиль имеет двигатель — это композиция."
+      - text: "`ChatHistory` от `list`, чтобы получить append"
+        why: "Наследование ради удобства тянет ненужные методы; лучше хранить список в атрибуте."
+    explanation: "«Является» — наследование, «имеет» — композиция."
+
+tasks:
+  - id: t1
+    title: "Иерархия фигур"
+    difficulty: 1
+    statement: |
+      Создайте иерархию:
+
+      - `Shape` — атрибут класса `name = "фигура"`; метод `area()` бросает `NotImplementedError`; метод `describe()` возвращает `"<name>: площадь <area с 2 знаками>"`;
+      - `Rectangle(width, height)` — `name = "прямоугольник"`, площадь `width * height`;
+      - `Circle(radius)` — `name = "круг"`, площадь `math.pi * radius ** 2`;
+      - `Square(side)` — потомок `Rectangle`, `name = "квадрат"`; в `__init__` вызывает `super().__init__(side, side)`.
+
+      `describe` пишется один раз — в `Shape`.
+    examples:
+      - input: "Square(3).describe()"
+        output: "'квадрат: площадь 9.00'"
+    starter: |
+      import math
+
+
+      class Shape:
+          name = "фигура"
+
+
+      class Rectangle:
+          def __init__(self, width, height):
+              self.width = width
+              self.height = height
+    hints:
+      - "`describe` в Shape: `return f\"{self.name}: площадь {self.area():.2f}\"` — self.name и self.area() найдутся у потомка."
+      - "`class Square(Rectangle):` с `__init__(self, side)` и `super().__init__(side, side)`; area переопределять не нужно."
+    solution: |
+      import math
+
+
+      class Shape:
+          """Базовая геометрическая фигура."""
+
+          name = "фигура"
+
+          def area(self):
+              raise NotImplementedError("потомок должен реализовать area")
+
+          def describe(self):
+              return f"{self.name}: площадь {self.area():.2f}"
+
+
+      class Rectangle(Shape):
+          name = "прямоугольник"
+
+          def __init__(self, width, height):
+              self.width = width
+              self.height = height
+
+          def area(self):
+              return self.width * self.height
+
+
+      class Circle(Shape):
+          name = "круг"
+
+          def __init__(self, radius):
+              self.radius = radius
+
+          def area(self):
+              return math.pi * self.radius ** 2
+
+
+      class Square(Rectangle):
+          name = "квадрат"
+
+          def __init__(self, side):
+              super().__init__(side, side)
+    solution_explanation: "describe написан один раз и работает для всех фигур, потому что обращается к self.name и self.area() — их находят у конкретного класса. Square переиспользует всё от Rectangle, меняя только конструктор и имя."
+    tests:
+      - name: "Квадрат"
+        call: "Square(3).describe()"
+        expected: "'квадрат: площадь 9.00'"
+      - name: "Круг"
+        call: "Circle(1).describe()"
+        expected: "'круг: площадь 3.14'"
+      - name: "Прямоугольник"
+        call: "Rectangle(2, 4.5).area()"
+        expected: "9.0"
+      - name: "Иерархия"
+        code: |
+          assert issubclass(Square, Rectangle) and issubclass(Rectangle, Shape) and issubclass(Circle, Shape)
+          assert isinstance(Square(1), Shape)
+      - name: "Базовая фигура"
+        code: |
+          try:
+              Shape().area()
+          except NotImplementedError:
+              pass
+          else:
+              raise AssertionError("Shape.area должен бросать NotImplementedError")
+      - name: "describe не переопределён"
+        code: |
+          for cls in (Rectangle, Circle, Square):
+              assert "describe" not in cls.__dict__, f"{cls.__name__} не должен переопределять describe"
+
+  - id: t2
+    title: "Сберегательный счёт"
+    difficulty: 2
+    statement: |
+      Дан класс `Account` (в заготовке). Создайте потомка `SavingsAccount(owner, balance=0, rate=0.05, min_balance=100)`:
+
+      - вызывает `super().__init__` и сохраняет `rate` и `min_balance`;
+      - переопределяет `withdraw(amount)`: если после снятия баланс станет меньше `min_balance` — `ValueError`; иначе снятие выполняет **родительский** метод;
+      - `add_interest()` начисляет проценты: `balance * rate`, округлённые до 2 знаков, через `deposit`; возвращает начисленную сумму.
+    examples:
+      - input: "s = SavingsAccount(\"Ада\", 1000, rate=0.1); s.add_interest(); s.balance"
+        output: "1100.0"
+    starter: |
+      class Account:
+          def __init__(self, owner, balance=0):
+              self.owner = owner
+              self.balance = balance
+
+          def deposit(self, amount):
+              if amount <= 0:
+                  raise ValueError("сумма должна быть положительной")
+              self.balance += amount
+
+          def withdraw(self, amount):
+              if amount > self.balance:
+                  raise ValueError("недостаточно средств")
+              self.balance -= amount
+
+
+      class SavingsAccount(Account):
+          pass
+    hints:
+      - "`def __init__(self, owner, balance=0, rate=0.05, min_balance=100):` — первой строкой `super().__init__(owner, balance)`."
+      - "В withdraw сначала своя проверка `if self.balance - amount < self.min_balance: raise ...`, потом `super().withdraw(amount)`."
+    solution: |
+      class Account:
+          def __init__(self, owner, balance=0):
+              self.owner = owner
+              self.balance = balance
+
+          def deposit(self, amount):
+              if amount <= 0:
+                  raise ValueError("сумма должна быть положительной")
+              self.balance += amount
+
+          def withdraw(self, amount):
+              if amount > self.balance:
+                  raise ValueError("недостаточно средств")
+              self.balance -= amount
+
+
+      class SavingsAccount(Account):
+          """Счёт с процентами и неснижаемым остатком."""
+
+          def __init__(self, owner, balance=0, rate=0.05, min_balance=100):
+              super().__init__(owner, balance)
+              self.rate = rate
+              self.min_balance = min_balance
+
+          def withdraw(self, amount):
+              if self.balance - amount < self.min_balance:
+                  raise ValueError(f"нельзя опустить баланс ниже {self.min_balance}")
+              super().withdraw(amount)
+
+          def add_interest(self):
+              """Начислить проценты и вернуть их сумму."""
+              interest = round(self.balance * self.rate, 2)
+              if interest > 0:
+                  self.deposit(interest)
+              return interest
+    solution_explanation: "Потомок добавляет только своё правило, а само снятие (с проверкой на недостаток средств) делегирует родителю через super(). Проценты зачисляются через deposit — так любая будущая логика пополнения (например, история операций) сработает и для них. Проверка interest > 0 нужна, потому что deposit не принимает ноль."
+    tests:
+      - name: "Проценты"
+        code: |
+          s = SavingsAccount("Ада", 1000, rate=0.1)
+          assert s.add_interest() == 100.0
+          assert s.balance == 1100.0
+      - name: "Неснижаемый остаток"
+        code: |
+          s = SavingsAccount("Ада", 500)
+          try:
+              s.withdraw(450)
+          except ValueError:
+              assert s.balance == 500
+          else:
+              raise AssertionError("Нельзя опускать баланс ниже min_balance")
+      - name: "Допустимое снятие"
+        code: |
+          s = SavingsAccount("Ада", 500, min_balance=100)
+          s.withdraw(400)
+          assert s.balance == 100
+      - name: "Атрибуты родителя"
+        code: |
+          s = SavingsAccount("Грейс", 300)
+          assert s.owner == "Грейс" and s.balance == 300 and s.rate == 0.05 and s.min_balance == 100
+      - name: "Используется родительский withdraw"
+        code: |
+          calls = []
+          original = Account.withdraw
+          def spy(self, amount):
+              calls.append(amount)
+              original(self, amount)
+          Account.withdraw = spy
+          try:
+              SavingsAccount("Ада", 1000).withdraw(10)
+          finally:
+              Account.withdraw = original
+          assert calls == [10], "Снятие должно выполняться через super().withdraw"
+      - name: "Наследование"
+        code: |
+          assert issubclass(SavingsAccount, Account)
+          assert "deposit" not in SavingsAccount.__dict__, "deposit переопределять не нужно"
+
+  - id: t3
+    title: "Семейство логгеров"
+    difficulty: 2
+    statement: |
+      Создайте классы:
+
+      - `Logger(name)` — атрибут `lines` (свой список у каждого логгера); `format(message)` возвращает `"<name>: <message>"`; `log(message)` добавляет `format(message)` в `lines`;
+      - `UpperLogger(Logger)` — переопределяет `format`: результат родительского `format` в верхнем регистре;
+      - `LimitedLogger(Logger)` — `LimitedLogger(name, max_lines)`; переопределяет `log`: после записи (через родительский `log`) удаляет самые старые строки, если их больше `max_lines`.
+    examples:
+      - input: "u = UpperLogger(\"api\"); u.log(\"ok\"); u.lines"
+        output: "['API: OK']"
+    starter: |
+      class Logger:
+          lines = []
+
+          def __init__(self, name):
+              self.name = name
+
+          def log(self, message):
+              self.lines.append(f"{self.name}: {message}")
+    hints:
+      - "`log` в Logger должен вызывать `self.format(message)` — тогда UpperLogger изменит только format, а log останется общим."
+      - "LimitedLogger: `super().__init__(name)`, затем `self.max_lines = max_lines`; в log — `super().log(message)` и `del self.lines[:-self.max_lines]` при превышении."
+    solution: |
+      class Logger:
+          """Простой логгер, копящий строки в памяти."""
+
+          def __init__(self, name):
+              self.name = name
+              self.lines = []
+
+          def format(self, message):
+              return f"{self.name}: {message}"
+
+          def log(self, message):
+              self.lines.append(self.format(message))
+
+
+      class UpperLogger(Logger):
+          def format(self, message):
+              return super().format(message).upper()
+
+
+      class LimitedLogger(Logger):
+          def __init__(self, name, max_lines):
+              super().__init__(name)
+              self.max_lines = max_lines
+
+          def log(self, message):
+              super().log(message)
+              if len(self.lines) > self.max_lines:
+                  del self.lines[: len(self.lines) - self.max_lines]
+    solution_explanation: "Logger.log вызывает self.format — это точка расширения: UpperLogger меняет формат, не трогая log. LimitedLogger, наоборот, дополняет log через super(). Каждый потомок переопределяет ровно один метод."
+    tests:
+      - name: "Logger"
+        code: |
+          log = Logger("db")
+          log.log("connected")
+          assert log.lines == ["db: connected"]
+      - name: "UpperLogger"
+        code: |
+          u = UpperLogger("api")
+          u.log("ok")
+          assert u.lines == ["API: OK"], f"lines = {u.lines}"
+      - name: "LimitedLogger"
+        code: |
+          l = LimitedLogger("job", 2)
+          for i in range(4):
+              l.log(str(i))
+          assert l.lines == ["job: 2", "job: 3"], f"lines = {l.lines}"
+      - name: "Логгеры независимы"
+        code: |
+          a = Logger("a")
+          b = Logger("b")
+          a.log("x")
+          assert b.lines == [], "У каждого логгера должен быть свой список lines"
+      - name: "UpperLogger не переопределяет log"
+        code: |
+          assert "log" not in UpperLogger.__dict__, "Достаточно переопределить format"
+          assert issubclass(UpperLogger, Logger) and issubclass(LimitedLogger, Logger)
+      - name: "LimitedLogger сохраняет name"
+        code: |
+          l = LimitedLogger("svc", 5)
+          l.log("start")
+          assert l.lines == ["svc: start"]
+
+  - id: t4
+    title: "Инструменты агента"
+    difficulty: 3
+    statement: |
+      Создайте базовый класс `Tool`:
+
+      - атрибуты класса `name = "tool"`, `description = ""`; в `__init__` — счётчик `calls = 0`;
+      - `run(query)` — убирает пробелы по краям; пустой запрос → `ValueError`; увеличивает `calls` и возвращает `self.execute(query)`;
+      - `execute(query)` — бросает `NotImplementedError`.
+
+      Потомки (переопределяют только `name`, `description`, `execute`):
+
+      - `WordCount` (`name = "word_count"`) — число слов;
+      - `Reverse` (`name = "reverse"`) — строка задом наперёд.
+
+      Функция `dispatch(tools, name, query)` находит в списке инструмент с таким `name` и возвращает результат `run`; если нет — `KeyError` с именем.
+    examples:
+      - input: "dispatch([WordCount(), Reverse()], \"reverse\", \" abc \")"
+        output: "'cba'"
+    starter: |
+      class Tool:
+          name = "tool"
+
+          def run(self, query):
+              return self.execute(query)
+
+
+      def dispatch(tools, name, query):
+          return tools[0].run(query)
+    hints:
+      - "В Tool.run: `query = query.strip()`, проверка, `self.calls += 1`, `return self.execute(query)`."
+      - "dispatch: `for tool in tools: if tool.name == name: return tool.run(query)`, после цикла — `raise KeyError(name)`."
+    solution: |
+      class Tool:
+          """Базовый инструмент агента."""
+
+          name = "tool"
+          description = ""
+
+          def __init__(self):
+              self.calls = 0
+
+          def run(self, query):
+              """Проверить запрос, учесть вызов и выполнить инструмент."""
+              query = query.strip()
+              if not query:
+                  raise ValueError("пустой запрос")
+              self.calls += 1
+              return self.execute(query)
+
+          def execute(self, query):
+              raise NotImplementedError("потомок должен реализовать execute")
+
+
+      class WordCount(Tool):
+          name = "word_count"
+          description = "Считает слова в тексте"
+
+          def execute(self, query):
+              return len(query.split())
+
+
+      class Reverse(Tool):
+          name = "reverse"
+          description = "Переворачивает строку"
+
+          def execute(self, query):
+              return query[::-1]
+
+
+      def dispatch(tools, name, query):
+          """Найти инструмент по имени и выполнить запрос."""
+          for tool in tools:
+              if tool.name == name:
+                  return tool.run(query)
+          raise KeyError(name)
+    solution_explanation: "Общий алгоритм (очистка, проверка, подсчёт) живёт в Tool.run, а потомки отвечают только за суть работы. dispatch ничего не знает о конкретных классах — ему достаточно, что у каждого объекта есть name и run. Это уже полиморфизм — тема следующего урока."
+    tests:
+      - name: "Пример"
+        call: "dispatch([WordCount(), Reverse()], \"reverse\", \" abc \")"
+        expected: "'cba'"
+      - name: "Подсчёт слов"
+        call: "dispatch([WordCount()], \"word_count\", \"раз два  три\")"
+        expected: "3"
+      - name: "Счётчик вызовов"
+        code: |
+          tool = WordCount()
+          tool.run("a b")
+          tool.run("c")
+          other = WordCount()
+          assert tool.calls == 2 and other.calls == 0
+      - name: "Пустой запрос"
+        code: |
+          tool = Reverse()
+          try:
+              tool.run("   ")
+          except ValueError:
+              assert tool.calls == 0, "Неудачный вызов не считается"
+          else:
+              raise AssertionError("Ожидался ValueError")
+      - name: "Неизвестный инструмент"
+        code: |
+          try:
+              dispatch([Reverse()], "search", "x")
+          except KeyError as error:
+              assert "search" in str(error)
+          else:
+              raise AssertionError("Ожидался KeyError")
+      - name: "Базовый execute"
+        code: |
+          try:
+              Tool().run("x")
+          except NotImplementedError:
+              pass
+          else:
+              raise AssertionError("Tool.execute должен бросать NotImplementedError")
+          assert "run" not in WordCount.__dict__ and "run" not in Reverse.__dict__, "run не переопределяется"
